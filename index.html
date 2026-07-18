@@ -3,20 +3,27 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, viewport-fit=cover">
-<title>Teacher Planner SD 2026 - Kelas 1</title>
+<title>Teacher Planner SD 2026 - Multi-Kelas (1-6)</title>
 <!--
   =====================================================================
-  TEACHER PLANNER SD 2026 - KELAS 1  (SINGLE FILE APPLICATION)
+  TEACHER PLANNER SD 2026 - MULTI-KELAS (KELAS 1-6)  (SINGLE FILE APPLICATION)
   ---------------------------------------------------------------------
   - 100% offline, tanpa server, tanpa build process.
   - Semua data disimpan di localStorage perangkat (tidak terkirim ke
     mana pun). Buka file ini langsung dari browser di Xiaomi Pad 7 Pro
     (atau perangkat lain) untuk mulai memakainya.
-  - Data sekolah, guru, tendik, dan siswa di bawah ini diambil dari
-    dokumen resmi yang diunggah (Dapodik / Data Siswa 2026-2027 / KOP
-    Surat SDN 1 Gerduren). Field yang tidak tersedia pada dokumen
-    ditandai kosong / placeholder agar Bapak/Ibu Guru dapat mengisinya
-    sendiri, bukan direka-reka.
+  - Pemilih "Kelas Aktif" di bagian atas aplikasi menentukan data siswa,
+    kehadiran, nilai, jurnal, jadwal, dsb. yang ditampilkan. Data setiap
+    kelas disimpan TERPISAH (kunci localStorage berbeda per kelas) agar
+    tidak pernah tercampur. Data guru/tendik, profil sekolah, dan
+    kalender pendidikan bersifat sekolah (dipakai bersama semua kelas).
+  - Data Kelas 1 (siswa, guru, tendik) diambil dari dokumen resmi yang
+    diunggah (Dapodik / Data Siswa 2026-2027 / KOP Surat SDN 1
+    Gerduren). Kelas 2-6 dimulai KOSONG (tidak ada data karangan) dan
+    siap diisi Bapak/Ibu Guru lewat menu masing-masing.
+  - Aplikasi versi sebelumnya (satu kelas) otomatis dimigrasikan satu
+    kali menjadi data "Kelas 1" saat file ini pertama kali dibuka --
+    tidak ada data lama yang hilang.
   - CATATAN JUJUR TENTANG BATASAN (baca menu "Tentang Aplikasi" di
     Pengaturan): ekspor "Word" & "Excel" dibuat memakai teknik HTML
     yang dibaca native oleh Ms Word / Ms Excel (tanpa pustaka
@@ -126,6 +133,11 @@ a{color:var(--primary);}
 .iconbtn:hover{background:var(--bg-alt);}
 .iconbtn svg{width:19px;height:19px;}
 #menuToggle{display:none;}
+.class-switcher{
+  height:42px; min-width:132px; border-radius:12px; border:1.5px solid var(--primary); background:var(--primary-soft);
+  color:var(--primary); font-weight:700; font-size:13.5px; padding:0 12px; cursor:pointer;
+}
+@media(max-width:640px){ .class-switcher{min-width:104px; font-size:12.5px; padding:0 8px;} }
 
 .main{flex:1; margin-left:var(--sidebar-w); min-height:100vh; display:flex; flex-direction:column;}
 .content{padding:20px 22px 90px; max-width:1400px; width:100%; margin:0 auto;}
@@ -332,6 +344,7 @@ canvas.pen-canvas{width:100%; height:420px; touch-action:none; border-radius:14p
       </button>
       <h2 id="pageTitle">Dashboard</h2>
       <div class="grow"></div>
+      <select id="classSwitcher" class="class-switcher" title="Pilih Kelas Aktif" onchange="switchActiveClass(this.value)"></select>
       <button class="iconbtn" onclick="toggleTheme()" title="Mode gelap/terang">
         <svg id="themeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
       </button>
@@ -366,6 +379,14 @@ canvas.pen-canvas{width:100%; height:420px; touch-action:none; border-radius:14p
    1. SEED DATA - diambil dari dokumen resmi (bukan data fiktif)
    ============================================================ */
 const SEED_SISWA = [{"id": "s1", "no": 1, "nama": "Azmi Safiq Al-Farizi", "jk": "L", "ttl": "Banyumas, 19 Maret 2020", "anakKe": "1", "jmlSdr": "-", "bb": "16.5", "tb": "115", "ayah": "Tekad", "ibu": "Indah Lestari", "pendidikanOrtu": "SMP", "pekerjaanOrtu": "Buruh", "alamat": "Gerduren RT 03/07", "ket": "6 th 4 bln", "nis": "", "nisn": "", "agama": "Islam"}, {"id": "s2", "no": 2, "nama": "Muhammad Arfan as Shafar", "jk": "L", "ttl": "Banyumas, 8 Oktober 2019", "anakKe": "1", "jmlSdr": "-", "bb": "21", "tb": "118", "ayah": "Kristianto", "ibu": "Ana Agus Pryatin", "pendidikanOrtu": "SMA", "pekerjaanOrtu": "Buruh", "alamat": "Gerduren RT 01/08", "ket": "6 th 9 bln", "nis": "", "nisn": "", "agama": "Islam"}, {"id": "s3", "no": 3, "nama": "Eza Fathurrohman", "jk": "L", "ttl": "Banyumas, 9 April 2020", "anakKe": "1", "jmlSdr": "-", "bb": "17", "tb": "110", "ayah": "Edi Prayoga", "ibu": "Dwi Novita", "pendidikanOrtu": "SMK", "pekerjaanOrtu": "Buruh", "alamat": "Gerduren RT 03/07", "ket": "6 th 3 bln", "nis": "", "nisn": "", "agama": "Islam"}, {"id": "s4", "no": 4, "nama": "Zany Izz Hana", "jk": "P", "ttl": "Banyumas, 3 Sept 2019", "anakKe": "1", "jmlSdr": "-", "bb": "17", "tb": "111", "ayah": "Rudi Affanda", "ibu": "Dyah Cayaning", "pendidikanOrtu": "SMP", "pekerjaanOrtu": "Buruh", "alamat": "Gerduren RT 01/07", "ket": "6 th 10 bln", "nis": "", "nisn": "", "agama": "Islam"}, {"id": "s5", "no": 5, "nama": "Muhammad Aksa Adzkiya Geza Kurniawan", "jk": "L", "ttl": "Banyumas, 22 Mei 2019", "anakKe": "2", "jmlSdr": "2", "bb": "34", "tb": "130", "ayah": "Renga Kurniawan", "ibu": "Irawati Handini", "pendidikanOrtu": "STM", "pekerjaanOrtu": "TNI/GONZU", "alamat": "Gerduren RT 02/08", "ket": "7 th 2 bln", "nis": "", "nisn": "", "agama": "Islam"}, {"id": "s6", "no": 6, "nama": "Nuha Shakila Atmarini", "jk": "P", "ttl": "Banyumas, 13 Maret 2019", "anakKe": "1", "jmlSdr": "-", "bb": "28", "tb": "124", "ayah": "Ahmad Daya Klabi", "ibu": "Tri Diyanti", "pendidikanOrtu": "SMK", "pekerjaanOrtu": "Karyawan Swasta", "alamat": "Gerduren RT 03/04", "ket": "7 th 4 bln", "nis": "", "nisn": "", "agama": "Islam"}, {"id": "s7", "no": 7, "nama": "Kenzie Azraqi Shaidar Akbar", "jk": "L", "ttl": "Banyumas, 12 Nov 2019", "anakKe": "2", "jmlSdr": "2", "bb": "19", "tb": "113", "ayah": "Ramdani Akbar", "ibu": "Dian Apriyanti", "pendidikanOrtu": "SLTA/SMA", "pekerjaanOrtu": "Karyawan Swasta", "alamat": "Gerduren RT 03/06", "ket": "6 th 8 bln", "nis": "", "nisn": "", "agama": "Islam"}, {"id": "s8", "no": 8, "nama": "Muhammad Lathif Al Fatih", "jk": "L", "ttl": "Banyumas, 20 Feb 2019", "anakKe": "1", "jmlSdr": "-", "bb": "20", "tb": "116", "ayah": "Rokhman", "ibu": "Atun Widianingsih", "pendidikanOrtu": "SMK", "pekerjaanOrtu": "Buruh", "alamat": "Gerduren RT 02/06", "ket": "", "nis": "", "nisn": "", "agama": "Islam"}, {"id": "s9", "no": 9, "nama": "Muhammad Falih Aqmar", "jk": "L", "ttl": "Bekasi, 13 Sep 2019", "anakKe": "2", "jmlSdr": "1", "bb": "17", "tb": "110", "ayah": "Ermanto", "ibu": "Sariyanti", "pendidikanOrtu": "SMP", "pekerjaanOrtu": "Buruh", "alamat": "Gerduren RT 04/07", "ket": "", "nis": "", "nisn": "", "agama": "Islam"}, {"id": "s10", "no": 10, "nama": "Denis Ardiansyah", "jk": "L", "ttl": "Banyumas, 17 Des 2019", "anakKe": "1", "jmlSdr": "-", "bb": "20", "tb": "120", "ayah": "Fuad Solihin", "ibu": "Leni Wulandari", "pendidikanOrtu": "SLTP/SLTA", "pekerjaanOrtu": "Buruh", "alamat": "Gerduren RT 04/07", "ket": "", "nis": "", "nisn": "", "agama": "Islam"}, {"id": "s11", "no": 11, "nama": "Muhammad Rizki Wahyu Aji", "jk": "L", "ttl": "Banyumas, 17 April 2020", "anakKe": "", "jmlSdr": "", "bb": "25", "tb": "125", "ayah": "Wahyu Hidayat", "ibu": "Puti Asih", "pendidikanOrtu": "SMP/SMA", "pekerjaanOrtu": "Buruh", "alamat": "Gerduren RT 01/07", "ket": "", "nis": "", "nisn": "", "agama": "Islam"}, {"id": "s12", "no": 12, "nama": "Farell Adhitama", "jk": "L", "ttl": "Banyumas, 3 Maret 2020", "anakKe": "1", "jmlSdr": "1", "bb": "18", "tb": "113", "ayah": "Agung Prasetiyo", "ibu": "Miken Melani", "pendidikanOrtu": "SMP/SMK", "pekerjaanOrtu": "Buruh", "alamat": "Gerduren RT 03/08", "ket": "", "nis": "", "nisn": "", "agama": "Islam"}, {"id": "s13", "no": 13, "nama": "Aji Pratama Putra", "jk": "L", "ttl": "Banyumas, 27 Jun 2019", "anakKe": "1", "jmlSdr": "-", "bb": "18", "tb": "112", "ayah": "Nasikun", "ibu": "Enah Susilowati", "pendidikanOrtu": "SD", "pekerjaanOrtu": "Buruh", "alamat": "Gerduren RT 03/07", "ket": "", "nis": "", "nisn": "", "agama": "Islam"}, {"id": "s14", "no": 14, "nama": "Fadli Hardi Yanto", "jk": "L", "ttl": "Banyumas, 6 Jun 2019", "anakKe": "2", "jmlSdr": "1", "bb": "29", "tb": "108", "ayah": "Dodi Yulianto", "ibu": "Egin Lestari", "pendidikanOrtu": "STM/SO", "pekerjaanOrtu": "Buruh", "alamat": "Gerduren RT 02/07", "ket": "", "nis": "", "nisn": "", "agama": "Islam"}, {"id": "s15", "no": 15, "nama": "Naura Nurfatiyah", "jk": "P", "ttl": "Banyumas, 19 Nov 2019", "anakKe": "2", "jmlSdr": "2", "bb": "", "tb": "", "ayah": "Saeng Pramono", "ibu": "Kamiyati", "pendidikanOrtu": "SMP", "pekerjaanOrtu": "Sopir", "alamat": "Gerduren RT 01/07", "ket": "", "nis": "", "nisn": "", "agama": "Islam"}, {"id": "s16", "no": 16, "nama": "Ishaq Abrori", "jk": "L", "ttl": "Banyumas, 8 Sep 2019", "anakKe": "3", "jmlSdr": "2", "bb": "20", "tb": "116", "ayah": "Sukirno", "ibu": "Markhamah", "pendidikanOrtu": "SD/SLTP", "pekerjaanOrtu": "Buruh", "alamat": "Gerduren RT 04/06", "ket": "", "nis": "", "nisn": "", "agama": "Islam"}, {"id": "s17", "no": 17, "nama": "Mahruri Nur Azziz", "jk": "L", "ttl": "Banyumas, 24 Jul 2019", "anakKe": "2", "jmlSdr": "1", "bb": "17", "tb": "116", "ayah": "Khadirin Dirin", "ibu": "Asmirah", "pendidikanOrtu": "SLTP", "pekerjaanOrtu": "Buruh", "alamat": "Gerduren RT 04/07", "ket": "", "nis": "", "nisn": "", "agama": "Islam"}, {"id": "s18", "no": 18, "nama": "Aksan Abjun Alvaro", "jk": "L", "ttl": "Banyumas, 17 Jan 2020", "anakKe": "3", "jmlSdr": "2", "bb": "21", "tb": "116", "ayah": "Juniarto", "ibu": "Ari Murti", "pendidikanOrtu": "SMP/SD", "pekerjaanOrtu": "Sopir", "alamat": "Gerduren RT 03/06", "ket": "", "nis": "", "nisn": "", "agama": "Islam"}, {"id": "s19", "no": 19, "nama": "Syarif Seh Hidayat Tulloh", "jk": "L", "ttl": "Cirebon, 29 Mei 2020", "anakKe": "3", "jmlSdr": "2", "bb": "16", "tb": "109", "ayah": "-", "ibu": "Oktaviani", "pendidikanOrtu": "SLTP", "pekerjaanOrtu": "IRT", "alamat": "Gerduren RT 01/08", "ket": "", "nis": "", "nisn": "", "agama": "Islam"}, {"id": "s20", "no": 20, "nama": "Muhammad Alfan Rafisqi", "jk": "L", "ttl": "Banyumas, 17 Feb 2020", "anakKe": "1", "jmlSdr": "-", "bb": "17", "tb": "", "ayah": "Dwi Prastiawan", "ibu": "Yuliati", "pendidikanOrtu": "SLTP", "pekerjaanOrtu": "Buruh", "alamat": "Gerduren 03/09", "ket": "", "nis": "", "nisn": "", "agama": "Islam"}];
+const SEED_SISWA_KELAS = {"kelas-2": [{"nama": "Atha Zafran Ramadhan", "jk": "L", "nis": "", "nisn": "", "ttl": "Banyumas, 20 Mei 2018", "ayah": "Mukheron", "ibu": "Maryanti", "pekerjaanOrtu": "WIRASWASTA", "alamat": "Gerduren, Gerduren"}, {"nama": "Cakra Abiyasa", "jk": "L", "nis": "", "nisn": "", "ttl": "Banyumas, 2 Sep 2018", "ayah": "Komari", "ibu": "Susmiyati", "pekerjaanOrtu": "WIRASWASTA", "alamat": "Gerduren, Gerduren"}, {"nama": "Delia Zahra Salsabila", "jk": "P", "nis": "", "nisn": "", "ttl": "Banyumas, 19 Apr 2019", "ayah": "Salahudin", "ibu": "Mugiarti", "pekerjaanOrtu": "BURUH", "alamat": "Gerduren, Gerduren"}, {"nama": "Elvano Akmal Dwitama", "jk": "L", "nis": "", "nisn": "", "ttl": "Banyumas, 11 Sep 2018", "ayah": "Tri Marsudi", "ibu": "Bhetavia Biarawati", "pekerjaanOrtu": "WIRASWASTA", "alamat": "Gerduren, Gerduren"}, {"nama": "Fajar Askari Ramdani", "jk": "L", "nis": "", "nisn": "", "ttl": "Banyumas, 15 Jun 2018", "ayah": "Sukiwan", "ibu": "Sumarti", "pekerjaanOrtu": "BURUH", "alamat": "Gerduren, Gerduren"}, {"nama": "Farra Aysha Azzahra", "jk": "P", "nis": "", "nisn": "", "ttl": "Banyumas, 25 Jul 2019", "ayah": "Dwi Purwanto Prasetyo", "ibu": "Sulastri", "pekerjaanOrtu": "BURUH", "alamat": "Gerduren, Gerduren"}, {"nama": "Fauziah Hasni Faiq Syarif", "jk": "P", "nis": "", "nisn": "", "ttl": "Banyumas,  ", "ayah": "Solehudin Syarif", "ibu": "Sochatun Hasanah", "pekerjaanOrtu": "WIRASWASTA", "alamat": "Gerduren, Gerduren"}, {"nama": "Fellisa Putri Hidayat", "jk": "P", "nis": "", "nisn": "", "ttl": "Banyumas, 17 Nov 2017", "ayah": "Rahmat Hidayat", "ibu": "Siti Masuroh", "pekerjaanOrtu": "WIRASWASTA", "alamat": "Gerduren, Gerduren"}, {"nama": "Ghali Nufail Tsamaradanie", "jk": "L", "nis": "", "nisn": "", "ttl": "Banyumas, 3 Agu 2019", "ayah": "Danie Tofik", "ibu": "Enggah Wuryanti", "pekerjaanOrtu": "WIRASWASTA", "alamat": "Gerduren, Gerduren"}, {"nama": "Gilang Arjuna Ramadhan", "jk": "L", "nis": "", "nisn": "", "ttl": "Banyumas, 23 Mei 2018", "ayah": "Juniarto", "ibu": "Ari Murti", "pekerjaanOrtu": "WIRASWASTA", "alamat": "Gerduren, Gerduren"}, {"nama": "Hafit Ramadhani Safutra", "jk": "L", "nis": "", "nisn": "", "ttl": "Banyumas, 22 Mei 2018", "ayah": "Sugeng Riyadi", "ibu": "Ulpiyanah", "pekerjaanOrtu": "BURUH", "alamat": "Gerduren, Gerduren"}, {"nama": "Kesya Lutfia Alhanisputri", "jk": "P", "nis": "", "nisn": "", "ttl": "Banyumas, 29 Mar 2019", "ayah": "", "ibu": "Mulyaningsih", "pekerjaanOrtu": "", "alamat": "Gerduren, Gerduren"}, {"nama": "Maulana Yusuf Alfarizqi", "jk": "L", "nis": "", "nisn": "", "ttl": "Banyumas, 8 Sep 2018", "ayah": "Solihin", "ibu": "Nurisma Yanti", "pekerjaanOrtu": "BURUH", "alamat": "Gerduren, Gerduren"}, {"nama": "Muhammad Abdilah Muzaqi", "jk": "L", "nis": "", "nisn": "", "ttl": "Banyumas, 19 Jun 2018", "ayah": "Supriatna", "ibu": "Reniasih", "pekerjaanOrtu": "BURUH", "alamat": "Gerduren, Gerduren"}, {"nama": "Muhammad Syarif Budi Nurjati", "jk": "L", "nis": "", "nisn": "", "ttl": "Banyumas, 26 Okt 2018", "ayah": "Budi Setiawan", "ibu": "Lisa Niswatun", "pekerjaanOrtu": "WIRASWASTA", "alamat": "Gerduren, Gerduren"}, {"nama": "Rafasya Alvin Faaz", "jk": "L", "nis": "", "nisn": "", "ttl": "Banyumas, 8 Feb 2019", "ayah": "Arianto", "ibu": "Nofi Nurrohmawati", "pekerjaanOrtu": "BURUH", "alamat": "Gerduren, Gerduren"}, {"nama": "Randy Prasetya", "jk": "L", "nis": "", "nisn": "", "ttl": "Banyumas, 15 Jan 2019", "ayah": "Didit Prayitno", "ibu": "Noviatun", "pekerjaanOrtu": "BURUH", "alamat": "Gerduren, Gerduren"}, {"nama": "Rivandra Luja Anugrah", "jk": "L", "nis": "", "nisn": "", "ttl": "Banyumas, 3 Jan 2019", "ayah": "Didit Riyanto", "ibu": "Nuraeni", "pekerjaanOrtu": "BURUH", "alamat": "Gerduren, Gerduren"}, {"nama": "Wisnu Arya Kencana", "jk": "L", "nis": "", "nisn": "", "ttl": "Banyumas, 27 Nov 2018", "ayah": "Rasum", "ibu": "Diah Purwati", "pekerjaanOrtu": "BURUH", "alamat": ""}, {"nama": "Yusuf Afka Riansyah", "jk": "L", "nis": "", "nisn": "", "ttl": "Banyumas, 22 Feb 2018", "ayah": "Setiyono", "ibu": "Feni", "pekerjaanOrtu": "BURUH", "alamat": ""}], "kelas-3": [{"nama": "Afifah Nahda Ramadhani", "jk": "P", "nis": "3515", "nisn": "3189501511", "ttl": "Banyumas, 18 Mei 2018", "ayah": "Haryono", "ibu": "Riani", "pekerjaanOrtu": "Petani", "alamat": "Gerduren, Sukasari, Kec. Kota Bogor Timur"}, {"nama": "Arziki Akbar Kurniawan", "jk": "L", "nis": "3516", "nisn": "3181164450", "ttl": "Banyumas, 1 Feb 2018", "ayah": "Bambang Kurniawan", "ibu": "Asmiyati", "pekerjaanOrtu": "Karyawan Swasta", "alamat": "Jl. Garut, Desa/Kel. Gerduren, Kec. Purwojati"}, {"nama": "AZKA FAIZAN MUZAKI", "jk": "L", "nis": "3517", "nisn": "3181056803", "ttl": "BANYUMAS, 4 Jan 2018", "ayah": "RISNO", "ibu": "RASINI", "pekerjaanOrtu": "Petani", "alamat": "GERDUREN, Gerduren, Kec. Purwojati"}, {"nama": "BILLI ALBAITH", "jk": "L", "nis": "3518", "nisn": "3185657369", "ttl": "BANYUMAS, 26 Jul 2018", "ayah": "SUHUD TABI'IN", "ibu": "LINDAWATI", "pekerjaanOrtu": "Buruh", "alamat": "GERDUREN, Gerduren, Kec. Purwojati"}, {"nama": "DEFARIZ GIBRAN ALGAFARI", "jk": "L", "nis": "3519", "nisn": "3169612164", "ttl": "Banyumas, 26 Jun 2017", "ayah": "NURDIANSYAH", "ibu": "TRI KARMILAH", "pekerjaanOrtu": "Wiraswasta", "alamat": "Jalan Raya Gerduren, Gerduren, Kec. Purwojati"}, {"nama": "FAIZA SAFIYATUN NISA", "jk": "P", "nis": "3520", "nisn": "3178545117", "ttl": "BANYUMAS, 25 Agu 2017", "ayah": "SISWO", "ibu": "MURTIYAH", "pekerjaanOrtu": "Petani", "alamat": "GERDUREN, Desa/Kel. Gerduren, Kec. Purwojati"}, {"nama": "FREBYAN PUTRA MAHADIKA", "jk": "L", "nis": "3521", "nisn": "3180736771", "ttl": "BANYUMAS, 8 Feb 2018", "ayah": "TRI AGUS PRASETIYO", "ibu": "RASITI", "pekerjaanOrtu": "Wiraswasta", "alamat": "BLEBER, Gerduren, Kec. Purwojati"}, {"nama": "HAFIZA KHAIRA LUBNA", "jk": "P", "nis": "3522", "nisn": "3173203802", "ttl": "BANYUMAS, 5 Jul 2017", "ayah": "HANDONO ADI SAPUTRO", "ibu": "USRIAH", "pekerjaanOrtu": "Karyawan Swasta", "alamat": "KEMLAKA, Gerduren, Kec. Purwojati"}, {"nama": "KENZIE PIO ARGANI", "jk": "L", "nis": "3523", "nisn": "3188429026", "ttl": "Banyumas, 19 Jan 2018", "ayah": "", "ibu": "Dwi Haryanti", "pekerjaanOrtu": "Wiraswasta", "alamat": "Jalan Raya Gerduren, Gerduren, Kec. Purwojati"}, {"nama": "KHANSA MEISYA", "jk": "P", "nis": "3524", "nisn": "3172681365", "ttl": "BANYUMAS, 22 Mei 2017", "ayah": "WARDOYO", "ibu": "SURTINI", "pekerjaanOrtu": "Buruh", "alamat": "GERDUREN, Gerduren, Kec. Purwojati"}, {"nama": "KHANZA KHAIRUNNISA AKBAR", "jk": "P", "nis": "3525", "nisn": "3176378279", "ttl": "BANYUMAS, 24 Nov 2017", "ayah": "RAMDANI", "ibu": "DIAN APRIYANTI", "pekerjaanOrtu": "Karyawan Swasta", "alamat": "BLEBER, Gerduren, Kec. Purwojati"}, {"nama": "KHINANTI NADHIRA ONNIYA", "jk": "P", "nis": "3526", "nisn": "3176001398", "ttl": "Banyumas, 4 Agu 2017", "ayah": "karso", "ibu": "Saonah", "pekerjaanOrtu": "Karyawan Swasta", "alamat": "bleber, Gerduren, Kec. Purwojati"}, {"nama": "MAKAYLA RADYA", "jk": "P", "nis": "3527", "nisn": "3183029950", "ttl": "BANYUMAS, 3 Mar 2018", "ayah": "SARNO", "ibu": "MISWATI", "pekerjaanOrtu": "Buruh", "alamat": "GERDUREN, Gerduren, Kec. Purwojati"}, {"nama": "MOHAMAD DANA", "jk": "L", "nis": "3528", "nisn": "3182261618", "ttl": "BANYUMAS, 4 Feb 2018", "ayah": "SUPRIYONO", "ibu": "RAKINEM", "pekerjaanOrtu": "Buruh", "alamat": "GERDUREN, Gerduren, Kec. Purwojati"}, {"nama": "MOHAMAD DANU", "jk": "L", "nis": "3529", "nisn": "3187394121", "ttl": "BANYUMAS, 4 Feb 2018", "ayah": "SUPRIYONO", "ibu": "RAKINEM", "pekerjaanOrtu": "Buruh", "alamat": "GERDUREN, Gerduren, Kec. Purwojati"}, {"nama": "MUHAMMAD ERHAN REYZA", "jk": "L", "nis": "3530", "nisn": "3183507125", "ttl": "BANYUMAS, 3 Jan 2018", "ayah": "ROSIDIN", "ibu": "TUNISAH", "pekerjaanOrtu": "Buruh", "alamat": "GERDUREN, Gerduren, Kec. Purwojati"}, {"nama": "Nafisha Khirani Zayba", "jk": "P", "nis": "3531", "nisn": "3187828605", "ttl": "Banyumas, 9 Mar 2018", "ayah": "Miskam", "ibu": "Warsiti", "pekerjaanOrtu": "Wiraswasta", "alamat": "Gerduren, Gerduren, Kec. Purwojati"}, {"nama": "NATHAN ABRISAM SATRIA RAMADHAN", "jk": "L", "nis": "3532", "nisn": "3181172648", "ttl": "BANYUMAS, 27 Mei 2018", "ayah": "JUPRIYONO", "ibu": "SULASTRI", "pekerjaanOrtu": "Karyawan Swasta", "alamat": "JLN RAYA GERDUREN, Gerduren, Kec. Purwojati"}, {"nama": "NOVIA PUTRI MAHARANI", "jk": "P", "nis": "3533", "nisn": "3178365838", "ttl": "Banyumas, 28 Nov 2017", "ayah": "Sigit Hernawan", "ibu": "Saniyah", "pekerjaanOrtu": "Karyawan Swasta", "alamat": "Bleber, Gerduren, Kec. Purwojati"}, {"nama": "NUR ASIFA AROATI", "jk": "P", "nis": "3534", "nisn": "3179781281", "ttl": "BANYUMAS, 21 Agu 2017", "ayah": "MUKHIBUN", "ibu": "SUTRIYANI", "pekerjaanOrtu": "Karyawan Swasta", "alamat": "GERDUREN, Gerduren, Kec. Purwojati"}, {"nama": "Nusa Pratama Ramadhan", "jk": "L", "nis": "3535", "nisn": "3183978208", "ttl": "Banyumas, 13 Jun 2018", "ayah": "Indra Lukita", "ibu": "Endah Trilestari", "pekerjaanOrtu": "Karyawan Swasta", "alamat": "Gerduren, Gerduren, Kec. Purwojati"}, {"nama": "Rafania Azahra Alfatunisa", "jk": "P", "nis": "3536", "nisn": "3170993546", "ttl": "Banyumas, 11 Nov 2017", "ayah": "Hariyanto", "ibu": "Lusiyanti", "pekerjaanOrtu": "Lainnya", "alamat": "Gerduren, Gerduren, Kec. Purwojati"}, {"nama": "RASYA MUTAQIN ATHALLA", "jk": "L", "nis": "3537", "nisn": "3185154369", "ttl": "BANYUMAS, 27 Jun 2018", "ayah": "SUDAYAT", "ibu": "IDA JUMIATI", "pekerjaanOrtu": "Karyawan Swasta", "alamat": "GERDUREN, Gerduren, Kec. Purwojati"}, {"nama": "Rezky Arya Putra Wicaksana", "jk": "L", "nis": "3538", "nisn": "3189679462", "ttl": "Banyumas, 4 Mar 2018", "ayah": "Wahyu Ari Siswandi", "ibu": "Yunita Ria Permata Sari", "pekerjaanOrtu": "Karyawan Swasta", "alamat": "Gerduren, Gerduren, Kec. Purwojati"}, {"nama": "Shivanya Kanza Zahira", "jk": "P", "nis": "3539", "nisn": "3175857922", "ttl": "Banyumas, 19 Mei 2017", "ayah": "Nasikun", "ibu": "Sriyani", "pekerjaanOrtu": "Buruh", "alamat": "j; gerduren, Gerduren, Kec. Purwojati"}, {"nama": "SITI NUR AFIFAH", "jk": "P", "nis": "3540", "nisn": "3183982589", "ttl": "BANYUMAS, 4 Apr 2018", "ayah": "MARSONO", "ibu": "ALFIAH", "pekerjaanOrtu": "Tidak bekerja", "alamat": "JALAN RAYA GERDUREN, GERDUREN, Kec. Purwojati"}, {"nama": "Wisnu Faeyza Pratama", "jk": "L", "nis": "3541", "nisn": "3179578994", "ttl": "Jakarta, 9 Mar 2017", "ayah": "Tugiono", "ibu": "Winda Susanti", "pekerjaanOrtu": "Petani", "alamat": "Gerduren, Sukasari, Kec. Kota Bogor Timur"}, {"nama": "Zafran Nazril Althaf", "jk": "L", "nis": "3542", "nisn": "3186565553", "ttl": "Banyumas, 20 Mei 2018", "ayah": "Sardi", "ibu": "Novi Irdanti", "pekerjaanOrtu": "Karyawan Swasta", "alamat": "Jl. gerduren, Desa/Kel. Gerduren, Kec. Purwojati"}], "kelas-4": [{"nama": "Ananda Alula Sabira", "jk": "P", "nis": "", "nisn": "3174816193", "ttl": "Tangerang, 1 Mar 2017", "ayah": "Aris Ariyantoro", "ibu": "Imas", "pekerjaanOrtu": "Wiraswasta", "alamat": "Gerduren, Gerduren, Kec. Purwojati"}, {"nama": "ANDHARA AQMALIA DEWANTI", "jk": "P", "nis": "", "nisn": "0166138844", "ttl": "BANYUMAS, 22 Agu 2016", "ayah": "SUWARKO", "ibu": "DEVI KOMALASARI", "pekerjaanOrtu": "Karyawan Swasta", "alamat": "JALAN RAYA GERDUREN, GERDUREN, Kec. Purwojati"}, {"nama": "Anggun Setia Ningrum", "jk": "P", "nis": "", "nisn": "3167228604", "ttl": "Banyumas, 8 Mar 2016", "ayah": "Sukirno", "ibu": "Markhamah", "pekerjaanOrtu": "Karyawan Swasta", "alamat": "Gerduren, Gerduren, Kec. Purwojati"}, {"nama": "Anindia Faranisa Putri", "jk": "P", "nis": "", "nisn": "3165881311", "ttl": "Banyumas, 3 Des 2016", "ayah": "", "ibu": "Triyanti", "pekerjaanOrtu": "Petani", "alamat": "Gerduren, Gerduren, Kec. Purwojati"}, {"nama": "Aqila Raka Pranaja", "jk": "L", "nis": "", "nisn": "3169471595", "ttl": "Banyumas, 11 Feb 2016", "ayah": "Riyadi", "ibu": "Karyanti", "pekerjaanOrtu": "Karyawan Swasta", "alamat": "Gerduren, Gerduren, Kec. Purwojati"}, {"nama": "Aqilla Keisha Sallsabilla", "jk": "P", "nis": "", "nisn": "3165338895", "ttl": "Banyumas, 1 Nov 2016", "ayah": "", "ibu": "Mundi Lestari", "pekerjaanOrtu": "Wiraswasta", "alamat": "Gerduren, Gerduren, Kec. Purwojati"}, {"nama": "Arshaka Khalif Setiawan", "jk": "L", "nis": "", "nisn": "3173215883", "ttl": "Banyumas, 4 Jan 2017", "ayah": "Sudarno", "ibu": "Supriyani", "pekerjaanOrtu": "Wiraswasta", "alamat": "Gerduren, Gerduren, Kec. Purwojati"}, {"nama": "ARSYLLA AURA PUTRI", "jk": "P", "nis": "", "nisn": "3170816857", "ttl": "Bogor, 6 Jun 2017", "ayah": "Suyono", "ibu": "Elit Sopianti", "pekerjaanOrtu": "Karyawan Swasta", "alamat": "Bleber, Gerduren, Kec. Purwojati"}, {"nama": "Faizal Aji ratama", "jk": "L", "nis": "", "nisn": "3160209484", "ttl": "Banyumas, 22 Sep 2016", "ayah": "Dwi Susanto", "ibu": "Erita Oktafel Yani", "pekerjaanOrtu": "Karyawan Swasta", "alamat": "Gerduren, Gerduren, Kec. Purwojati"}, {"nama": "MANNAF AL FARIZZI", "jk": "L", "nis": "", "nisn": "3165398546", "ttl": "BANYUMAS, 6 Okt 2016", "ayah": "KORIB", "ibu": "MIRNAWATI", "pekerjaanOrtu": "Buruh", "alamat": "JALAN RAYA GERDUREN, GERDUREN, Kec. Purwojati"}, {"nama": "Mohamad Cahyono", "jk": "L", "nis": "", "nisn": "3167634848", "ttl": "Banyumas, 9 Nov 2016", "ayah": "", "ibu": "Tumirah", "pekerjaanOrtu": "Petani", "alamat": "Gerduren, Gerduren, Kec. Purwojati"}, {"nama": "Mohamad Firli Alfiansyah", "jk": "L", "nis": "", "nisn": "3160454303", "ttl": "Banyumas, 26 Agu 2016", "ayah": "Mahfudin", "ibu": "Mursiyam", "pekerjaanOrtu": "Petani", "alamat": "Gerduren, Gerduren, Kec. Purwojati"}, {"nama": "NAJWA INARA AZZAHRA", "jk": "P", "nis": "3543", "nisn": "3161392120", "ttl": "TANGERANG, 14 Apr 2016", "ayah": "", "ibu": "SUPRIYANTI", "pekerjaanOrtu": "Karyawan Swasta", "alamat": "JALAN RAYA GERDUREN, GERDUREN, Kec. Purwojati"}, {"nama": "SHILAH MUNIRUDDIN", "jk": "L", "nis": "", "nisn": "3179944298", "ttl": "Banyumas, 26 Mar 2017", "ayah": "AHMAD SUDARSAN", "ibu": "ASMIAH", "pekerjaanOrtu": "Petani", "alamat": "Bleber, Gerduren, Kec. Purwojati"}], "kelas-5": [{"nama": "Achazia Ghathfan Adinugra", "jk": "L", "nis": "", "nisn": "3161391348", "ttl": "Banyumas, 27 Jan 2016", "ayah": "Adi Priyanto", "ibu": "Ernis Rujianti", "pekerjaanOrtu": "Karyawan Swasta", "alamat": "Jl. Raya Timur, Gerduren, Kec. Purwojati"}, {"nama": "ADABY TSAQIB TSAMARADANIE", "jk": "L", "nis": "", "nisn": "3162629988", "ttl": "BANYUMAS, 13 Jan 2016", "ayah": "DANIE TOFIK", "ibu": "ENGGAH WURYANTI", "pekerjaanOrtu": "Karyawan Swasta", "alamat": "GERDUREN, GERDUREN, Kec. Purwojati"}, {"nama": "Alena Ramadani", "jk": "P", "nis": "3469", "nisn": "3168737490", "ttl": "Banyumas, 4 Jun 2016", "ayah": "", "ibu": "Suriyah", "pekerjaanOrtu": "Petani", "alamat": "Gerduren, Gerduren, Kec. Purwojati"}, {"nama": "Alifa Ayundia Huriyah", "jk": "P", "nis": "3470", "nisn": "3156316539", "ttl": "Banyumas, 17 Des 2015", "ayah": "Niswanto", "ibu": "Septi Endang Astuti ningsih", "pekerjaanOrtu": "Karyawan Swasta", "alamat": "Desa Gerduren, Desa/Kel. Gerduren, Kec. Purwojati"}, {"nama": "Alissa Yuna Ramadhani", "jk": "P", "nis": "3471", "nisn": "3165678189", "ttl": "Pemalang, 18 Jun 2016", "ayah": "", "ibu": "Daniasih", "pekerjaanOrtu": "Buruh", "alamat": "Gerduren, Gerduren, Kec. Purwojati"}, {"nama": "Alvaizi Bagus Perwira Putra", "jk": "L", "nis": "3472", "nisn": "3169285319", "ttl": "Banyumas, 5 Jan 2016", "ayah": "", "ibu": "Tumirah", "pekerjaanOrtu": "Petani", "alamat": "Gerduren, Gerduren, Kec. Purwojati"}, {"nama": "Arsen Hafidz El Fatta", "jk": "L", "nis": "3473", "nisn": "3165198904", "ttl": "Banyumas, 25 Apr 2016", "ayah": "Farhan Maulana Yusuf", "ibu": "Theodora Vistana Astrid Mayasari", "pekerjaanOrtu": "Karyawan Swasta", "alamat": "Jl. Bleber, Gerduren, Kec. Purwojati"}, {"nama": "Chayra Prida Nadhifa", "jk": "P", "nis": "3474", "nisn": "3162672205", "ttl": "Banyumas, 17 Apr 2016", "ayah": "Damas Subandi", "ibu": "Supriyatni", "pekerjaanOrtu": "Sudah Meninggal", "alamat": "Gerduren, Gerduren, Kec. Purwojati"}, {"nama": "Fatah Zahro Maulana", "jk": "L", "nis": "3475", "nisn": "0152485950", "ttl": "Banyumas, 5 Jun 2015", "ayah": "Suratno", "ibu": "Mei Suswati", "pekerjaanOrtu": "Lainnya", "alamat": "Gerduren, Gerduren, Kec. Purwojati"}, {"nama": "HAFIZH NAZRIL FARZANA", "jk": "L", "nis": "3476", "nisn": "3167830647", "ttl": "BANYUMAS, 2 Mar 2016", "ayah": "SUGENG RIYADI", "ibu": "ULPIYANAH", "pekerjaanOrtu": "Karyawan Swasta", "alamat": "MASJID MUJAHIDIN, Gerduren, Kec. Purwojati"}, {"nama": "Kenzie Prodi Dwi Pradika", "jk": "L", "nis": "3477", "nisn": "3161977657", "ttl": "Banyumas, 15 Mar 2016", "ayah": "Prodi Oktovan Nugroho Putro", "ibu": "Indriyati", "pekerjaanOrtu": "Karyawan Swasta", "alamat": "Gerduren, Gerduren, Kec. Purwojati"}, {"nama": "KHALIQA SALSABILA PUTRI", "jk": "P", "nis": "", "nisn": "0167070419", "ttl": "Banyumas, 12 Mar 2016", "ayah": "Samsul Widodo", "ibu": "Sri Hartati", "pekerjaanOrtu": "Petani", "alamat": "Batubintang, Batubintang, Kec. Batu Marmar"}, {"nama": "Leila Nurul Aini", "jk": "P", "nis": "3478", "nisn": "3150408778", "ttl": "Banyumas, 28 Des 2015", "ayah": "", "ibu": "Tuniyah", "pekerjaanOrtu": "Petani", "alamat": "Gerduren, Gerduren, Kec. Purwojati"}, {"nama": "Narendra Serin Al Faqih", "jk": "L", "nis": "3479", "nisn": "3164220360", "ttl": "Banyumas, 23 Okt 2016", "ayah": "", "ibu": "Septianingrum", "pekerjaanOrtu": "", "alamat": "Gerduren RT 04 RW 07, Gerduren, Kec. Purwojati"}, {"nama": "PRITA HARYATI PERMATASARI", "jk": "P", "nis": "3480", "nisn": "3164368563", "ttl": "BANYUMAS, 16 Apr 2016", "ayah": "WAGINO ANTRASENA", "ibu": "BASRIYAH", "pekerjaanOrtu": "Karyawan Swasta", "alamat": "BLEBER, Desa/Kel. Gerduren, Kec. Purwojati"}, {"nama": "RAMADHAN ADIT SAMUDRA", "jk": "L", "nis": "3481", "nisn": "0159751280", "ttl": "Banyumas, 9 Jul 2015", "ayah": "SIGIT HERNAWAN", "ibu": "SANIYAH", "pekerjaanOrtu": "Karyawan Swasta", "alamat": "GERDUREN, Gerduren, Kec. Purwojati"}, {"nama": "Revalinamaya Dinda Risqi", "jk": "P", "nis": "3482", "nisn": "3167244541", "ttl": "Banyumas, 10 Feb 2016", "ayah": "", "ibu": "Sartinah", "pekerjaanOrtu": "Karyawan Swasta", "alamat": "Gerduren, Gerduren, Kec. Purwojati"}, {"nama": "Rimbun Nawacita Rahayu", "jk": "P", "nis": "3483", "nisn": "3152347590", "ttl": "Banyumas, 30 Sep 2015", "ayah": "Sudarsono", "ibu": "Sutarsih", "pekerjaanOrtu": "Pedagang Kecil", "alamat": "Gerduren, Gerduren, Kec. Purwojati"}, {"nama": "RISKI SAPUTRA", "jk": "L", "nis": "", "nisn": "3150082968", "ttl": "BANYUMAS, 10 Sep 2015", "ayah": "", "ibu": "RUSMIATUN", "pekerjaanOrtu": "Petani", "alamat": "TINGGARJAYA, Tinggarjaya, Kec. Jatilawang"}, {"nama": "Rosmalina Ayu Saputri", "jk": "P", "nis": "3484", "nisn": "3159374743", "ttl": "Banyumas, 15 Des 2015", "ayah": "", "ibu": "Jasirah", "pekerjaanOrtu": "", "alamat": "Gerduren RT 02 RW 08, Gerduren, Kec. Purwojati"}, {"nama": "SABRINA AYU ROSMALINA", "jk": "P", "nis": "3485", "nisn": "3150438206", "ttl": "BANYUMAS, 31 Mei 2015", "ayah": "JULIYANTO", "ibu": "RINA FATMAWATI", "pekerjaanOrtu": "Buruh", "alamat": "GERDUREN, Desa/Kel. Gerduren, Kec. Purwojati"}, {"nama": "Sakti Izam Muhammad", "jk": "L", "nis": "", "nisn": "0157737296", "ttl": "Banyumas, 12 Jun 2015", "ayah": "Amin Yulianto", "ibu": "Ismi Jefriani", "pekerjaanOrtu": "Wiraswasta", "alamat": "Gerduren, Gerduren, Kec. Purwojati"}, {"nama": "Shakila Al Rahma", "jk": "P", "nis": "3487", "nisn": "3163022221", "ttl": "Banyumas, 26 Mei 2016", "ayah": "", "ibu": "Tarsini Iin Sarinda", "pekerjaanOrtu": "Wiraswasta", "alamat": "Gerduren, Gerduren, Kec. Purwojati"}, {"nama": "Zaron Hidayat", "jk": "L", "nis": "3489", "nisn": "0155354577", "ttl": "Banyumas, 13 Des 2015", "ayah": "Arif Nurhayat", "ibu": "Isroinah", "pekerjaanOrtu": "Wiraswasta", "alamat": "Gerduren, Desa/Kel. Gerduren, Kec. Purwojati"}], "kelas-6": [{"nama": "Abimanyu Rizki Wijaya", "jk": "L", "nis": "", "nisn": "0142419050", "ttl": "Banyumas, 18 Des 2014", "ayah": "Mukmin", "ibu": "Tuti Riani", "pekerjaanOrtu": "Karyawan Swasta", "alamat": "Gerduren, Gerduren, Kec. Purwojati"}, {"nama": "ADELIA FITRI FARANISA", "jk": "P", "nis": "", "nisn": "0155084073", "ttl": "BANYUMAS, 19 Jul 2015", "ayah": "PUJIANTO", "ibu": "DWI APRIYANI", "pekerjaanOrtu": "Pedagang Kecil", "alamat": "JALAN RAYA GERDUREN, Desa/Kel. Gerduren, Kec. Purwojati"}, {"nama": "Afiqah Hasna Humaira", "jk": "P", "nis": "", "nisn": "0143262696", "ttl": "Bekasi, 18 Des 2014", "ayah": "JAEDIN", "ibu": "Supriyatin", "pekerjaanOrtu": "Karyawan Swasta", "alamat": "GERDUREN, Desa/Kel. Gerduren, Kec. Purwojati"}, {"nama": "ALDHONY GHALY MARETIN", "jk": "L", "nis": "", "nisn": "3158595232", "ttl": "BANYUMAS, 20 Mar 2015", "ayah": "WARDOYO", "ibu": "SURTINI", "pekerjaanOrtu": "Buruh", "alamat": "GERDUREN, Desa/Kel. Gerduren, Kec. Purwojati"}, {"nama": "Alika Naila Putri", "jk": "P", "nis": "", "nisn": "0157159066", "ttl": "Banyumas, 3 Jun 2015", "ayah": "Kuwatno", "ibu": "Eka Agustina", "pekerjaanOrtu": "Karyawan Swasta", "alamat": "Cikakak, Desa/Kel. Cikakak, Kec. Wangon"}, {"nama": "Aulia Nur Inayah", "jk": "P", "nis": "", "nisn": "3156852404", "ttl": "Banyumas, 11 Mei 2015", "ayah": "Yulianto", "ibu": "Vaezatul Anisah", "pekerjaanOrtu": "Buruh", "alamat": "Gerduren, Gerduren, Kec. Purwojati"}, {"nama": "David Cahyo Walidi", "jk": "L", "nis": "", "nisn": "3152073170", "ttl": "Banyumas, 21 Agu 2015", "ayah": "Sunidi", "ibu": "Kunisah", "pekerjaanOrtu": "Wiraswasta", "alamat": "Gerduren, Gerduren, Kec. Purwojati"}, {"nama": "Farid Azam", "jk": "L", "nis": "", "nisn": "3146912994", "ttl": "Banyumas, 23 Nov 2014", "ayah": "Muhamad Rohmat", "ibu": "Sariyanti", "pekerjaanOrtu": "Karyawan Swasta", "alamat": "Jl. Gerduren, Gerduren, Kec. Purwojati"}, {"nama": "Fathia Aulia", "jk": "P", "nis": "", "nisn": "0152340719", "ttl": "Banyumas, 18 Jun 2015", "ayah": "Dani Wahyudi", "ibu": "Purwati", "pekerjaanOrtu": "Karyawan Swasta", "alamat": "Gerduren, Gerduren, Kec. Purwojati"}, {"nama": "MUHAMMAD DANISH ABYANTO", "jk": "L", "nis": "", "nisn": "3141939240", "ttl": "BANYUMAS, 26 Nov 2014", "ayah": "WARYANTO", "ibu": "INDRIYANI", "pekerjaanOrtu": "Wiraswasta", "alamat": "GERDUREN, Gerduren, Kec. Purwojati"}, {"nama": "Myesha Flighsalesha Feriz", "jk": "P", "nis": "", "nisn": "0156751811", "ttl": "Banyumas, 13 Feb 2015", "ayah": "Anjar Khairul Anwar", "ibu": "Irma Prasetyowati", "pekerjaanOrtu": "PNS/TNI/Polri", "alamat": "Gerduren, Gerduren, Kec. Purwojati"}, {"nama": "Nadin Adresia Ardani", "jk": "P", "nis": "", "nisn": "3152075517", "ttl": "Banyumas, 13 Jun 2015", "ayah": "Tasman", "ibu": "Suherni", "pekerjaanOrtu": "Petani", "alamat": "Gerduren, Gerduren, Kec. Purwojati"}, {"nama": "Natisha Nisa Khaira", "jk": "P", "nis": "3458", "nisn": "3157746653", "ttl": "Banyumas, 23 Apr 2015", "ayah": "Pujianto", "ibu": "DEWI KURNIAWATI", "pekerjaanOrtu": "Wiraswasta", "alamat": "Jl. Gerduren, Desa/Kel. Gerduren, Kec. Purwojati"}, {"nama": "NAYLA PUTRI ARDANI", "jk": "P", "nis": "", "nisn": "0145618635", "ttl": "BANYUMAS, 14 Des 2014", "ayah": "NURDIN HIDAYAT", "ibu": "EKA ROHMADANI", "pekerjaanOrtu": "Buruh", "alamat": "GARUT, Desa/Kel. Gerduren, Kec. Purwojati"}, {"nama": "Putri Afriani", "jk": "P", "nis": "", "nisn": "3155818841", "ttl": "Banyumas, 10 Apr 2015", "ayah": "Karsono", "ibu": "Wagiarti", "pekerjaanOrtu": "Karyawan Swasta", "alamat": "Jl. Raya Gerduren, Desa/Kel. Gerduren, Kec. Purwojati"}, {"nama": "Qois Naufal Hari Pratama", "jk": "L", "nis": "", "nisn": "3154993867", "ttl": "Banyumas, 26 Feb 2015", "ayah": "Juhari", "ibu": "Tri Puji Lestari", "pekerjaanOrtu": "Pedagang Kecil", "alamat": "Gerduren, Gerduren, Kec. Purwojati"}, {"nama": "Rico Dwi Kahesang", "jk": "L", "nis": "", "nisn": "3143347377", "ttl": "Cilacap, 17 Des 2014", "ayah": "Surahman", "ibu": "Rumiyati", "pekerjaanOrtu": "Petani", "alamat": "Mentasan, Desa/Kel. Mentasan, Kec. Kawunganten"}, {"nama": "Rizcha Aryani Saputri", "jk": "P", "nis": "", "nisn": "3159021467", "ttl": "Banyumas, 1 Okt 2015", "ayah": "Wahyu Ari Siswandi", "ibu": "Yunita Ria Permatasari", "pekerjaanOrtu": "Karyawan Swasta", "alamat": "Gerduren, Gerduren, Kec. Purwojati"}, {"nama": "Ruby Anggraini", "jk": "P", "nis": "", "nisn": "3155480042", "ttl": "Tangerang, 7 Jan 2015", "ayah": "Nur Yasin", "ibu": "Ika Susanti", "pekerjaanOrtu": "Wiraswasta", "alamat": "jl H Siri, Sudimara Pinang, Kec. Pinang"}, {"nama": "Sofyan Dhani Prasetyo", "jk": "L", "nis": "", "nisn": "3136819010", "ttl": "Banyumas, 13 Sep 2013", "ayah": "Ngaliman", "ibu": "Oktaviani", "pekerjaanOrtu": "Karyawan Swasta", "alamat": "Jl Pedati Selatan, Gerduren, Kec. Purwojati"}]};
+/* Data siswa Kelas 2-6 di atas diekstrak apa adanya dari file
+   DATA_SISWA_KELAS_2-6_SDN1_GERDUREN.xlsx yang diunggah, sheet
+   dipetakan sesuai label kelasnya ("Kelas 2".."Kelas 6"). Ejaan
+   nama TIDAK diubah dari sumber, walau ada perbedaan kapitalisasi
+   antar baris (mengikuti data asli Dapodik). NIS/NISN dikosongkan
+   apabila memang tidak tersedia pada sumber, bukan dikarang. */
+
 const SEED_STAFF = {"guru": [{"id": "g1", "nama": "Ahmad Riyanto", "nip": "198602182019021001", "nuptk": "2550764665200002", "jk": "L", "tempatLahir": "Cilacap", "tglLahir": "1986-02-18", "status": "PNS", "jenisPTK": "Guru", "jabatan": "Bendahara BOS/BOP", "agama": "Islam", "alamat": "Jl. M.Dahuri , SALEBU, Kec. Majenang", "hp": "085640309040", "email": "ahmadriyanto.riyan86@gmail.com", "pangkat": "III/b"}, {"id": "g2", "nama": "AZIZAH FARA ZAHRA", "nip": "", "nuptk": "4746780681230012", "jk": "P", "tempatLahir": "BANYUMAS", "tglLahir": "2002-04-14", "status": "Guru Honor Sekolah", "jenisPTK": "Guru", "jabatan": "", "agama": "Islam", "alamat": "Desa Purwojati RT 01 RW 09, Purwojati, Kec. Purwojati", "hp": "082220417752", "email": "azizahfara796@gmail.com", "pangkat": ""}, {"id": "g3", "nama": "Guntur Prasongko", "nip": "198303222025211037", "nuptk": "8654761662130162", "jk": "L", "tempatLahir": "Banyumas", "tglLahir": "1983-03-22", "status": "PPPK", "jenisPTK": "Guru", "jabatan": "", "agama": "Islam", "alamat": "Gerduren, Gerduren, Kec. Purwojati", "hp": "085726229924", "email": "iguntur01@gmail.com", "pangkat": ""}, {"id": "g4", "nama": "Rusminah", "nip": "196610091991022002", "nuptk": "6341744647300013", "jk": "P", "tempatLahir": "Banyumas", "tglLahir": "1966-10-09", "status": "PNS", "jenisPTK": "Guru", "jabatan": "", "agama": "Islam", "alamat": "Gentawangi, Gentawangi, Kec. Jatilawang", "hp": "081327727857", "email": "burusminah01@gmail.com", "pangkat": "IV/c"}, {"id": "g5", "nama": "Sri Sudaryanti", "nip": "198701222022212010", "nuptk": "0852764665210152", "jk": "P", "tempatLahir": "Sukoharjo", "tglLahir": "1987-01-22", "status": "PPPK", "jenisPTK": "Guru", "jabatan": "", "agama": "Islam", "alamat": "Gerduren, Gerduren, Kec. Purwojati", "hp": "082220214021", "email": "mayarta83@gmail.com", "pangkat": "IX"}, {"id": "g6", "nama": "Zaenul Kirom Anggi Pamukti", "nip": "198803082023211004", "nuptk": "4640766667130082", "jk": "L", "tempatLahir": "Banyumas", "tglLahir": "1988-03-08", "status": "PPPK", "jenisPTK": "Guru", "jabatan": "", "agama": "Islam", "alamat": "Jalan Raya Nasional III, Wangon, Kec. Wangon", "hp": "081392859258", "email": "arsipkuanggi@gmail.com", "pangkat": "IX"}], "tendik": [{"id": "t1", "nama": "AENAL FITRI HABIBAH", "nip": "", "nuptk": "", "jk": "P", "tempatLahir": "Banyumas", "tglLahir": "2003-05-02", "status": "Tenaga Honor Sekolah", "jenisPTK": "Tenaga Kependidikan", "jabatan": "", "agama": "Islam", "alamat": "Rt 03 Rw 06 Gerduren, Gerduren, Kec. Purwojati", "hp": "085773044649", "email": "aenalhabibah97@gmail.com", "pangkat": ""}, {"id": "t2", "nama": "LINGGARJATI GARY SANDIKA", "nip": "", "nuptk": "", "jk": "L", "tempatLahir": "BANYUMAS", "tglLahir": "1996-04-26", "status": "Tenaga Honor Sekolah", "jenisPTK": "Tenaga Kependidikan", "jabatan": "", "agama": "Islam", "alamat": "Tunjung RT 04 RW 03, Tunjung, Kec. Jatilawang", "hp": "081904962660", "email": "linggarjati240@gmail.com", "pangkat": ""}, {"id": "t3", "nama": "Sunartam", "nip": "197405182025211016", "nuptk": "", "jk": "L", "tempatLahir": "Banyumas", "tglLahir": "1974-05-18", "status": "PPPK", "jenisPTK": "Tenaga Kependidikan", "jabatan": "", "agama": "Islam", "alamat": "Gerduren, Gerduren, Kec. Purwojati", "hp": "081327369517", "email": "Sunartam01@gmail.com", "pangkat": ""}, {"id": "t4", "nama": "Yudhy Idapriyanto", "nip": "198312192006041005", "nuptk": "2551761663200003", "jk": "L", "tempatLahir": "Banyumas", "tglLahir": "1983-12-19", "status": "PNS", "jenisPTK": "Kepala Sekolah", "jabatan": "Kepala Sekolah", "agama": "Islam", "alamat": "Jl. GOR Cigolat No. 27, Sindangsari, Sindangsari", "hp": "082225006292", "email": "yudicell@ymail.com", "pangkat": "III/d"}]};
 
 const SEED_SEKOLAH = {
@@ -548,10 +569,38 @@ const DIMENSI_PROFIL = [
 const MAPEL_LIST = ["Pendidikan Agama Islam dan Budi Pekerti","Pendidikan Pancasila","Bahasa Indonesia","Matematika","PJOK","Seni Musik","Seni Rupa","Bahasa Inggris","Muatan Lokal"];
 
 /* ============================================================
-   2. STORAGE ENGINE
+   2. STORAGE ENGINE (MULTI-KELAS)
+   ------------------------------------------------------------
+   Arsitektur: sebagian data bersifat "sekolah" (dipakai bersama
+   semua kelas: profil sekolah, daftar guru/tendik, kalender
+   pendidikan), sebagian bersifat "per-kelas" (siswa, kehadiran,
+   nilai, jurnal, jadwal, dsb -- TIDAK PERNAH tercampur antar
+   kelas karena disimpan di kunci localStorage terpisah per kelas).
+   Variabel `db` tetap berbentuk gabungan seperti sebelumnya agar
+   seluruh kode PAGES.* yang sudah ada TIDAK PERLU diubah satu per
+   satu -- loadDB()/saveDB() yang mengurus pemisahannya.
    ============================================================ */
-const DB_KEY = "tpsd2026_db_v1";
+const CLASS_LIST = [
+  {id:"kelas-1", angka:1, romawi:"I",   label:"Kelas 1", kelasText:"1 (Satu)"},
+  {id:"kelas-2", angka:2, romawi:"II",  label:"Kelas 2", kelasText:"2 (Dua)"},
+  {id:"kelas-3", angka:3, romawi:"III", label:"Kelas 3", kelasText:"3 (Tiga)"},
+  {id:"kelas-4", angka:4, romawi:"IV",  label:"Kelas 4", kelasText:"4 (Empat)"},
+  {id:"kelas-5", angka:5, romawi:"V",   label:"Kelas 5", kelasText:"5 (Lima)"},
+  {id:"kelas-6", angka:6, romawi:"VI",  label:"Kelas 6", kelasText:"6 (Enam)"},
+];
+function classInfo(id){ return CLASS_LIST.find(c=>c.id===id) || CLASS_LIST[0]; }
+function nextClassId(id){ const i=CLASS_LIST.findIndex(c=>c.id===id); return (i>=0 && i<CLASS_LIST.length-1) ? CLASS_LIST[i+1].id : null; }
+function classFileTag(id){ return "Kelas-"+classInfo(id).angka; }
+
+const DB_KEY = "tpsd2026_db_v1";                  // kunci LAMA (versi satu-kelas) -- dibaca sekali utk migrasi, tidak dihapus
 const SET_KEY = "tpsd2026_settings_v1";
+const SHARED_KEY = "tpsd2026_shared_v1";
+const ACTIVE_CLASS_KEY = "tpsd2026_activeclass_v1";
+const MIGRATION_FLAG_KEY = "tpsd2026_migrated_multikelas_v1";
+const ALUMNI_KEY = "tpsd2026_alumni_v1";
+function classKey(id){ return "tpsd2026_class_"+id+"_v1"; }
+
+const SHARED_FIELDS = ["sekolah","guru","tendik","kalender"];
 
 function defaultDB(){
   return {
@@ -601,20 +650,120 @@ function defaultDB(){
     kenaikanKelas: [],
   };
 }
-let db = null;
-function loadDB(){
-  try{
-    const raw = localStorage.getItem(DB_KEY);
-    if(raw){ const parsed = JSON.parse(raw);
-      // pastikan field baru tetap ada walau DB lama
-      const merged = Object.assign(defaultDB(), parsed);
-      return merged;
-    }
-  }catch(e){ console.warn("DB rusak, memuat ulang default", e); }
-  const d = defaultDB();
-  return d;
+/* Mengosongkan struktur data (array->[], object bertingkat->key tetap
+   ada tapi string dikosongkan) supaya kelas 2-6 dimulai KOSONG tanpa
+   data karangan, namun bentuk field tetap konsisten dgn kelas 1. */
+function emptyLike(val){
+  if(Array.isArray(val)) return [];
+  if(val && typeof val==="object"){
+    const out={}; Object.keys(val).forEach(k=>{ out[k] = (typeof val[k]==="string") ? "" : emptyLike(val[k]); }); return out;
+  }
+  return val;
 }
-function saveDB(){ localStorage.setItem(DB_KEY, JSON.stringify(db)); }
+function defaultSharedDB(){
+  const full = defaultDB();
+  const shared = {}; SHARED_FIELDS.forEach(k=> shared[k]=full[k]);
+  return shared;
+}
+function defaultClassDB(classId){
+  const full = defaultDB();
+  const out = {};
+  Object.keys(full).forEach(k=>{
+    if(SHARED_FIELDS.includes(k)) return;
+    out[k] = (classId==="kelas-1") ? full[k] : emptyLike(full[k]);
+  });
+  out.waliKelasId = (classId==="kelas-1") ? (full.sekolah.waliKelasId||"") : "";
+  return out;
+}
+
+let db = null;
+let activeClassId = "kelas-1";
+
+/* Migrasi satu-kali dari versi lama (satu kelas) ke struktur multi-kelas.
+   Data lama otomatis menjadi milik "kelas-1". Data ASLI di DB_KEY tetap
+   dibiarkan utuh di localStorage (tidak dihapus) sebagai arsip cadangan. */
+function runMultiClassMigrationIfNeeded(){
+  if(localStorage.getItem(MIGRATION_FLAG_KEY)) return;
+  try{
+    const rawOld = localStorage.getItem(DB_KEY);
+    if(rawOld){
+      const old = JSON.parse(rawOld);
+      const merged = Object.assign(defaultDB(), old);
+      const shared = {}; SHARED_FIELDS.forEach(k=> shared[k]=merged[k]);
+      const cls = {}; Object.keys(merged).forEach(k=>{ if(!SHARED_FIELDS.includes(k)) cls[k]=merged[k]; });
+      cls.waliKelasId = merged.sekolah.waliKelasId || "";
+      if(!localStorage.getItem(SHARED_KEY)) localStorage.setItem(SHARED_KEY, JSON.stringify(shared));
+      if(!localStorage.getItem(classKey("kelas-1"))) localStorage.setItem(classKey("kelas-1"), JSON.stringify(cls));
+    }
+  }catch(e){ console.warn("Migrasi multi-kelas gagal, memakai data default.", e); }
+  localStorage.setItem(MIGRATION_FLAG_KEY, "1");
+}
+function loadSharedDB(){
+  try{ const raw = localStorage.getItem(SHARED_KEY); if(raw) return Object.assign(defaultSharedDB(), JSON.parse(raw)); }catch(e){}
+  return defaultSharedDB();
+}
+function saveSharedDB(shared){ localStorage.setItem(SHARED_KEY, JSON.stringify(shared)); }
+function loadClassDB(classId){
+  try{ const raw = localStorage.getItem(classKey(classId)); if(raw) return Object.assign(defaultClassDB(classId), JSON.parse(raw)); }catch(e){}
+  return defaultClassDB(classId);
+}
+function saveClassDB(classId, clsData){ localStorage.setItem(classKey(classId), JSON.stringify(clsData)); }
+function loadActiveClassId(){
+  const v = localStorage.getItem(ACTIVE_CLASS_KEY);
+  return CLASS_LIST.some(c=>c.id===v) ? v : "kelas-1";
+}
+function loadAlumni(){ try{ const raw=localStorage.getItem(ALUMNI_KEY); if(raw) return JSON.parse(raw); }catch(e){} return []; }
+function saveAlumni(list){ localStorage.setItem(ALUMNI_KEY, JSON.stringify(list)); }
+
+/* Mengisi data siswa Kelas 2-6 dari DATA_SISWA_KELAS_2-6_SDN1_GERDUREN.xlsx
+   (sheet dipetakan sesuai label kelasnya). Berjalan SATU KALI, dan HANYA
+   mengisi kelas yang rosternya masih kosong -- tidak pernah menimpa data
+   yang sudah diisi/diubah sendiri oleh guru. */
+const SEED_KELAS2_6_FLAG = "tpsd2026_seeded_kelas2_6_v1";
+function runSeedKelas2to6IfNeeded(){
+  if(localStorage.getItem(SEED_KELAS2_6_FLAG)) return;
+  try{
+    Object.keys(SEED_SISWA_KELAS).forEach(classId=>{
+      const cls = loadClassDB(classId);
+      if(!cls.siswa || cls.siswa.length===0){
+        cls.siswa = SEED_SISWA_KELAS[classId].map((s,i)=>Object.assign({id:uid("s"), no:i+1}, s));
+        saveClassDB(classId, cls);
+      }
+    });
+  }catch(e){ console.warn("Gagal mengisi data siswa Kelas 2-6.", e); }
+  localStorage.setItem(SEED_KELAS2_6_FLAG, "1");
+}
+
+function loadDB(){
+  runMultiClassMigrationIfNeeded();
+  runSeedKelas2to6IfNeeded();
+  activeClassId = loadActiveClassId();
+  const shared = loadSharedDB();
+  const cls = loadClassDB(activeClassId);
+  const merged = Object.assign({}, shared, cls);
+  merged.sekolah = Object.assign({}, shared.sekolah, {waliKelasId: cls.waliKelasId||"", kelas: classInfo(activeClassId).kelasText});
+  return merged;
+}
+function saveDB(){
+  const shared = Object.assign({}, db.sekolah);
+  delete shared.waliKelasId; delete shared.kelas; // milik data per-kelas, tidak disimpan di profil bersama
+  saveSharedDB({sekolah:shared, guru:db.guru, tendik:db.tendik, kalender:db.kalender});
+  const cls = {}; Object.keys(db).forEach(k=>{ if(!SHARED_FIELDS.includes(k)) cls[k]=db[k]; });
+  cls.waliKelasId = db.sekolah.waliKelasId||"";
+  saveClassDB(activeClassId, cls);
+}
+/* Ganti kelas aktif global -- memuat ulang seluruh data ke variabel db
+   dari kunci localStorage milik kelas tsb, lalu me-render ulang halaman. */
+function switchActiveClass(newClassId){
+  if(!CLASS_LIST.some(c=>c.id===newClassId) || newClassId===activeClassId){ return; }
+  activeClassId = newClassId;
+  localStorage.setItem(ACTIVE_CLASS_KEY, newClassId);
+  db = loadDB();
+  buildSidebar();
+  navigate(currentPage);
+  toast("Kelas aktif: "+classInfo(newClassId).label);
+}
+
 
 function loadSettings(){
   try{
@@ -703,6 +852,8 @@ const NAV = [
    {id:"siswa", label:"Data Siswa", icon:"student"},
    {id:"ortu", label:"Data Orang Tua", icon:"parent"},
    {id:"pekerjaanOrtu", label:"Rekap Pekerjaan Orang Tua", icon:"bar"},
+   {id:"rekapSeluruhKelas", label:"Rekap Seluruh Kelas", icon:"bar"},
+   {id:"alumni", label:"Arsip Alumni (Lulusan)", icon:"archive"},
  ]},
  {group:"Statistik & Riwayat Siswa", items:[
    {id:"dfjl", label:"Jumlah Siswa per Tahun Lahir", icon:"bar"},
@@ -774,7 +925,7 @@ function buildSidebar(){
   const el = document.getElementById("sidebar");
   let h = `<div class="brand">
     <div class="logo">${ic("school",22)}</div>
-    <div class="txt"><strong>Teacher Planner</strong><span>SD 2026 &middot; Kelas 1</span></div>
+    <div class="txt"><strong>Teacher Planner</strong><span>SD 2026 &middot; ${classInfo(activeClassId).label}</span></div>
   </div>`;
   NAV.forEach(g=>{
     h += `<div class="navgroup-title">${g.group}</div>`;
@@ -783,6 +934,12 @@ function buildSidebar(){
     });
   });
   el.innerHTML = h;
+  buildClassSwitcher();
+}
+function buildClassSwitcher(){
+  const sel = document.getElementById("classSwitcher");
+  if(!sel) return;
+  sel.innerHTML = CLASS_LIST.map(c=>`<option value="${c.id}" ${c.id===activeClassId?"selected":""}>${c.label}</option>`).join("");
 }
 function toggleSidebar(force){
   const sb = document.getElementById("sidebar");
@@ -995,6 +1152,10 @@ function downloadBlob(content, filename, mime){
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(()=>URL.revokeObjectURL(url), 4000);
 }
+function withClassTag(filename){
+  const tag = "_"+classFileTag(activeClassId);
+  return filename.includes(tag) ? filename : filename+tag;
+}
 function exportCSV(store, customRows, customCols, filename){
   const cfg = CRUD_CONFIG[store];
   const cols = customCols || (cfg ? cfg.columns.map(c=>({key:c.key,label:c.label})) : []);
@@ -1006,7 +1167,7 @@ function exportCSV(store, customRows, customCols, filename){
       return '"'+String(v).replace(/"/g,'""')+'"';
     }).join(",")+"\r\n";
   });
-  downloadBlob("\ufeff"+csv, (filename||store)+".csv", "text/csv;charset=utf-8;");
+  downloadBlob("\ufeff"+csv, withClassTag(filename||store)+".csv", "text/csv;charset=utf-8;");
   toast("File CSV diunduh.");
 }
 function htmlToWordDoc(innerHtml, filename, title){
@@ -1014,7 +1175,8 @@ function htmlToWordDoc(innerHtml, filename, title){
   <head><meta charset="utf-8"><title>${escapeHtml(title||filename)}</title>
   <style>body{font-family:Calibri,Arial,sans-serif;font-size:12pt;} table{border-collapse:collapse;width:100%;} td,th{border:1px solid #333;padding:5px;font-size:10.5pt;}</style>
   </head><body>${innerHtml}</body></html>`;
-  downloadBlob(doc, filename.endsWith(".doc")?filename:filename+".doc", "application/msword");
+  const fn = withClassTag(filename);
+  downloadBlob(doc, fn.endsWith(".doc")?fn:fn+".doc", "application/msword");
   toast("File Word (.doc) diunduh.");
 }
 function htmlToExcelXls(tableHtml, filename, title){
@@ -1024,7 +1186,8 @@ function htmlToExcelXls(tableHtml, filename, title){
   </x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->
   <style>td,th{border:1px solid #999;padding:4px;font-size:10.5pt;font-family:Calibri,Arial,sans-serif;} th{background:#dbe4ff;}</style>
   </head><body>${tableHtml}</body></html>`;
-  downloadBlob(doc, filename.endsWith(".xls")?filename:filename+".xls", "application/vnd.ms-excel");
+  const fn = withClassTag(filename);
+  downloadBlob(doc, fn.endsWith(".xls")?fn:fn+".xls", "application/vnd.ms-excel");
   toast("File Excel (.xls) diunduh.");
 }
 function tableHtmlFromRows(cols, rows){
@@ -1046,7 +1209,7 @@ function letterheadHtml(){
   </div>`;
 }
 function printDocument(title, bodyHtml){
-  document.getElementById("printArea").innerHTML = `${letterheadHtml()}<div class="doc-title">${escapeHtml(title)}</div>${bodyHtml}`;
+  document.getElementById("printArea").innerHTML = `${letterheadHtml()}<div class="doc-title">${escapeHtml(title)}</div><div style="text-align:center;font-size:12.5px;margin:-12px 0 14px;">${escapeHtml(classInfo(activeClassId).label)} &middot; T.A. ${escapeHtml(db.sekolah.tahunAjaran)} &middot; Semester ${escapeHtml(db.sekolah.semester)}</div>${bodyHtml}`;
   window.print();
 }
 
@@ -1066,19 +1229,50 @@ PAGES.dashboard = function(){
   const agendaRecent = db.agenda.slice().sort((a,b)=>(b.tanggal||"").localeCompare(a.tanggal||"")).slice(0,5);
   const wali = db.guru.find(g=>g.id===db.sekolah.waliKelasId);
 
+  // Kehadiran hari ini
+  const kehadiranHariIni = db.kehadiran[todayISO()] || {};
+  let hadirCount=0, sakitCount=0, izinCount=0, alfaCount=0;
+  db.siswa.forEach(s=>{
+    const st = kehadiranHariIni[s.id] || "H";
+    if(st==="S") sakitCount++; else if(st==="I") izinCount++; else if(st==="A") alfaCount++; else hadirCount++;
+  });
+
+  // Jadwal hari ini
+  const hariIniNama = new Date().toLocaleDateString("id-ID",{weekday:"long"});
+  const jadwalHariIni = (db.jadwal[hariIniNama]||[]).slice().sort((a,b)=>Number(a.jam||0)-Number(b.jam||0));
+
+  // Catatan siswa terbaru (Catatan Perkembangan)
+  const catatanTerbaru = db.perkembangan.slice().sort((a,b)=>(b.tanggal||"").localeCompare(a.tanggal||"")).slice(0,4);
+
+  // Penilaian terbaru (gabungan formatif & sumatif)
+  const penilaianTerbaru = db.asesmenFormatif.concat(db.asesmenSumatif)
+    .slice().sort((a,b)=>(b.tanggal||"").localeCompare(a.tanggal||"")).slice(0,4);
+
+  // Rekap seluruh kelas (ringkas, untuk widget dashboard)
+  const rekapKelasRingkas = CLASS_LIST.map(c=>{
+    const data = (c.id===activeClassId) ? db : loadClassDB(c.id);
+    return {c, jumlah:(data.siswa||[]).length};
+  });
+
   setTimeout(()=>{ window.dashRefresh = ()=>renderPage("dashboard"); },0);
 
   return `
   <div class="section-head">
     <div><h1>Selamat Datang${wali?", "+escapeHtml(wali.nama):""} 👋</h1>
-      <div class="desc">${escapeHtml(db.sekolah.namaSekolah)} &middot; Kelas ${escapeHtml(db.sekolah.kelas)} &middot; T.A. ${escapeHtml(db.sekolah.tahunAjaran)} &middot; Semester ${escapeHtml(db.sekolah.semester)}</div>
+      <div class="desc">${escapeHtml(db.sekolah.namaSekolah)} &middot; ${escapeHtml(classInfo(activeClassId).label)} &middot; T.A. ${escapeHtml(db.sekolah.tahunAjaran)} &middot; Semester ${escapeHtml(db.sekolah.semester)}</div>
     </div>
   </div>
-  <div class="grid grid-4" style="margin-bottom:18px;">
+  <div class="grid grid-4" style="margin-bottom:14px;">
     <div class="card stat-card"><div class="icon" style="background:var(--primary-soft);color:var(--primary);">${ic("student",20)}</div><div class="num">${totalSiswa}</div><div class="lbl">Total Siswa (L:${L} / P:${P})</div></div>
     <div class="card stat-card"><div class="icon" style="background:var(--accent-soft);color:var(--accent);">${ic("users",20)}</div><div class="num">${totalGuru}</div><div class="lbl">Guru & Tenaga Kependidikan</div></div>
     <div class="card stat-card"><div class="icon" style="background:var(--warn-soft);color:var(--warn);">${ic("calendar",20)}</div><div class="num">${todayEvents.length}</div><div class="lbl">Agenda Hari Ini</div></div>
     <div class="card stat-card"><div class="icon" style="background:var(--danger-soft);color:var(--danger);">${ic("clipboard",20)}</div><div class="num">${db.modulAjar.length}</div><div class="lbl">Modul Ajar Tersimpan</div></div>
+  </div>
+  <div class="grid grid-4" style="margin-bottom:18px;">
+    <div class="card stat-card"><div class="icon" style="background:var(--primary-soft);color:var(--primary);">${ic("attendance",20)}</div><div class="num">${hadirCount}</div><div class="lbl">Hadir Hari Ini</div></div>
+    <div class="card stat-card"><div class="icon" style="background:var(--warn-soft);color:var(--warn);">${ic("heart",20)}</div><div class="num">${sakitCount}</div><div class="lbl">Sakit</div></div>
+    <div class="card stat-card"><div class="icon" style="background:var(--accent-soft);color:var(--accent);">${ic("parent",20)}</div><div class="num">${izinCount}</div><div class="lbl">Izin</div></div>
+    <div class="card stat-card"><div class="icon" style="background:var(--danger-soft);color:var(--danger);">${ic("close",20)}</div><div class="num">${alfaCount}</div><div class="lbl">Alfa</div></div>
   </div>
   <div class="grid grid-2">
     <div class="card">
@@ -1093,6 +1287,35 @@ PAGES.dashboard = function(){
         <strong style="font-size:13px;">${fmtDate(e.tanggal)}</strong>
         <div class="muted" style="font-size:12.5px;">${escapeHtml((e.kegiatan||"").slice(0,90))}${(e.kegiatan||"").length>90?"...":""}</div></div>`).join("") : `<p class="muted">Belum ada jurnal harian. Tambahkan di menu Agenda / Jurnal Harian.</p>`}
     </div>
+  </div>
+  <div class="grid grid-2" style="margin-top:16px;">
+    <div class="card">
+      <h3>${ic("clock",16)} Jadwal Hari Ini (${escapeHtml(hariIniNama)})</h3>
+      ${jadwalHariIni.length? jadwalHariIni.map(j=>`<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);">
+        <span style="font-size:13px;">${escapeHtml(j.mapel||"-")}</span><span class="badge badge-blue">Jam ke-${escapeHtml(String(j.jam||"-"))}</span></div>`).join("") : `<p class="muted">Tidak ada jadwal untuk hari ini, atau hari libur.</p>`}
+    </div>
+    <div class="card">
+      <h3>${ic("heart",16)} Catatan Siswa Terbaru</h3>
+      ${catatanTerbaru.length? catatanTerbaru.map(c=>`<div style="padding:8px 0;border-bottom:1px solid var(--border);">
+        <strong style="font-size:12.5px;">${escapeHtml((db.siswa.find(s=>s.id===c.siswaId)||{}).nama||"?")}</strong> &middot; <span class="muted" style="font-size:11.5px;">${fmtDate(c.tanggal)}</span>
+        <div class="muted" style="font-size:12px;">${escapeHtml((c.catatan||"").slice(0,70))}${(c.catatan||"").length>70?"...":""}</div></div>`).join("") : `<p class="muted">Belum ada catatan perkembangan siswa.</p>`}
+    </div>
+  </div>
+  <div class="card" style="margin-top:16px;">
+    <h3>${ic("bar",16)} Penilaian Terbaru</h3>
+    ${penilaianTerbaru.length? `<div class="table-wrap"><table><thead><tr><th>Siswa</th><th>Mapel</th><th>Tanggal</th><th>Nilai/Catatan</th></tr></thead><tbody>
+      ${penilaianTerbaru.map(p=>`<tr><td>${escapeHtml((db.siswa.find(s=>s.id===p.siswaId)||{}).nama||"?")}</td><td>${escapeHtml(p.mapel||"-")}</td><td>${fmtDate(p.tanggal)}</td><td>${p.nilai!=null?p.nilai:escapeHtml((p.catatan||"").slice(0,40))}</td></tr>`).join("")}
+      </tbody></table></div>` : `<p class="muted">Belum ada asesmen tercatat.</p>`}
+  </div>
+  <div class="card" style="margin-top:16px;">
+    <h3>${ic("bar",16)} Rekap Seluruh Kelas</h3>
+    <div class="grid grid-3">
+      ${rekapKelasRingkas.map(r=>`<div style="cursor:pointer;padding:10px;border:1.5px solid ${r.c.id===activeClassId?'var(--primary)':'var(--border)'};border-radius:10px;" onclick="switchActiveClass('${r.c.id}')">
+        <div class="muted" style="font-size:11px;">${r.c.id===activeClassId?"Aktif":"Klik utk pindah"}</div>
+        <strong>${r.c.label}</strong><div style="font-size:20px;font-weight:800;">${r.jumlah} siswa</div>
+      </div>`).join("")}
+    </div>
+    <button class="btn" style="margin-top:10px;" onclick="navigate('rekapSeluruhKelas')">${ic("bar",15)} Lihat Detail Rekap</button>
   </div>
   <div class="card" style="margin-top:16px;">
     <h3>${ic("backup",16)} Status Google Drive</h3>
@@ -1141,15 +1364,15 @@ PAGES.sekolah = function(){
       ${fieldHtml({key:"nipKepsek",label:"NIP Kepala Sekolah"}, s.nipKepsek)}
       ${fieldHtml({key:"tahunAjaran",label:"Tahun Ajaran"}, s.tahunAjaran)}
       ${fieldHtml({key:"semester",label:"Semester"}, s.semester)}
-      ${fieldHtml({key:"kelas",label:"Kelas Diampu"}, s.kelas)}
-      ${fieldHtml({key:"waliKelasId",label:"Wali Kelas 1 (pilih dari Data Guru)",type:"select",options:guruOpts}, s.waliKelasId)}
+      ${fieldHtml({key:"waliKelasId",label:"Wali "+classInfo(activeClassId).label+" (pilih dari Data Guru)",type:"select",options:guruOpts}, s.waliKelasId)}
     </div>
+    <p class="hint" style="margin-top:10px;">Kelas yang sedang diampu ditentukan oleh pemilih <strong>"Pilih Kelas Aktif"</strong> di bagian atas aplikasi (saat ini: <strong>${classInfo(activeClassId).label}</strong>), bukan lagi field terpisah di sini.</p>
     <button class="btn btn-primary" onclick="saveSekolah()">${ic("check",15)} Simpan Perubahan</button>
   </div>`;
 };
 function letterheadHtmlPreview(){ return letterheadHtml(); }
 function saveSekolah(){
-  const fields = ["namaSekolah","npsn","alamat","desa","kecamatan","kabupaten","provinsi","kodePos","telp","email","website","akreditasi","kepalaSekolah","nipKepsek","tahunAjaran","semester","kelas","waliKelasId"];
+  const fields = ["namaSekolah","npsn","alamat","desa","kecamatan","kabupaten","provinsi","kodePos","telp","email","website","akreditasi","kepalaSekolah","nipKepsek","tahunAjaran","semester","waliKelasId"];
   fields.forEach(k=>{ const el = document.getElementById("f_"+k); if(el) db.sekolah[k] = el.value; });
   saveDB(); toast("Profil sekolah tersimpan."); renderPage("sekolah");
 }
@@ -1160,6 +1383,7 @@ function printSekolah(){
     <tr><td><strong>Alamat</strong></td><td>: ${escapeHtml(db.sekolah.alamat)}, ${escapeHtml(db.sekolah.desa)}, ${escapeHtml(db.sekolah.kecamatan)}</td></tr>
     <tr><td><strong>Kabupaten/Provinsi</strong></td><td>: ${escapeHtml(db.sekolah.kabupaten)}, ${escapeHtml(db.sekolah.provinsi)}</td></tr>
     <tr><td><strong>Kepala Sekolah</strong></td><td>: ${escapeHtml(db.sekolah.kepalaSekolah)} (NIP ${escapeHtml(db.sekolah.nipKepsek)})</td></tr>
+    <tr><td><strong>Kelas</strong></td><td>: ${escapeHtml(classInfo(activeClassId).label)}</td></tr>
     <tr><td><strong>Tahun Ajaran</strong></td><td>: ${escapeHtml(db.sekolah.tahunAjaran)} - Semester ${escapeHtml(db.sekolah.semester)}</td></tr>
     </tbody></table>`);
 }
@@ -1170,7 +1394,7 @@ PAGES.guru = function(){
   window._guruTab = tabState;
   const rows = tabState==="guru" ? db.guru : db.tendik;
   const body = rows.map((r,i)=>`<tr>
-    <td>${i+1}</td><td><strong>${escapeHtml(r.nama)}</strong>${r.id===db.sekolah.waliKelasId?' <span class="badge badge-green">Wali Kelas 1</span>':''}</td>
+    <td>${i+1}</td><td><strong>${escapeHtml(r.nama)}</strong>${r.id===db.sekolah.waliKelasId?' <span class="badge badge-green">Wali '+escapeHtml(classInfo(activeClassId).label)+'</span>':''}</td>
     <td>${escapeHtml(r.jk)}</td><td>${escapeHtml(r.nip||'-')}</td><td>${escapeHtml(r.status)}</td>
     <td>${escapeHtml(r.jabatan||'-')}</td><td>${escapeHtml(r.hp||'-')}</td>
     <td><div class="row-actions">
@@ -1229,6 +1453,7 @@ function deleteStaff(tab,id){
 /* ---------- DATA SISWA ---------- */
 function siswaFields(){
   return [
+    {key:"no",label:"No. Absen",type:"number"},
     {key:"nama",label:"Nama Lengkap",required:true}, {key:"jk",label:"Jenis Kelamin",type:"select",options:["L","P"]},
     {key:"nis",label:"NIS"}, {key:"nisn",label:"NISN"},
     {key:"ttl",label:"Tempat, Tanggal Lahir"}, {key:"anakKe",label:"Anak Ke-"}, {key:"jmlSdr",label:"Jumlah Saudara"},
@@ -1238,42 +1463,84 @@ function siswaFields(){
     {key:"alamat",label:"Alamat"}, {key:"ket",label:"Keterangan"},
   ];
 }
+/* Menyusun ulang No. Absen agar selalu berurutan 1..N tanpa celah/duplikat,
+   sesuai urutan No. Absen yang berlaku saat ini (mengikuti perubahan manual
+   guru lewat field "No. Absen" pada form Tambah/Ubah). Dipanggil setelah
+   setiap tambah/ubah/hapus/impor/pindah/naik kelas. */
+function renumberSiswaArray(arr){
+  arr.sort((a,b)=>{
+    const na = Number(a.no); const nb = Number(b.no);
+    const va = isNaN(na) ? 999999 : na, vb = isNaN(nb) ? 999999 : nb;
+    return va - vb;
+  });
+  arr.forEach((s,i)=>{ s.no = i+1; });
+  return arr;
+}
 PAGES.siswa = function(){
   const q = (window._siswaQ||"").toLowerCase();
-  let data = db.siswa.slice().sort((a,b)=>(a.no||0)-(b.no||0));
+  const sortMode = window._siswaSort || "no";
+  const jkFilter = window._siswaFilterJK || "";
+  let data = db.siswa.slice();
+  if(jkFilter) data = data.filter(s=>s.jk===jkFilter);
   if(q) data = data.filter(s=>[s.nama,s.nis,s.nisn,s.alamat].some(v=>String(v||"").toLowerCase().includes(q)));
+  data = sortMode==="nama" ? data.sort((a,b)=>(a.nama||"").localeCompare(b.nama||"")) : data.sort((a,b)=>(a.no||0)-(b.no||0));
+  const isKelas6 = activeClassId==="kelas-6";
   const body = data.map((s,i)=>`<tr>
-    <td>${i+1}</td>
+    <td>${s.no||(i+1)}</td>
     <td><strong>${escapeHtml(s.nama)}</strong><div class="muted" style="font-size:11px;">${escapeHtml(s.ttl||"")}</div></td>
     <td><span class="badge ${s.jk==='L'?'badge-blue':'badge-orange'}">${escapeHtml(s.jk)}</span></td>
     <td>${escapeHtml(s.nis||'[Diisi Guru]')}</td><td>${escapeHtml(s.nisn||'[Diisi Guru]')}</td>
     <td>${escapeHtml(s.ayah||'-')}</td><td>${escapeHtml(s.ibu||'-')}</td>
     <td>${escapeHtml(s.alamat||'-')}</td>
     <td><div class="row-actions">
-      <button class="btn btn-sm btn-icon" onclick="editSiswa('${s.id}')">${ic("edit",15)}</button>
-      <button class="btn btn-sm btn-icon btn-danger" onclick="deleteSiswa('${s.id}')">${ic("trash",15)}</button>
+      <button class="btn btn-sm btn-icon" title="Ubah" onclick="editSiswa('${s.id}')">${ic("edit",15)}</button>
+      <button class="btn btn-sm btn-icon" title="Pindah Kelas" onclick="pindahSiswaKelas('${s.id}')">${ic("users",15)}</button>
+      <button class="btn btn-sm btn-icon btn-danger" title="Hapus" onclick="deleteSiswa('${s.id}')">${ic("trash",15)}</button>
     </div></td></tr>`).join("");
   return `
-  <div class="section-head"><div><h1>Data Siswa</h1><div class="desc">Kelas ${escapeHtml(db.sekolah.kelas)} &middot; ${db.siswa.length} siswa terdaftar (sumber: Data Siswa 2026/2027).</div></div>
+  <div class="section-head"><div><h1>Data Siswa</h1><div class="desc">${escapeHtml(classInfo(activeClassId).label)} &middot; ${db.siswa.length} siswa terdaftar.</div></div>
     <div class="grow"></div>
     <button class="btn" onclick="exportCSV('siswa', null, ${JSON.stringify(siswaFields().map(f=>({key:f.key,label:f.label})))})">${ic("download",15)} CSV</button>
     <button class="btn" onclick="exportSiswaWord()">${ic("doc",15)} Word</button>
     <button class="btn" onclick="exportSiswaExcel()">${ic("bar",15)} Excel</button>
     <button class="btn" onclick="printSiswa()">${ic("print",15)} Cetak</button>
     <button class="btn btn-primary" onclick="addSiswa()">${ic("plus",15)} Tambah</button>
+    <button class="btn" style="border-color:var(--warn);color:var(--warn);" onclick="${isKelas6?'kelas6LulusDialog()':'naikKelasBulk()'}">${ic("check2",15)} ${isKelas6?"Lulus / Arsip Alumni":"Naik Kelas"}</button>
   </div>
-  <div class="toolbar"><div class="search-box">${ic("search",16)}<input placeholder="Cari nama / NIS / NISN / alamat..." oninput="window._siswaQ=this.value; renderPage('siswa');"></div></div>
+  <div class="card" style="margin-bottom:14px;">
+    <h3 style="font-size:13px;">${ic("download",15)} Import Data Siswa (.csv)</h3>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+      <input type="file" id="importSiswaFile" accept=".csv" style="flex:1;min-width:200px;">
+      <button class="btn" onclick="importSiswaCSV()">${ic("download",15)} Impor</button>
+    </div>
+    <p class="hint" style="font-size:11px;margin-top:6px;">Header kolom CSV harus sesuai nama field (mis. "Nama Lengkap", "NIS", "NISN", dst.) -- lihat urutan kolom pada hasil Export CSV sebagai contoh format.</p>
+  </div>
+  <div class="toolbar" style="flex-wrap:wrap;gap:10px;">
+    <div class="search-box">${ic("search",16)}<input placeholder="Cari nama / NIS / NISN / alamat..." oninput="window._siswaQ=this.value; renderPage('siswa');"></div>
+    <select onchange="window._siswaSort=this.value; renderPage('siswa');" style="max-width:180px;">
+      <option value="no" ${sortMode==="no"?"selected":""}>Urutkan: No. Absen</option>
+      <option value="nama" ${sortMode==="nama"?"selected":""}>Urutkan: Alfabetis</option>
+    </select>
+    <select onchange="window._siswaFilterJK=this.value; renderPage('siswa');" style="max-width:160px;">
+      <option value="" ${jkFilter===""?"selected":""}>Semua Jenis Kelamin</option>
+      <option value="L" ${jkFilter==="L"?"selected":""}>Laki-laki</option>
+      <option value="P" ${jkFilter==="P"?"selected":""}>Perempuan</option>
+    </select>
+  </div>
   <div class="table-wrap"><table><thead><tr><th>No</th><th>Nama Siswa</th><th>JK</th><th>NIS</th><th>NISN</th><th>Ayah</th><th>Ibu</th><th>Alamat</th><th style="text-align:right">Aksi</th></tr></thead>
   <tbody>${body || `<tr><td colspan="9" class="empty-state">Tidak ada data ditemukan.</td></tr>`}</tbody></table></div>`;
 };
 function addSiswa(){
-  openModal({title:"Tambah Siswa", bodyHtml:`<div class="form-grid">${siswaFields().map(f=>fieldHtml(f,"")).join("")}</div>`,
+  openModal({title:"Tambah Siswa", bodyHtml:`<div class="form-grid">${siswaFields().map(f=>fieldHtml(f, f.key==="no" ? (db.siswa.length+1) : "")).join("")}</div>`,
     footHtml:`<button class="btn" onclick="closeModal()">Batal</button><button class="btn btn-primary" id="saveSiswaBtn">${ic("check",15)} Simpan</button>`});
   document.getElementById("saveSiswaBtn").onclick = ()=>{
     const data = readForm(siswaFields());
     if(!data.nama){ toast("Nama wajib diisi."); return; }
-    data.id = uid("s"); data.no = db.siswa.length+1;
-    db.siswa.push(data); saveDB(); closeModal(); toast("Siswa ditambahkan."); renderPage("siswa");
+    data.id = uid("s");
+    if(!data.no || isNaN(Number(data.no))) data.no = db.siswa.length+1;
+    db.siswa.push(data);
+    renumberSiswaArray(db.siswa);
+    saveDB(); closeModal(); toast("Siswa ditambahkan."); renderPage("siswa");
   };
 }
 function editSiswa(id){
@@ -1281,24 +1548,140 @@ function editSiswa(id){
   openModal({title:"Ubah Data Siswa", bodyHtml:`<div class="form-grid">${siswaFields().map(f=>fieldHtml(f,row[f.key])).join("")}</div>`,
     footHtml:`<button class="btn" onclick="closeModal()">Batal</button><button class="btn btn-primary" id="saveSiswaBtn">${ic("check",15)} Simpan</button>`});
   document.getElementById("saveSiswaBtn").onclick = ()=>{
-    Object.assign(row, readForm(siswaFields())); saveDB(); closeModal(); toast("Perubahan disimpan."); renderPage("siswa");
+    Object.assign(row, readForm(siswaFields()));
+    if(!row.no || isNaN(Number(row.no))) row.no = db.siswa.length;
+    renumberSiswaArray(db.siswa);
+    saveDB(); closeModal(); toast("Perubahan disimpan."); renderPage("siswa");
   };
 }
 function deleteSiswa(id){
-  confirmDialog("Hapus data siswa ini?", ()=>{ db.siswa = db.siswa.filter(s=>s.id!==id); saveDB(); toast("Dihapus."); renderPage("siswa"); });
+  confirmDialog("Hapus data siswa ini? No. Absen siswa lain akan otomatis dirapikan ulang.", ()=>{
+    db.siswa = db.siswa.filter(s=>s.id!==id);
+    renumberSiswaArray(db.siswa);
+    saveDB(); toast("Dihapus. No. Absen dirapikan ulang."); renderPage("siswa");
+  });
 }
 function exportSiswaWord(){
   const cols = [{key:"nama",label:"Nama"},{key:"jk",label:"JK"},{key:"nis",label:"NIS"},{key:"nisn",label:"NISN"},{key:"ttl",label:"TTL"},{key:"ayah",label:"Ayah"},{key:"ibu",label:"Ibu"},{key:"alamat",label:"Alamat"}];
   const body = `${letterheadHtml()}<div class="doc-title">DAFTAR SISWA KELAS ${escapeHtml(db.sekolah.kelas).toUpperCase()} T.A. ${escapeHtml(db.sekolah.tahunAjaran)}</div>${tableHtmlFromRows(cols, db.siswa)}`;
-  htmlToWordDoc(body, "Daftar_Siswa_Kelas1", "Daftar Siswa");
+  htmlToWordDoc(body, "Daftar_Siswa", "Daftar Siswa");
 }
 function exportSiswaExcel(){
   const cols = [{key:"nama",label:"Nama"},{key:"jk",label:"JK"},{key:"nis",label:"NIS"},{key:"nisn",label:"NISN"},{key:"ttl",label:"TTL"},{key:"ayah",label:"Ayah"},{key:"ibu",label:"Ibu"},{key:"pekerjaanOrtu",label:"Pekerjaan Ortu"},{key:"alamat",label:"Alamat"}];
-  htmlToExcelXls(tableHtmlFromRows(cols, db.siswa), "Data_Siswa_Kelas1", "Data Siswa");
+  htmlToExcelXls(tableHtmlFromRows(cols, db.siswa), "Data_Siswa", "Data Siswa");
 }
 function printSiswa(){
   const cols = [{key:"nama",label:"Nama"},{key:"jk",label:"JK"},{key:"nis",label:"NIS"},{key:"nisn",label:"NISN"},{key:"ttl",label:"TTL"},{key:"alamat",label:"Alamat"}];
   printDocument("DAFTAR SISWA KELAS "+db.sekolah.kelas.toUpperCase(), tableHtmlFromRows(cols, db.siswa));
+}
+/* ---- Naik Kelas / Pindah Kelas / Lulus & Arsip Alumni ---- */
+function naikKelasBulk(){
+  const next = nextClassId(activeClassId);
+  if(!next){ kelas6LulusDialog(); return; }
+  if(!db.siswa.length){ toast("Tidak ada siswa untuk dinaikkan."); return; }
+  const nextLabel = classInfo(next).label, curLabel = classInfo(activeClassId).label;
+  confirmDialog(`Naikkan SELURUH ${db.siswa.length} siswa dari ${curLabel} ke ${nextLabel}? Data akademik (nilai, kehadiran, jurnal, dst.) ${curLabel} tetap tersimpan sebagai arsip dan TIDAK terhapus. Setiap siswa akan memulai catatan baru yang kosong di ${nextLabel}.`, ()=>{
+    const targetCls = loadClassDB(next);
+    const startNo = targetCls.siswa.length;
+    db.siswa.forEach((s,i)=>{ targetCls.siswa.push(Object.assign({}, s, {no: startNo+i+1})); });
+    renumberSiswaArray(targetCls.siswa);
+    saveClassDB(next, targetCls);
+    const kkLog = db.kenaikanKelas.slice();
+    db.siswa.forEach(s=> kkLog.push({id:uid("kk"), siswaId:s.id, tahunAjaran:db.sekolah.tahunAjaran, keputusan:"Naik Kelas", keterangan:"Naik massal dari "+curLabel+" ke "+nextLabel}));
+    db.kenaikanKelas = kkLog;
+    db.siswa = [];
+    saveDB();
+    toast(`Berhasil menaikkan siswa dari ${curLabel} ke ${nextLabel}.`);
+    renderPage("siswa");
+  });
+}
+function kelas6LulusDialog(){
+  if(!db.siswa.length){ toast("Tidak ada siswa untuk diluluskan."); return; }
+  openModal({title:"Kelulusan "+classInfo(activeClassId).label, bodyHtml:`
+    <p style="font-size:13px;">${classInfo(activeClassId).label} adalah jenjang akhir SD. ${db.siswa.length} siswa akan dipindahkan ke Arsip Alumni.</p>
+    <div class="field"><label>Tahun Lulus</label><input id="tahunLulusInput" value="${new Date().getFullYear()}"></div>
+    <p class="hint">Data akademik ${classInfo(activeClassId).label} (nilai, kehadiran, jurnal, dst.) tetap tersimpan sebagai arsip dan TIDAK terhapus.</p>`,
+    footHtml:`<button class="btn" onclick="closeModal()">Batal</button><button class="btn btn-primary" id="lulusBtn">${ic("check2",15)} Luluskan &amp; Arsipkan</button>`});
+  document.getElementById("lulusBtn").onclick = ()=>{
+    const tahun = (document.getElementById("tahunLulusInput").value||"").trim() || String(new Date().getFullYear());
+    const alumni = loadAlumni();
+    db.siswa.forEach(s=> alumni.push(Object.assign({}, s, {tahunLulus:tahun, kelasTerakhir:classInfo(activeClassId).label})));
+    saveAlumni(alumni);
+    const kkLog = db.kenaikanKelas.slice();
+    db.siswa.forEach(s=> kkLog.push({id:uid("kk"), siswaId:s.id, tahunAjaran:db.sekolah.tahunAjaran, keputusan:"Naik Kelas", keterangan:"Lulus / Arsip Alumni tahun "+tahun}));
+    db.kenaikanKelas = kkLog;
+    db.siswa = [];
+    saveDB(); closeModal();
+    toast(alumni.length+" siswa diarsipkan sebagai alumni.");
+    renderPage("siswa");
+  };
+}
+function pindahSiswaKelas(id){
+  const s = db.siswa.find(x=>x.id===id); if(!s) return;
+  const opts = CLASS_LIST.filter(c=>c.id!==activeClassId).map(c=>`<option value="${c.id}">${c.label}</option>`).join("");
+  openModal({title:"Pindahkan Siswa ke Kelas Lain", bodyHtml:`
+    <p style="font-size:13px;">Pindahkan <strong>${escapeHtml(s.nama)}</strong> dari ${classInfo(activeClassId).label} ke:</p>
+    <div class="field"><select id="targetKelasSel">${opts}</select></div>
+    <p class="hint">Data akademik siswa di ${classInfo(activeClassId).label} tetap tersimpan sebagai arsip.</p>`,
+    footHtml:`<button class="btn" onclick="closeModal()">Batal</button><button class="btn btn-primary" id="pindahBtn">${ic("check",15)} Pindahkan</button>`});
+  document.getElementById("pindahBtn").onclick = ()=>{
+    const target = document.getElementById("targetKelasSel").value;
+    const targetCls = loadClassDB(target);
+    targetCls.siswa.push(Object.assign({}, s, {no: targetCls.siswa.length+1}));
+    renumberSiswaArray(targetCls.siswa);
+    saveClassDB(target, targetCls);
+    db.siswa = db.siswa.filter(x=>x.id!==id);
+    renumberSiswaArray(db.siswa);
+    saveDB(); closeModal();
+    toast(escapeHtml(s.nama)+" dipindahkan ke "+classInfo(target).label+".");
+    renderPage("siswa");
+  };
+}
+/* ---- Import CSV sederhana (tanpa pustaka eksternal) ---- */
+function parseCsvLine(line){
+  const out=[]; let cur=""; let inQ=false;
+  for(let i=0;i<line.length;i++){
+    const ch=line[i];
+    if(inQ){
+      if(ch==='"' && line[i+1]==='"'){ cur+='"'; i++; }
+      else if(ch==='"'){ inQ=false; }
+      else cur+=ch;
+    } else {
+      if(ch==='"') inQ=true;
+      else if(ch===','){ out.push(cur); cur=""; }
+      else cur+=ch;
+    }
+  }
+  out.push(cur);
+  return out;
+}
+function importSiswaCSV(){
+  const inp = document.getElementById("importSiswaFile");
+  if(!inp || !inp.files.length){ toast("Pilih file CSV terlebih dahulu."); return; }
+  const reader = new FileReader();
+  reader.onload = e=>{
+    try{
+      const text = String(e.target.result).replace(/^\ufeff/,"");
+      const lines = text.split(/\r?\n/).filter(l=>l.trim().length);
+      if(lines.length<2){ toast("File CSV kosong atau tidak valid."); return; }
+      const headers = parseCsvLine(lines[0]).map(h=>h.trim().toLowerCase());
+      const keyMap = {}; siswaFields().forEach(f=>{ keyMap[f.label.toLowerCase()] = f.key; });
+      let added = 0;
+      for(let i=1;i<lines.length;i++){
+        const cells = parseCsvLine(lines[i]);
+        if(!cells.length) continue;
+        const rec = {};
+        headers.forEach((h,idx)=>{ const key = keyMap[h]; if(key) rec[key] = (cells[idx]||"").trim(); });
+        if(!rec.nama) continue;
+        rec.id = uid("s");
+        if(!rec.no || isNaN(Number(rec.no))) rec.no = db.siswa.length+1;
+        db.siswa.push(rec); added++;
+      }
+      renumberSiswaArray(db.siswa);
+      saveDB(); toast(added+" siswa berhasil diimpor. No. Absen otomatis dirapikan."); renderPage("siswa");
+    }catch(err){ toast("Gagal membaca file CSV: "+err.message); }
+  };
+  reader.readAsText(inp.files[0]);
 }
 
 /* ---------- DATA ORANG TUA ---------- */
@@ -2209,6 +2592,50 @@ PAGES.pekerjaanOrtu = function(){
 };
 function printPekerjaanOrtu(){ printDocument("DATA PEKERJAAN ORANG TUA", document.getElementById("pekerjaanOrtuHolder").innerHTML); }
 
+/* ---------- REKAP SELURUH KELAS (ringkasan jumlah siswa Kelas 1-6, klik utk pindah kelas) ---------- */
+PAGES.rekapSeluruhKelas = function(){
+  const rows = CLASS_LIST.map(c=>{
+    const data = (c.id===activeClassId) ? db : loadClassDB(c.id);
+    const siswaArr = data.siswa || [];
+    const l = siswaArr.filter(s=>s.jk==="L").length, p = siswaArr.filter(s=>s.jk==="P").length;
+    return {c, jumlah:siswaArr.length, l, p};
+  });
+  const cards = rows.map(r=>`
+    <div class="card" style="cursor:pointer;border-color:${r.c.id===activeClassId?'var(--primary)':'var(--border)'};" onclick="switchActiveClass('${r.c.id}')">
+      <div class="muted" style="font-size:11.5px;">${r.c.id===activeClassId?'<strong>KELAS AKTIF</strong>':'Klik untuk pindah'}</div>
+      <h3 style="margin:4px 0;">${r.c.label}</h3>
+      <div style="font-size:26px;font-weight:800;">${r.jumlah}</div>
+      <div class="muted" style="font-size:12px;">${r.l} L &middot; ${r.p} P</div>
+    </div>`).join("");
+  const totalSiswa = rows.reduce((a,r)=>a+r.jumlah,0);
+  return `
+  <div class="section-head"><div><h1>Rekap Seluruh Kelas</h1><div class="desc">Ringkasan jumlah siswa Kelas 1 s.d. Kelas 6. Klik kartu kelas untuk langsung menjadikannya kelas aktif.</div></div>
+    <div class="grow"></div><span class="badge badge-blue">Total ${totalSiswa} siswa</span></div>
+  <div class="grid grid-3">${cards}</div>`;
+};
+
+/* ---------- ARSIP ALUMNI (LULUSAN KELAS 6) ---------- */
+PAGES.alumni = function(){
+  const q = (window._alumniQ||"").toLowerCase();
+  let data = loadAlumni().slice().reverse();
+  if(q) data = data.filter(s=>[s.nama,s.tahunLulus].some(v=>String(v||"").toLowerCase().includes(q)));
+  const body = data.map((s,i)=>`<tr><td>${i+1}</td><td><strong>${escapeHtml(s.nama)}</strong></td>
+    <td>${escapeHtml(s.jk||'-')}</td><td>${escapeHtml(s.nis||'-')}</td><td>${escapeHtml(s.nisn||'-')}</td>
+    <td>${escapeHtml(s.kelasTerakhir||'-')}</td><td>${escapeHtml(s.tahunLulus||'-')}</td></tr>`).join("");
+  return `
+  <div class="section-head"><div><h1>Arsip Alumni (Lulusan)</h1><div class="desc">Siswa yang telah diluluskan dari Kelas 6 lewat menu "Lulus / Arsip Alumni" pada Data Siswa. Data akademik terakhir mereka tetap tersimpan utuh di data Kelas 6 tahun kelulusannya.</div></div>
+    <div class="grow"></div>
+    <button class="btn" onclick="exportAlumniCSV()">${ic("download",15)} CSV</button>
+  </div>
+  <div class="toolbar"><div class="search-box">${ic("search",16)}<input placeholder="Cari nama / tahun lulus..." oninput="window._alumniQ=this.value; renderPage('alumni');"></div></div>
+  <div class="table-wrap"><table><thead><tr><th>No</th><th>Nama</th><th>JK</th><th>NIS</th><th>NISN</th><th>Kelas Terakhir</th><th>Tahun Lulus</th></tr></thead>
+  <tbody>${body || `<tr><td colspan="7" class="empty-state">Belum ada alumni yang diarsipkan.</td></tr>`}</tbody></table></div>`;
+};
+function exportAlumniCSV(){
+  const cols = [{key:"nama",label:"Nama"},{key:"jk",label:"JK"},{key:"nis",label:"NIS"},{key:"nisn",label:"NISN"},{key:"kelasTerakhir",label:"Kelas Terakhir"},{key:"tahunLulus",label:"Tahun Lulus"}];
+  exportCSV("__alumni__", loadAlumni(), cols, "arsip_alumni");
+}
+
 /* ---------- REKAP ABSEN BULANAN (12 BULAN, dihitung dari Kehadiran) ---------- */
 PAGES.rekapAbsenTahunan = function(){
   const months = BULAN_TA.map((nm,i)=>({nm, bln:String(bulanTaToMonthNum(i)).padStart(2,"0")}));
@@ -2569,33 +2996,66 @@ function printTulisan(id){
   printDocument(t.judul.toUpperCase(), `<img src="${t.dataUrl}" style="width:100%;border:1px solid #333;">`);
 }
 
-/* ---------- BACKUP & RESTORE ---------- */
+/* ---------- BACKUP & RESTORE (mencakup seluruh kelas) ---------- */
+function collectFullBackupPayload(){
+  saveDB(); // pastikan kelas aktif tersimpan dulu sebelum dikumpulkan
+  const classes = {};
+  CLASS_LIST.forEach(c=>{ classes[c.id] = loadClassDB(c.id); });
+  return {
+    shared: loadSharedDB(),
+    classes,
+    alumni: loadAlumni(),
+    activeClassId,
+    settings,
+    exportedAt: new Date().toISOString(),
+    appVersion: "2026.2-multikelas",
+  };
+}
+function applyFullBackupPayload(payload){
+  if(payload.classes){
+    if(payload.shared) saveSharedDB(Object.assign(defaultSharedDB(), payload.shared));
+    CLASS_LIST.forEach(c=>{ if(payload.classes[c.id]) saveClassDB(c.id, Object.assign(defaultClassDB(c.id), payload.classes[c.id])); });
+  } else if(payload.db){
+    // Kompatibilitas mundur: backup versi LAMA (satu kelas) dianggap milik Kelas 1
+    const merged = Object.assign(defaultDB(), payload.db);
+    const shared = {}; SHARED_FIELDS.forEach(k=> shared[k]=merged[k]);
+    saveSharedDB(Object.assign(defaultSharedDB(), shared));
+    const cls = {}; Object.keys(merged).forEach(k=>{ if(!SHARED_FIELDS.includes(k)) cls[k]=merged[k]; });
+    cls.waliKelasId = merged.sekolah.waliKelasId||"";
+    saveClassDB("kelas-1", cls);
+  }
+  if(payload.alumni) saveAlumni(payload.alumni);
+  if(payload.settings){ settings = Object.assign(defaultSettings(), payload.settings); saveSettings(); applyTheme(); }
+  activeClassId = (payload.activeClassId && CLASS_LIST.some(c=>c.id===payload.activeClassId)) ? payload.activeClassId : "kelas-1";
+  localStorage.setItem(ACTIVE_CLASS_KEY, activeClassId);
+  db = loadDB();
+}
 PAGES.backup = function(){
-  const sizeKb = Math.round((JSON.stringify(db).length)/1024);
+  const sizeKb = Math.round((JSON.stringify(collectFullBackupPayload()).length)/1024);
   return `
-  <div class="section-head"><div><h1>Backup &amp; Restore Data</h1><div class="desc">Seluruh data aplikasi tersimpan lokal di perangkat ini. Cadangkan secara berkala.</div></div></div>
+  <div class="section-head"><div><h1>Backup &amp; Restore Data (Semua Kelas)</h1><div class="desc">Backup mencakup Kelas 1 s.d. Kelas 6 sekaligus, data sekolah bersama (guru/tendik/kalender), dan arsip alumni. Tersimpan lokal di perangkat ini.</div></div></div>
   <div class="grid grid-2">
     <div class="card">
       <h3>${ic("backup",16)} Backup Data</h3>
-      <p class="muted">Ukuran data saat ini: &plusmn; ${sizeKb} KB.</p>
+      <p class="muted">Ukuran data seluruh kelas saat ini: &plusmn; ${sizeKb} KB.</p>
       <button class="btn btn-primary" onclick="backupData()">${ic("download",15)} Unduh Backup (.json)</button>
     </div>
     <div class="card">
       <h3>${ic("backup",16)} Restore Data</h3>
-      <p class="muted">Pilih file backup .json yang pernah diunduh untuk memulihkan data.</p>
+      <p class="muted">Pilih file backup .json (mendukung backup baru multi-kelas maupun backup lama Kelas 1) untuk memulihkan data.</p>
       <input type="file" id="restoreFile" accept=".json" style="margin-bottom:10px;">
       <button class="btn btn-primary" onclick="restoreData()">${ic("check",15)} Pulihkan Data</button>
     </div>
   </div>
   <div class="card" style="margin-top:16px;border-color:var(--danger);">
     <h3 style="color:var(--danger);">${ic("trash",16)} Reset Aplikasi</h3>
-    <p class="muted">Menghapus SELURUH data dan mengembalikan ke data awal (siswa/guru dari dokumen resmi). Tindakan tidak dapat dibatalkan.</p>
+    <p class="muted">Menghapus SELURUH data (semua kelas, sekolah, alumni) dan mengembalikan ke data awal (siswa/guru Kelas 1 dari dokumen resmi; Kelas 2-6 kosong). Tindakan tidak dapat dibatalkan.</p>
     <button class="btn btn-danger" onclick="resetApp()">Reset Seluruh Data</button>
   </div>`;
 };
 function backupData(){
-  downloadBlob(JSON.stringify({db,settings,exportedAt:new Date().toISOString()},null,2), "backup_teacher_planner_"+todayISO()+".json", "application/json");
-  toast("Backup berhasil diunduh.");
+  downloadBlob(JSON.stringify(collectFullBackupPayload(),null,2), "backup_teacher_planner_semua_kelas_"+todayISO()+".json", "application/json");
+  toast("Backup seluruh kelas berhasil diunduh.");
 }
 function restoreData(){
   const inp = document.getElementById("restoreFile");
@@ -2604,18 +3064,23 @@ function restoreData(){
   reader.onload = e=>{
     try{
       const parsed = JSON.parse(e.target.result);
-      if(parsed.db){ db = Object.assign(defaultDB(), parsed.db); saveDB(); }
-      if(parsed.settings){ settings = Object.assign(defaultSettings(), parsed.settings); saveSettings(); applyTheme(); }
-      toast("Data berhasil dipulihkan."); renderPage("dashboard"); navigate("dashboard");
+      applyFullBackupPayload(parsed);
+      toast("Data berhasil dipulihkan."); buildSidebar(); renderPage("dashboard"); navigate("dashboard");
     }catch(err){ toast("File backup tidak valid."); }
   };
   reader.readAsText(inp.files[0]);
 }
 function resetApp(){
-  confirmDialog("Yakin ingin mereset SELURUH data aplikasi ke kondisi awal?", ()=>{
+  confirmDialog("Yakin ingin mereset SELURUH data aplikasi (semua kelas) ke kondisi awal?", ()=>{
     localStorage.removeItem(DB_KEY);
+    localStorage.removeItem(SHARED_KEY);
+    localStorage.removeItem(ALUMNI_KEY);
+    CLASS_LIST.forEach(c=> localStorage.removeItem(classKey(c.id)));
+    localStorage.removeItem(MIGRATION_FLAG_KEY);
+    localStorage.setItem(ACTIVE_CLASS_KEY, "kelas-1");
+    activeClassId = "kelas-1";
     db = loadDB(); saveDB();
-    toast("Aplikasi telah direset."); renderPage("dashboard"); navigate("dashboard");
+    toast("Aplikasi telah direset."); buildSidebar(); renderPage("dashboard"); navigate("dashboard");
   });
 }
 
@@ -2766,7 +3231,9 @@ async function gdriveBackupNow(passwordForEncrypt){
   gdriveSetSyncStatus("Sedang Sinkron");
   try{
     await gdriveEnsureFolder();
-    const payload = JSON.stringify({db, settings:Object.assign({},settings,{gdrive:undefined}), exportedAt:new Date().toISOString(), appVersion:"2026.1"});
+    const fullPayload = collectFullBackupPayload();
+    fullPayload.settings = Object.assign({}, fullPayload.settings, {gdrive:undefined});
+    const payload = JSON.stringify(fullPayload);
     let body = payload, encrypted = false;
     if(passwordForEncrypt){ body = await gdriveEncryptText(payload, passwordForEncrypt); encrypted = true; }
     const stamp = new Date().toISOString().slice(0,16).replace(/[T:]/g,"-");
@@ -2839,11 +3306,12 @@ function gdriveRestore(fileId, filename, isEncrypted){
         text = await gdriveDecryptText(text, pw);
       }
       const parsed = JSON.parse(text);
-      if(parsed.db){ db = Object.assign(defaultDB(), parsed.db); saveDB(); }
-      if(parsed.settings){ settings = Object.assign(defaultSettings(), parsed.settings, {gdrive:settings.gdrive}); saveSettings(); applyTheme(); }
+      const keepGdriveSettings = settings.gdrive;
+      applyFullBackupPayload(parsed);
+      settings.gdrive = keepGdriveSettings; saveSettings();
       gdriveLog("Restore","Berhasil",filename);
       toast("Data berhasil dipulihkan dari Google Drive.");
-      renderPage("dashboard"); navigate("dashboard");
+      buildSidebar(); renderPage("dashboard"); navigate("dashboard");
     }catch(e){ gdriveLog("Restore","Gagal",e.message); toast("Restore gagal: "+e.message+(isEncrypted?" (periksa kembali password).":"")); }
   });
 }
@@ -3043,9 +3511,13 @@ PAGES.pengaturan = function(){
     <h3>${ic("info",16)} Tentang Aplikasi &amp; Batasan Jujur</h3>
     <p class="hint" style="font-size:12.5px;line-height:1.7;">
       Teacher Planner SD 2026 berjalan 100% offline dari satu file HTML, tanpa server maupun instalasi. Beberapa catatan penting:<br><br>
-      &bull; <strong>Penyimpanan:</strong> menggunakan localStorage pada browser perangkat ini. Data tidak tersinkron otomatis ke perangkat lain -- gunakan menu Backup &amp; Restore (Lokal atau Google Drive) untuk memindahkan data.<br>
+      &bull; <strong>Multi-Kelas:</strong> pemilih "Kelas Aktif" di bagian atas aplikasi menentukan seluruh data yang ditampilkan (siswa, kehadiran, nilai, jurnal, jadwal, dsb). Data setiap kelas disimpan terpisah dan tidak pernah tercampur. Data guru/tendik, profil sekolah, dan kalender pendidikan bersifat sekolah (dipakai bersama semua kelas), sedangkan Wali Kelas diatur per kelas.<br>
+      &bull; <strong>Kelas 2-6 dimulai kosong:</strong> hanya Kelas 1 yang memiliki data siswa/guru dari dokumen resmi yang diunggah. Kelas 2-6 sengaja tidak diisi data karangan -- silakan tambah/impor data siswa sendiri lewat menu Data Siswa pada tiap kelas.<br>
+      &bull; <strong>Capaian Pembelajaran (CP/ATP/KKTP):</strong> versi bawaan aplikasi hanya berisi kutipan resmi Fase A khusus Kelas 1. Untuk Kelas 2-6, isi CP/ATP/KKTP perlu ditambahkan sendiri lewat menu masing-masing karena dokumen sumber Fase B/C/D/E/F belum tersedia di aplikasi ini.<br>
+      &bull; <strong>Naik Kelas / Pindah Kelas:</strong> memindahkan data siswa ke kelas tujuan dan mengosongkan roster kelas asal untuk tahun ajaran berikutnya. Data akademik (nilai, kehadiran, jurnal, dst.) kelas asal TETAP tersimpan sebagai arsip, tidak terhapus.<br>
+      &bull; <strong>Penyimpanan:</strong> menggunakan localStorage pada browser perangkat ini. Data tidak tersinkron otomatis ke perangkat lain -- gunakan menu Backup &amp; Restore (Lokal atau Google Drive) untuk memindahkan data; backup selalu mencakup Kelas 1-6 sekaligus.<br>
       &bull; <strong>Backup Google Drive:</strong> fitur opsional yang butuh internet, Client ID Google milik sendiri, dan hosting non-file:// (lihat panduan di atas). Tanpa itu, aplikasi tetap 100% offline seperti biasa.<br>
-      &bull; <strong>Ekspor Word (.doc) &amp; Excel (.xls):</strong> dibuat dengan format HTML yang dibaca native oleh Microsoft Word/Excel tanpa pustaka eksternal. Berkas akan terbuka dengan baik walau ikon file menunjukkan format lama (.doc/.xls, bukan .docx/.xlsx).<br>
+      &bull; <strong>Ekspor Word (.doc) &amp; Excel (.xls):</strong> dibuat dengan format HTML yang dibaca native oleh Microsoft Word/Excel tanpa pustaka eksternal. Berkas akan terbuka dengan baik walau ikon file menunjukkan format lama (.doc/.xls, bukan .docx/.xlsx). Nama file otomatis menyertakan kelas aktif (mis. "..._Kelas-3").<br>
       &bull; <strong>Ekspor PDF:</strong> memakai dialog cetak bawaan browser (pilih "Simpan sebagai PDF").<br>
       &bull; <strong>Tulisan tangan ke teks (OCR):</strong> tidak tersedia offline murni HTML/JS; catatan tangan disimpan sebagai gambar.<br>
       &bull; <strong>Keamanan PIN:</strong> untuk mencegah akses tidak sengaja di perangkat bersama, bukan enkripsi tingkat industri.
