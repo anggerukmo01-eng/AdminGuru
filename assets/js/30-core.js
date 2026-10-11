@@ -92,7 +92,7 @@ const NAV = [
    {id:"asesdiag", label:"Asesmen Diagnostik", icon:"eye"},
    {id:"asesform", label:"Asesmen Formatif", icon:"edit"},
    {id:"asessum", label:"Asesmen Sumatif", icon:"check2"},
-   {id:"rekapnilai", label:"Rekap Nilai", icon:"bar"},
+   {id:"rekapnilai", label:"Daftar Nilai", icon:"bar"},
    {id:"prestasiSiswa", label:"Buku Prestasi Siswa", icon:"star"},
    {id:"rapor", label:"Deskripsi Rapor", icon:"reportcard"},
    {id:"kehadiran", label:"Kehadiran", icon:"attendance"},
@@ -305,6 +305,9 @@ function confirmDialog(msg, onYes){
 function fieldHtml(f, val){
   const v = val===undefined || val===null ? "" : val;
   const req = f.required ? "required" : "";
+  if(f.type==="heading"){
+    return `<div style="grid-column:1/-1;margin:14px 0 2px;padding:9px 14px;background:var(--primary-ghost);border-left:4px solid var(--primary);border-radius:0 10px 10px 0;font-weight:800;font-size:13px;letter-spacing:.4px;color:var(--primary);">${escapeHtml(f.label)}</div>`;
+  }
   if(f.type==="select"){
     const opts = (f.options||[]).map(o=>{
       const ov = typeof o==="object" ? o.value : o;
@@ -320,7 +323,7 @@ function fieldHtml(f, val){
 }
 function readForm(fields){
   const out = {};
-  fields.forEach(f=>{ const el = document.getElementById("f_"+f.key); out[f.key] = el ? el.value : ""; });
+  fields.forEach(f=>{ if(f.type==="heading") return; const el = document.getElementById("f_"+f.key); out[f.key] = el ? el.value : ""; });
   return out;
 }
 
