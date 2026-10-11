@@ -740,10 +740,11 @@ function exportAbsensiExcel(){
 PAGES.kehadiran = function(){
   const tgl = window._kehadiranTgl || todayISO();
   db.kehadiran[tgl] = db.kehadiran[tgl] || {};
-  const rows = siswaSortedAlpha().map(s=>{
+  const siswaList = siswaSortedAlpha();
+  const rows = siswaList.map((s,i)=>{
     const st = db.kehadiran[tgl][s.id] || "H";
     const opts = [["H","Hadir","badge-green"],["S","Sakit","badge-orange"],["I","Izin","badge-blue"],["A","Alpa","badge-red"]];
-    return `<tr><td><strong>${escapeHtml(s.nama)}</strong></td><td>
+    return `<tr><td style="width:44px;"><span class="badge badge-blue">${i+1}</span></td><td><strong>${escapeHtml(s.nama)}</strong></td><td>
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
       ${opts.map(o=>`<button class="btn btn-sm ${st===o[0]?'btn-primary':''}" onclick="setKehadiran('${tgl}','${s.id}','${o[0]}')">${o[1]}</button>`).join("")}
       </div></td></tr>`;
@@ -756,8 +757,21 @@ PAGES.kehadiran = function(){
   <div class="section-head"><div><h1>Kehadiran Siswa</h1><div class="desc">Tandai kehadiran harian, lalu cetak/unduh rekap bulanan di bawah.</div></div>
     <div class="grow"></div></div>
   <div class="card" style="margin-bottom:16px;">
-    <div class="field" style="max-width:220px;"><label>Tanggal</label><input type="date" value="${tgl}" onchange="window._kehadiranTgl=this.value; renderPage('kehadiran');"></div>
-    <div class="table-wrap"><table><thead><tr><th>Nama Siswa</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px;">
+      <div class="field" style="max-width:200px;margin-bottom:0;"><label>Tanggal</label><input type="date" value="${tgl}" onchange="window._kehadiranTgl=this.value; renderPage('kehadiran');"></div>
+      <button class="btn btn-accent" onclick="kehadiranHadirSemua()">${ic("check",15)} Hadir Semua (1 Klik)</button>
+      <button class="btn" onclick="kehadiranResetHarian()">${ic("x",15)} Reset</button>
+    </div>
+    <div style="background:var(--primary-ghost);border:1.5px dashed var(--primary);border-radius:14px;padding:14px 16px;margin-bottom:14px;">
+      <div style="font-weight:800;font-size:13px;margin-bottom:8px;">⚡ Absen Cepat <span class="muted" style="font-weight:600;">— ketik nomor/nama yang TIDAK hadir, otomatis tertandai</span></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+        <div class="field" style="flex:1;min-width:220px;margin-bottom:0;"><label>Nomor / nama siswa (pisahkan koma)</label><input id="absenCepatInput" placeholder="cth: 3, 7, 12  atau: Aji, Eza"></div>
+        <div class="field" style="margin-bottom:0;"><label>Keterangan</label><select id="absenCepatKet"><option value="S">Sakit</option><option value="I">Izin</option><option value="A">Alpa</option></select></div>
+        <button class="btn btn-primary" onclick="kehadiranAbsenCepat()">${ic("check",15)} Tandai</button>
+      </div>
+      <div class="hint">Nomor = nomor urut pada tabel di bawah. Nama boleh sebagian (cth: "Aji"), asal hanya cocok dengan 1 siswa.</div>
+    </div>
+    <div class="table-wrap"><table><thead><tr><th>No</th><th>Nama Siswa</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div>
   </div>
   <div class="card">
     <div class="section-head" style="margin-bottom:14px;"><div><h3 style="margin:0;">Rekap Absensi Bulanan</h3></div><div class="grow"></div>
@@ -772,6 +786,49 @@ PAGES.kehadiran = function(){
   </div>`;
 };
 function setKehadiran(tgl,siswaId,status){ db.kehadiran[tgl]=db.kehadiran[tgl]||{}; db.kehadiran[tgl][siswaId]=status; saveDB(); renderPage("kehadiran"); }
+
+/* ---------- ABSENSI CEPAT: 1 klik hadir semua + tandai absen via ketikan ---------- */
+function kehadiranHadirSemua(){
+  const tgl = window._kehadiranTgl || todayISO();
+  db.kehadiran[tgl] = db.kehadiran[tgl] || {};
+  siswaSortedAlpha().forEach(s=>{ db.kehadiran[tgl][s.id] = "H"; });
+  saveDB(); renderPage("kehadiran");
+  toast("Semua siswa ditandai Hadir — "+fmtDate(tgl));
+}
+function kehadiranResetHarian(){
+  const tgl = window._kehadiranTgl || todayISO();
+  confirmDialog("Hapus semua tanda kehadiran tanggal "+fmtDate(tgl)+"?", ()=>{
+    delete db.kehadiran[tgl]; saveDB(); renderPage("kehadiran");
+    toast("Kehadiran tanggal "+fmtDate(tgl)+" direset");
+  });
+}
+function kehadiranAbsenCepat(){
+  const tgl = window._kehadiranTgl || todayISO();
+  const raw = (document.getElementById("absenCepatInput").value||"").trim();
+  const ket = document.getElementById("absenCepatKet").value || "S";
+  if(!raw){ toast("Ketik dulu nomor / nama siswa yang tidak hadir"); return; }
+  const list = siswaSortedAlpha();
+  const tokens = raw.split(/[,;\n]+/).map(t=>t.trim()).filter(Boolean);
+  const kena = [], takKetemu = [];
+  tokens.forEach(tok=>{
+    let s = null;
+    if(/^\d+$/.test(tok)){
+      const no = parseInt(tok,10);
+      s = list[no-1] || list.find(x=>String(x.no)===tok) || null;
+    } else {
+      const tl = tok.toLowerCase();
+      const hits = list.filter(x=>(x.nama||"").toLowerCase().includes(tl));
+      if(hits.length===1) s = hits[0];
+      else if(hits.length>1) takKetemu.push(tok+" (cocok "+hits.length+" nama)");
+    }
+    if(s) kena.push(s); else if(takKetemu.indexOf(tok)<0) takKetemu.push(tok);
+  });
+  db.kehadiran[tgl] = db.kehadiran[tgl] || {};
+  kena.forEach(s=>{ db.kehadiran[tgl][s.id] = ket; });
+  saveDB(); renderPage("kehadiran");
+  const lbl = {S:"Sakit",I:"Izin",A:"Alpa"}[ket]||ket;
+  toast(kena.length+" siswa ditandai "+lbl+(takKetemu.length?". Tak ketemu: "+takKetemu.join(", "):""));
+}
 function printKehadiran(){ printAbsensiBulanan(); } // alias lama, dipertahankan agar tombol/pemanggil lama tidak rusak
 
 /* ---------- C. DAFTAR NILAI - EXPORT EXCEL LENGKAP (semua mapel, format ledger resmi) ---------- */
@@ -808,17 +865,9 @@ function exportDaftarNilaiLengkapExcel(){
     <table><thead>${head}</thead><tbody>${body}</tbody></table>`;
   htmlToExcelXls(html, "Daftar_Nilai_Lengkap_"+(jenisSel==="asesmenSumatif"?"Sumatif":"Formatif"), "Daftar Nilai");
 }
-/* Tambahkan tombol baru pada halaman Rekap Nilai tanpa mengganti fungsi lama */
-const _origPagesRekapnilai = PAGES.rekapnilai;
-PAGES.rekapnilai = function(){
-  let html = _origPagesRekapnilai();
-  html = html.replace(
-    `<button class="btn" onclick="exportRekapExcel()">`,
-    `<button class="btn btn-accent" onclick="exportDaftarNilaiLengkapExcel()">${ic("download",15)} Excel Daftar Nilai Lengkap (Semua Mapel)</button>
-     <button class="btn" onclick="exportRekapExcel()">`
-  );
-  return html;
-};
+/* Halaman Daftar Nilai kini memakai format ledger formal (40-pages-b.js)
+   dengan tombol Cetak & Excel sendiri; wrapper tombol lama dihapus agar
+   tidak ganda. exportDaftarNilaiLengkapExcel dipertahankan sbg utilitas. */
 
 /* ============================================================
    D. AI GENERATOR BATCH 2: TP, JURNAL MENGAJAR,
