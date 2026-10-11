@@ -117,7 +117,7 @@ PAGES.analisisnilai = function(){
     <div class="card"><h3 style="font-size:14px;margin-bottom:10px;">${ic("star",16)} Pengayaan (${comp.pengayaan.length})</h3>${pengayaanHtml}</div>
   </div>
   <div class="card" style="margin-bottom:16px;"><h3 style="font-size:14px;margin-bottom:10px;">${ic("target",16)} Rata-rata Kelas per Lingkup Materi</h3>${lmAvgHtml}</div>`
-  : `<div class="empty-state">${ic("bar",40)}<p>Belum ada nilai sumatif untuk mapel &amp; semester ini.<br>Isi dulu melalui menu <strong>Input Nilai Massal</strong>.</p></div>`}`;
+  : `<div class="empty-state">${illus("nilai",130)}<p>Belum ada nilai sumatif untuk mapel &amp; semester ini.<br>Isi dulu melalui menu <strong>Input Nilai Massal</strong>.</p></div>`}`;
 };
 function analisisPrintBody(){
   const mapelSel = window._anMapel || MAPEL_LIST[0];
