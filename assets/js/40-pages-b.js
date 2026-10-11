@@ -514,6 +514,29 @@ function modulAjarDocHtml(m){
 function exportModulWord(id){ const m=db.modulAjar.find(x=>x.id===id); htmlToWordDoc(letterheadHtml()+`<div class="doc-title">MODUL AJAR: ${escapeHtml(m.judul.toUpperCase())}</div>`+modulAjarDocHtml(m), "Modul_Ajar_"+m.judul.replace(/\s+/g,"_"), m.judul); }
 
 /* ---------- ASESMEN (Diagnostik / Formatif / Sumatif) ---------- */
+/* ============================================================
+   JENIS & BENTUK PENILAIAN — Kurikulum Merdeka
+   (Panduan Pembelajaran dan Asesmen, Edisi Revisi 2025)
+   - Sumatif Lingkup Materi: akhir 1 lingkup materi (1 TP atau lebih)
+   - STS / SAS: Sumatif Tengah/Akhir Semester — bersifat pilihan
+   - Sumatif Akhir Fase: akhir fase/jenjang (dasar kelulusan)
+   - Asesmen Formatif: umpan balik proses, TIDAK masuk nilai rapor
+   ============================================================ */
+const JENIS_SUMATIF_OPTS = [
+  {value:"LM", label:"Sumatif Lingkup Materi"},
+  {value:"STS", label:"Sumatif Tengah Semester (STS)"},
+  {value:"SAS", label:"Sumatif Akhir Semester (SAS)"},
+  {value:"FASE", label:"Sumatif Akhir Fase"},
+];
+const JENIS_SUMATIF_LABEL = {LM:"Sumatif Lingkup Materi", STS:"STS", SAS:"SAS", FASE:"Sumatif Akhir Fase", Formatif:"Asesmen Formatif"};
+const BENTUK_PENILAIAN = ["Tes Tulis","Observasi","Unjuk Kerja/Praktik","Produk","Portofolio","Projek"];
+function jenisSumatifOf(r){
+  if(r.jenisSumatif) return r.jenisSumatif;
+  const lm = String(r.lingkupMateri||"").trim();
+  if(/^SAS\b/i.test(lm)) return "SAS";
+  if(/^STS\b/i.test(lm)) return "STS";
+  return "LM";
+}
 function asesmenFields(jenis){
   const base = [
     {key:"siswaId",label:"Nama Siswa",type:"select",options:siswaOpts(),required:true},
@@ -523,9 +546,19 @@ function asesmenFields(jenis){
   if(jenis==="diag"){
     return base.concat([{key:"catatan",label:"Hasil Asesmen Diagnostik (kondisi awal, gaya belajar, dsb.)",type:"textarea",required:true}]);
   }
+  if(jenis==="sum"){
+    return base.concat([
+      {key:"jenisSumatif",label:"Jenis Penilaian",type:"select",options:JENIS_SUMATIF_OPTS,required:true},
+      {key:"bentuk",label:"Bentuk / Teknik Penilaian",type:"select",options:BENTUK_PENILAIAN},
+      {key:"nilai",label:"Nilai (0-100)",type:"number",required:true},
+      {key:"lingkupMateri",label:"Lingkup Materi / Bab"},
+      {key:"semester",label:"Semester",type:"select",options:[{value:"1",label:"Semester 1"},{value:"2",label:"Semester 2"}]},
+      {key:"catatan",label:"Catatan/Umpan Balik",type:"textarea"},
+    ]);
+  }
   return base.concat([
     {key:"nilai",label:"Nilai (0-100)",type:"number",required:true},
-    {key:"lingkupMateri",label:"Lingkup Materi / Bab (opsional)"},
+    {key:"lingkupMateri",label:"Topik / Materi (opsional)"},
     {key:"semester",label:"Semester (opsional)",type:"select",options:[{value:"1",label:"Semester 1"},{value:"2",label:"Semester 2"}]},
     {key:"catatan",label:"Catatan/Umpan Balik",type:"textarea"},
   ]);
@@ -535,21 +568,29 @@ function asesmenPage(store, title, desc, jenis){
   const siswaMap = Object.fromEntries(db.siswa.map(s=>[s.id,s.nama]));
   const q = (window["_q_"+store]||"").toLowerCase();
   const data = q ? rows.filter(r=>(siswaMap[r.siswaId]||"").toLowerCase().includes(q) || (r.mapel||"").toLowerCase().includes(q)) : rows;
-  const body = data.map((r,i)=>`<tr><td>${i+1}</td><td><strong>${escapeHtml(siswaMap[r.siswaId]||"?")}</strong></td><td>${escapeHtml(r.mapel)}</td><td>${fmtDate(r.tanggal)}</td>
-    <td>${jenis==="diag"? escapeHtml((r.catatan||"").slice(0,50))+((r.catatan||"").length>50?"...":"") : `<span class="badge ${r.nilai>=70?'badge-green':'badge-orange'}">${escapeHtml(r.nilai)}</span>`}</td>
+  const isSum = jenis==="sum";
+  const body = data.map((r,i)=>{
+    const nilaiBadge = `<span class="badge ${r.nilai>=70?'badge-green':'badge-orange'}">${escapeHtml(r.nilai)}</span>`;
+    const jenisCell = isSum ? `<td><span class="badge badge-blue">${escapeHtml(JENIS_SUMATIF_LABEL[jenisSumatifOf(r)]||"-")}</span></td><td>${escapeHtml(r.bentuk||"-")}</td>` : ``;
+    return `<tr><td>${i+1}</td><td><strong>${escapeHtml(siswaMap[r.siswaId]||"?")}</strong></td><td>${escapeHtml(r.mapel)}</td><td>${fmtDate(r.tanggal)}</td>
+    ${jenisCell}
+    <td>${jenis==="diag"? escapeHtml((r.catatan||"").slice(0,50))+((r.catatan||"").length>50?"...":"") : nilaiBadge}</td>
     <td><div class="row-actions">
       <button class="btn btn-sm btn-icon" onclick="editAsesmen('${store}','${r.id}','${jenis}')">${ic("edit",15)}</button>
       <button class="btn btn-sm btn-icon btn-danger" onclick="crudDelete('${store}','${r.id}')">${ic("trash",15)}</button>
-    </div></td></tr>`).join("");
+    </div></td></tr>`;
+  }).join("");
   CRUD_CONFIG[store] = {store, title, fields:asesmenFields(jenis), columns:[]};
+  const colspan = isSum ? 8 : 6;
+  const sumCols = isSum ? `<th>Jenis Penilaian</th><th>Bentuk</th>` : ``;
   return `
   <div class="section-head"><div><h1>${title}</h1><div class="desc">${desc}</div></div>
     <div class="grow"></div>
-    <button class="btn" onclick="exportCSV('${store}', ${store}RowsForExport(), [{key:'nama',label:'Nama'},{key:'mapel',label:'Mapel'},{key:'tanggal',label:'Tanggal'},{key:'${jenis==='diag'?'catatan':'nilai'}',label:'${jenis==='diag'?'Catatan':'Nilai'}'}], '${store}')">${ic("download",15)} CSV</button>
+    <button class="btn" onclick="exportCSV('${store}', ${store}RowsForExport(), [{key:'nama',label:'Nama'},{key:'mapel',label:'Mapel'},{key:'tanggal',label:'Tanggal'},${isSum?`{key:'jenisSumatif',label:'Jenis'},{key:'bentuk',label:'Bentuk'},`:``}{key:'${jenis==='diag'?'catatan':'nilai'}',label:'${jenis==='diag'?'Catatan':'Nilai'}'}], '${store}')">${ic("download",15)} CSV</button>
     <button class="btn btn-primary" onclick="addAsesmen('${store}','${jenis}')">${ic("plus",15)} Tambah</button></div>
   <div class="toolbar"><div class="search-box">${ic("search",16)}<input placeholder="Cari nama siswa / mapel..." oninput="window['_q_${store}']=this.value; renderPage('${store==="asesmenDiagnostik"?"asesdiag":store==="asesmenFormatif"?"asesform":"asessum"}');"></div></div>
-  <div class="table-wrap"><table><thead><tr><th>No</th><th>Siswa</th><th>Mapel</th><th>Tanggal</th><th>${jenis==="diag"?"Catatan":"Nilai"}</th><th style="text-align:right">Aksi</th></tr></thead>
-  <tbody>${body || `<tr><td colspan="6" class="empty-state">Belum ada data.</td></tr>`}</tbody></table></div>`;
+  <div class="table-wrap"><table><thead><tr><th>No</th><th>Siswa</th><th>Mapel</th><th>Tanggal</th>${sumCols}<th>${jenis==="diag"?"Catatan":"Nilai"}</th><th style="text-align:right">Aksi</th></tr></thead>
+  <tbody>${body || `<tr><td colspan="${colspan}" class="empty-state">${illus("dokumen",120)}<div>Belum ada data.</div></td></tr>`}</tbody></table></div>`;
 }
 function asesmenDiagnostikRowsForExport(){ return exportRowsWithName("asesmenDiagnostik"); }
 function asesmenFormatifRowsForExport(){ return exportRowsWithName("asesmenFormatif"); }
@@ -583,12 +624,24 @@ function editAsesmen(store,id,jenis){
    sehingga seluruh data tetap konsisten dan bisa dibuka/diedit satu-
    per-satu lewat menu Asesmen Formatif/Sumatif seperti biasa.
    ============================================================ */
-function inputNilaiJenisStore(jenis){ return jenis==="Sumatif" ? "asesmenSumatif" : "asesmenFormatif"; }
+function inputNilaiJenisStore(jenis){ return jenis==="Formatif" ? "asesmenFormatif" : "asesmenSumatif"; }
+const NI_JENIS_OPTS = [
+  {value:"LM", label:"Sumatif Lingkup Materi"},
+  {value:"STS", label:"Sumatif Tengah Semester (STS)"},
+  {value:"SAS", label:"Sumatif Akhir Semester (SAS)"},
+  {value:"FASE", label:"Sumatif Akhir Fase"},
+  {value:"Formatif", label:"Asesmen Formatif"},
+];
+const NI_JENIS_DEFAULT_BAB = {STS:"STS", SAS:"SAS", FASE:"Sumatif Akhir Fase"};
+function inputNilaiJenisLabel(jenis){ const o = NI_JENIS_OPTS.find(x=>x.value===jenis); return o?o.label:jenis; }
 function inputNilaiDraftKey(ctx){
   return "tpsd2026_draftnilai_"+[activeClassId, ctx.mapel, ctx.jenis, ctx.bab, ctx.semester].map(s=>String(s||"").replace(/[^a-zA-Z0-9]/g,"_")).join("__");
 }
 function inputNilaiGetCtx(){
-  const ctx = window._inputNilaiCtx || {mapel:MAPEL_LIST[0], jenis:"Formatif", bab:"Umum", semester:"1"};
+  const ctx = window._inputNilaiCtx || {mapel:MAPEL_LIST[0], jenis:"LM", bentuk:BENTUK_PENILAIAN[0], bab:"", semester:"1"};
+  // Migrasi ctx lama ("Sumatif" generik -> LM)
+  if(ctx.jenis==="Sumatif") ctx.jenis = "LM";
+  if(!ctx.bentuk) ctx.bentuk = BENTUK_PENILAIAN[0];
   window._inputNilaiCtx = ctx;
   return ctx;
 }
@@ -599,6 +652,10 @@ function inputNilaiExistingMap(ctx){
     if(r.mapel!==ctx.mapel) return;
     if(String(r.lingkupMateri||"")!==String(ctx.bab||"")) return;
     if(String(r.semester||"")!==String(ctx.semester||"")) return;
+    if(store==="asesmenSumatif"){
+      const rj = r.jenisSumatif || jenisSumatifOf(r);
+      if(rj!==ctx.jenis && !( !r.jenisSumatif && ctx.jenis==="LM" )) return;
+    }
     map[r.siswaId] = r;
   });
   return map;
@@ -623,8 +680,10 @@ PAGES.inputnilai = function(){
         ${MAPEL_LIST.map(m=>`<option value="${escapeHtml(m)}" ${m===ctx.mapel?"selected":""}>${escapeHtml(m)}</option>`).join("")}
       </select></div>
       <div class="field"><label>Jenis Penilaian</label><select id="niJenis" onchange="inputNilaiUpdateCtxAndRender()">
-        <option value="Formatif" ${ctx.jenis==="Formatif"?"selected":""}>Asesmen Formatif</option>
-        <option value="Sumatif" ${ctx.jenis==="Sumatif"?"selected":""}>Asesmen Sumatif</option>
+        ${NI_JENIS_OPTS.map(o=>`<option value="${o.value}" ${o.value===ctx.jenis?"selected":""}>${o.label}</option>`).join("")}
+      </select></div>
+      <div class="field" id="niBentukWrap" style="display:${ctx.jenis==="Formatif"?"none":""};"><label>Bentuk / Teknik Penilaian</label><select id="niBentuk" onchange="inputNilaiUpdateCtxAndRender()">
+        ${BENTUK_PENILAIAN.map(b=>`<option value="${escapeHtml(b)}" ${b===ctx.bentuk?"selected":""}>${escapeHtml(b)}</option>`).join("")}
       </select></div>
       <div class="field"><label>Lingkup Materi / Bab</label><input type="text" id="niBab" value="${escapeHtml(ctx.bab)}" placeholder="cth: Bab 3 - Pecahan" onchange="inputNilaiUpdateCtxAndRender()"></div>
       <div class="field"><label>Semester</label><select id="niSemester" onchange="inputNilaiUpdateCtxAndRender()">
@@ -650,10 +709,22 @@ function inputNilaiUpdateCtxAndRender(){
   const ctx = inputNilaiGetCtx();
   ctx.mapel = document.getElementById("niMapel").value;
   ctx.jenis = document.getElementById("niJenis").value;
-  ctx.bab = document.getElementById("niBab").value || "Umum";
+  const bentukEl = document.getElementById("niBentuk");
+  if(bentukEl) ctx.bentuk = bentukEl.value;
+  const autoBab = NI_JENIS_DEFAULT_BAB[ctx.jenis];
+  const babEl = document.getElementById("niBab");
+  let babVal = babEl ? babEl.value.trim() : "";
+  const autoVals = Object.values(NI_JENIS_DEFAULT_BAB);
+  if(autoBab && (babVal==="" || autoVals.indexOf(babVal)>=0)){
+    babVal = autoBab;
+    if(babEl) babEl.value = autoBab;
+  }
+  ctx.bab = babVal || "Umum";
   ctx.semester = document.getElementById("niSemester").value;
   const hint = document.getElementById("niFormatifHint");
   if(hint) hint.style.display = ctx.jenis==="Formatif" ? "" : "none";
+  const bentukWrap = document.getElementById("niBentukWrap");
+  if(bentukWrap) bentukWrap.style.display = ctx.jenis==="Formatif" ? "none" : "";
   inputNilaiRenderTable();
 }
 function inputNilaiComputeRowValue(ctx, siswaId, existingMap, draft){
@@ -790,23 +861,27 @@ function inputNilaiSimpanSemua(){
     if(existingMap[siswaId]){
       existingMap[siswaId].nilai = nilai;
       existingMap[siswaId].tanggal = existingMap[siswaId].tanggal || todayISO();
+      if(store==="asesmenSumatif"){
+        existingMap[siswaId].jenisSumatif = ctx.jenis;
+        existingMap[siswaId].bentuk = ctx.bentuk;
+      }
     } else {
-      db[store].push({
+      db[store].push(Object.assign({
         id: uid(store), siswaId, mapel: ctx.mapel, tanggal: todayISO(),
         nilai, lingkupMateri: ctx.bab, semester: ctx.semester, catatan: "",
-      });
+      }, store==="asesmenSumatif" ? {jenisSumatif: ctx.jenis, bentuk: ctx.bentuk} : {jenisSumatif: "Formatif"}));
     }
     tersimpan++;
   });
   saveDB();
   inputNilaiClearDraft(ctx);
-  toast(tersimpan+" nilai berhasil disimpan ke "+(ctx.jenis==="Sumatif"?"Asesmen Sumatif":"Asesmen Formatif")+".");
+  toast(tersimpan+" nilai berhasil disimpan ke "+(ctx.jenis==="Formatif"?"Asesmen Formatif":"Asesmen Sumatif ("+inputNilaiJenisLabel(ctx.jenis)+")")+".");
   inputNilaiRenderTable();
 }
 
 PAGES.asesdiag = ()=>asesmenPage("asesmenDiagnostik","Asesmen Diagnostik","Pemetaan kondisi awal, kesiapan, dan gaya belajar peserta didik sebelum pembelajaran.", "diag");
-PAGES.asesform = ()=>asesmenPage("asesmenFormatif","Asesmen Formatif","Penilaian proses untuk memberi umpan balik selama pembelajaran berlangsung.", "num");
-PAGES.asessum  = ()=>asesmenPage("asesmenSumatif","Asesmen Sumatif","Penilaian pada akhir lingkup materi/semester untuk mengetahui capaian belajar.", "num");
+PAGES.asesform = ()=>asesmenPage("asesmenFormatif","Asesmen Formatif","Penilaian proses untuk memberi umpan balik selama pembelajaran berlangsung. Tidak diperhitungkan dalam nilai rapor.", "form");
+PAGES.asessum  = ()=>asesmenPage("asesmenSumatif","Asesmen Sumatif","Penilaian akhir lingkup materi/semester/fase sebagai dasar nilai rapor Kurikulum Merdeka.", "sum");
 
 /* ---------- REKAP NILAI ---------- */
 /* ============================================================
@@ -817,9 +892,22 @@ PAGES.asessum  = ()=>asesmenPage("asesmenSumatif","Asesmen Sumatif","Penilaian p
      TIDAK diperhitungkan dalam nilai rapor.
    - Asesmen SUMATIF per Lingkup Materi = kuantitatif, satu-satunya
      dasar nilai rapor. SAS tidak wajib (kewenangan sekolah).
-   - Nilai Rapor = rata-rata NA Sumatif dan SAS (bila SAS ada).
-   Konvensi input: tulis "STS" / "SAS" pada kolom Lingkup Materi
-   di menu Input Nilai untuk menandai nilai tengah/akhir semester.
+   - Jenis penilaian SUMATIF (komponen sumber nilai rapor):
+       1) Sumatif Lingkup Materi (akhir 1 lingkup materi/TP)
+       2) STS - Sumatif Tengah Semester (pilihan sekolah)
+       3) SAS - Sumatif Akhir Semester (pilihan sekolah)
+       4) Sumatif Akhir Fase (dasar kelulusan, di luar rapor semester)
+   - STS dihitung sebagai salah satu nilai sumatif dalam NA Sumatif.
+   - NA Sumatif  = rata-rata sumatif lingkup materi (termasuk STS).
+   - Nilai Akhir = rata-rata NA Sumatif dan SAS (jika SAS tersedia).
+     Sumatif Akhir Fase ditampilkan sebagai kolom tersendiri dan
+     TIDAK masuk Nilai Akhir semester.
+   - Panduan memberi 3 opsi pengolahan: rata-rata (dipakai aplikasi),
+     pembobotan, atau persentase ketercapaian - sesuaikan dengan
+     kebijakan satuan pendidikan.
+   - Kompatibilitas mundur: data lama tanpa field jenisSumatif dikenali
+     dari awalan teks lingkup materi (STS.../SAS...), selebihnya
+     dianggap Sumatif Lingkup Materi.
    ============================================================ */
 function daftarNilaiRows(mapelSel, semSel){
   // Alur Kurikulum Merdeka (Panduan Pembelajaran dan Asesmen):
@@ -830,8 +918,9 @@ function daftarNilaiRows(mapelSel, semSel){
   const rows = (db.asesmenSumatif||[]).filter(r=>r.mapel===mapelSel && String(r.semester||"")===""+semSel);
   const lmSet = [];
   rows.forEach(r=>{
+    const j = jenisSumatifOf(r);
+    if(j!=="LM" && j!=="STS") return; // SAS & Sumatif Akhir Fase punya kolom tersendiri
     const lm = String(r.lingkupMateri||"Umum").trim()||"Umum";
-    if(/^SAS\b/i.test(lm)) return; // SAS dipisah; STS ikut dihitung sebagai sumatif
     if(lmSet.indexOf(lm)<0) lmSet.push(lm);
   });
   const bySiswa = {};
@@ -839,11 +928,13 @@ function daftarNilaiRows(mapelSel, semSel){
   const table = siswaSortedAlpha().map(s=>{
     const arr = bySiswa[s.id]||[];
     const lmVals = lmSet.map(lm=>{
-      const v = arr.filter(r=>String(r.lingkupMateri||"Umum").trim()===lm).map(r=>Number(r.nilai)||0);
+      const v = arr.filter(r=>{ const j=jenisSumatifOf(r); return (j==="LM"||j==="STS") && String(r.lingkupMateri||"Umum").trim()===lm; }).map(r=>Number(r.nilai)||0);
       return v.length? v.reduce((a,b)=>a+b,0)/v.length : null;
     });
-    const sasVals = arr.filter(r=>/^SAS\b/i.test(String(r.lingkupMateri||"").trim())).map(r=>Number(r.nilai)||0);
+    const sasVals = arr.filter(r=>jenisSumatifOf(r)==="SAS").map(r=>Number(r.nilai)||0);
     const sas = sasVals.length? sasVals.reduce((a,b)=>a+b,0)/sasVals.length : null;
+    const faseVals = arr.filter(r=>jenisSumatifOf(r)==="FASE").map(r=>Number(r.nilai)||0);
+    const fase = faseVals.length? faseVals.reduce((a,b)=>a+b,0)/faseVals.length : null;
     const valid = lmVals.filter(v=>v!=null);
     const naSumatif = valid.length? valid.reduce((a,b)=>a+b,0)/valid.length : null;
     const nilaiAkhir = naSumatif==null? null : (sas==null? naSumatif : (naSumatif+sas)/2);
@@ -857,7 +948,7 @@ function daftarNilaiRows(mapelSel, semSel){
         ? "Menunjukkan penguasaan yang baik dalam "+lmSet[iMax]+"."
         : "Menunjukkan penguasaan dalam "+lmSet[iMax]+". Perlu bimbingan dalam "+lmSet[iMin]+".";
     }
-    return {s:s, lmSet:lmSet, lmVals:lmVals, sas:sas, naSumatif:naSumatif, nilaiAkhir:nilaiAkhir, deskripsi:deskripsi};
+    return {s:s, lmSet:lmSet, lmVals:lmVals, sas:sas, fase:fase, naSumatif:naSumatif, nilaiAkhir:nilaiAkhir, deskripsi:deskripsi};
   });
   return {lmSet:lmSet, table:table};
 }
@@ -869,12 +960,13 @@ PAGES.rekapnilai = function(){
   const fmt = v=> v==null? "-": String(Math.round(v*10)/10);
   const head = `<tr><th rowspan="2">No</th><th rowspan="2">NIS</th><th rowspan="2">Nama Peserta Didik</th><th rowspan="2">L/P</th>`
     + (lmSet.length? `<th colspan="${lmSet.length}">Nilai Sumatif per Lingkup Materi (termasuk STS)</th>` : "")
-    + `<th rowspan="2">SAS</th><th rowspan="2">NA Sumatif</th><th rowspan="2">Nilai Akhir (Rapor)</th><th rowspan="2">Deskripsi Capaian</th></tr>`
+    + `<th rowspan="2">SAS</th><th rowspan="2">Sumatif Akhir Fase</th><th rowspan="2">NA Sumatif</th><th rowspan="2">Nilai Akhir (Rapor)</th><th rowspan="2">Deskripsi Capaian</th></tr>`
     + (lmSet.length? `<tr>${lmSet.map(l=>`<th>${escapeHtml(l)}</th>`).join("")}</tr>` : "");
   const body = table.map((r,i)=>`<tr><td>${i+1}</td><td>${escapeHtml(r.s.nis||"-")}</td>`
     + `<td style="text-align:left;"><strong>${escapeHtml(r.s.nama)}</strong></td><td>${escapeHtml(r.s.jk||"-")}</td>`
     + r.lmVals.map(v=>`<td>${fmt(v)}</td>`).join("")
     + `<td><strong>${fmt(r.sas)}</strong></td>`
+    + `<td>${fmt(r.fase)}</td>`
     + `<td><strong>${fmt(r.naSumatif)}</strong></td>`
     + `<td style="background:var(--primary-ghost);"><strong>${fmt(r.nilaiAkhir)}</strong></td>`
     + `<td style="text-align:left;min-width:230px;font-size:12px;">${escapeHtml(r.deskripsi)}</td></tr>`).join("");
@@ -892,11 +984,11 @@ PAGES.rekapnilai = function(){
       <option value="2" ${semSel==="2"?"selected":""}>Semester 2</option>
     </select></div>
     <div class="grow"></div>
-    <span class="hint">Tips: tulis <strong>STS</strong> pada kolom Lingkup Materi saat <strong>Input Nilai</strong> agar dihitung sebagai salah satu nilai sumatif; tulis <strong>SAS</strong> untuk Sumatif Akhir Semester.</span>
+    <span class="hint">Jenis penilaian kini dipilih eksplisit: <strong>Sumatif Lingkup Materi</strong>, <strong>STS</strong>, <strong>SAS</strong>, atau <strong>Sumatif Akhir Fase</strong> (di luar Nilai Akhir semester).</span>
   </div>
   ${table.length
     ? `<div id="daftarNilaiHolder" class="table-wrap"><table><thead>${head}</thead><tbody>${body}</tbody></table></div>`
-    : `<div class="empty-state">${ic("bar",40)}<p>Belum ada nilai sumatif untuk mapel &amp; semester ini.<br>Isi dulu melalui menu <strong>Input Nilai Massal</strong>.</p></div>`}`;
+    : `<div class="empty-state">${illus("nilai",130)}<p>Belum ada nilai sumatif untuk mapel &amp; semester ini.<br>Isi dulu melalui menu <strong>Input Nilai Massal</strong>.</p></div>`}`;
 };
 function daftarNilaiKop(){
   const s = db.sekolah, mapelSel = window._rekapMapel || MAPEL_LIST[0], semSel = window._rekapSemester || "1";
@@ -914,7 +1006,7 @@ function daftarNilaiPengesahan(){
     <td style="width:50%;text-align:center;">Mengetahui,<br>Kepala Sekolah<br><br><br><br><br><strong><u>${escapeHtml(s.kepalaSekolah||"")}</u></strong><br>NIP. ${escapeHtml(s.nipKepsek||"")}</td>
     <td style="width:50%;text-align:center;">${escapeHtml(s.desa||"")}, ${fmtDate(todayISO())}<br>Wali Kelas<br><br><br><br><br><strong><u>${escapeHtml(wali?wali.nama:"")}</u></strong><br>NIP. ${escapeHtml(wali?(wali.nip||""):"")}</td>
   </tr></tbody></table>
-  <p style="font-size:10pt;margin-top:10px;"><strong>Keterangan:</strong> NA Sumatif = rata-rata nilai sumatif per lingkup materi (termasuk STS). Nilai Akhir (Rapor) = rata-rata NA Sumatif dan SAS (apabila SAS dilaksanakan; SAS bersifat pilihan). Nilai formatif bersifat kualitatif sebagai bahan deskripsi dan <strong>tidak</strong> diperhitungkan dalam nilai rapor. Acuan: Permendikbudristek No. 21/2022 tentang Standar Penilaian &amp; Panduan Pembelajaran dan Asesmen (Edisi Revisi 2025). Catatan: panduan memberi 3 opsi pengolahan nilai akhir (rata-rata / pembobotan / persentase ketercapaian) — tabel ini memakai opsi rata-rata; sesuaikan dengan kebijakan satuan pendidikan.</p>`;
+  <p style="font-size:10pt;margin-top:10px;"><strong>Keterangan:</strong> Komponen sumatif: Sumatif Lingkup Materi, STS, SAS (STS &amp; SAS bersifat pilihan), dan Sumatif Akhir Fase. NA Sumatif = rata-rata nilai sumatif per lingkup materi (termasuk STS). Nilai Akhir (Rapor) = rata-rata NA Sumatif dan SAS (apabila SAS dilaksanakan). Sumatif Akhir Fase ditampilkan tersendiri dan tidak masuk Nilai Akhir semester. Nilai formatif bersifat kualitatif sebagai bahan deskripsi dan <strong>tidak</strong> diperhitungkan dalam nilai rapor. Acuan: Permendikbudristek No. 21/2022 tentang Standar Penilaian &amp; Panduan Pembelajaran dan Asesmen (Edisi Revisi 2025). Catatan: panduan memberi 3 opsi pengolahan nilai akhir (rata-rata / pembobotan / persentase ketercapaian) — tabel ini memakai opsi rata-rata; sesuaikan dengan kebijakan satuan pendidikan.</p>`;
 }
 function exportDaftarNilaiExcel(){
   const holder = document.getElementById("daftarNilaiHolder");
