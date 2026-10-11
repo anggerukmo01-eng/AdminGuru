@@ -4,21 +4,51 @@
    ================================================================ */
 /* ---------- JADWAL PELAJARAN ---------- */
 const HARI = ["Senin","Selasa","Rabu","Kamis","Jumat","Sabtu"];
+/* Saran isian mapel: nama baku + kegiatan rutin (bebas diketik sendiri) */
+const JADWAL_SARAN_MAPEL = ["Upacara","Literasi","Tadarus","Senam","Istirahat","Istirahat/Sholat Dhuha","Kokurikuler"];
+function jadwalSaranMapel(){
+  const s = new Set([...(typeof MAPEL_LIST!=="undefined"?MAPEL_LIST:[]), ...JADWAL_SARAN_MAPEL]);
+  return [...s];
+}
+/* "07.00 - 07.35" / "07:00-07:35" -> ["07:00","07:35"] (untuk <input type="time">) */
+function jadwalParseJam(jamStr){
+  const m = String(jamStr||"").match(/(\d{1,2})[:.](\d{2})\s*[-–]\s*(\d{1,2})[:.](\d{2})/);
+  if(!m) return ["",""];
+  const p = n=>String(n).padStart(2,"0");
+  return [p(m[1])+":"+p(m[2]), p(m[3])+":"+p(m[4])];
+}
+function jadwalFmtJam(mulai, selesai){
+  const f = t=>String(t||"").replace(":",".");
+  return (mulai?f(mulai):"__.__")+" - "+(selesai?f(selesai):"__.__");
+}
 PAGES.jadwal = function(){
   db.jadwal = db.jadwal || {};
-  HARI.forEach(h=>{ db.jadwal[h] = db.jadwal[h] || [{jam:"07.00-07.35",mapel:""},{jam:"07.35-08.10",mapel:""},{jam:"08.10-08.45",mapel:""},{jam:"08.45-09.20",mapel:""}]; });
-  let html = `<div class="section-head"><div><h1>Jadwal Pelajaran</h1><div class="desc">Kelas ${escapeHtml(db.sekolah.kelas)} &middot; Isi mata pelajaran tiap jam ke sesuai jadwal sekolah.</div></div>
+  HARI.forEach(h=>{ db.jadwal[h] = db.jadwal[h] || []; });
+  const saran = jadwalSaranMapel().map(m=>`<option value="${escapeHtml(m)}">`).join("");
+  let html = `<div class="section-head"><div><h1>Jadwal Pelajaran</h1><div class="desc">Kelas ${escapeHtml(db.sekolah.kelas)} &middot; Jam dan mata pelajaran tiap slot dapat diubah langsung. Perubahan struktur (tambah/hapus/salin hari) tersimpan otomatis; perubahan isian perlu menekan "Simpan Jadwal".</div></div>
     <div class="grow"></div>
     <button class="btn" onclick="printJadwal()">${ic("print",15)} Cetak</button>
     <button class="btn btn-primary" onclick="saveJadwal()">${ic("check",15)} Simpan Jadwal</button></div>`;
+  html += `<datalist id="datalistMapelJadwal">${saran}</datalist>`;
   html += `<div class="grid grid-3" id="jadwalGrid">`;
   HARI.forEach(h=>{
-    html += `<div class="card"><h3>${h}</h3>`;
+    html += `<div class="card"><h3 style="display:flex;align-items:center;justify-content:space-between;">${h}
+      <select id="jd_copy_${h}" onchange="copyJadwalDari('${h}')" title="Salin seluruh slot dari hari lain ke ${h}" style="width:auto;padding:6px 8px;font-size:11.5px;font-weight:normal;">
+        <option value="">Salin dari...</option>
+        ${HARI.filter(x=>x!==h).map(x=>`<option value="${x}">${x}</option>`).join("")}
+      </select></h3>`;
+    if(!db.jadwal[h].length) html += `<p class="muted" style="font-size:12px;">Belum ada slot jam.</p>`;
     db.jadwal[h].forEach((slot,idx)=>{
-      html += `<div class="field" style="display:flex;gap:8px;align-items:flex-end;margin-bottom:8px;">
-        <div style="flex:1;"><label style="font-size:11px;">Jam ke-${idx+1} (${escapeHtml(slot.jam)})</label>
-        <select id="jd_${h}_${idx}">${["",...MAPEL_LIST].map(m=>`<option value="${escapeHtml(m)}" ${m===slot.mapel?"selected":""}>${m||"- kosong -"}</option>`).join("")}</select></div>
-        <button class="btn btn-sm btn-icon btn-danger" onclick="removeSlot('${h}',${idx})">${ic("trash",14)}</button>
+      const [mulai, selesai] = jadwalParseJam(slot.jam);
+      html += `<div class="field" style="border:1px solid var(--border);border-radius:10px;padding:8px;margin-bottom:8px;">
+        <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;">
+          <span class="muted" style="font-size:11px;white-space:nowrap;">Jam ke-${idx+1}</span>
+          <input type="time" id="jd_mulai_${h}_${idx}" value="${mulai}" style="flex:1;min-width:0;padding:8px;" title="Jam mulai">
+          <span class="muted">–</span>
+          <input type="time" id="jd_selesai_${h}_${idx}" value="${selesai}" style="flex:1;min-width:0;padding:8px;" title="Jam selesai">
+          <button class="btn btn-sm btn-icon btn-danger" onclick="removeSlot('${h}',${idx})" title="Hapus slot ini">${ic("trash",14)}</button>
+        </div>
+        <input id="jd_mapel_${h}_${idx}" list="datalistMapelJadwal" value="${escapeHtml(slot.mapel||"")}" placeholder="Mata pelajaran / kegiatan..." style="width:100%;" title="Ketik bebas atau pilih dari saran">
       </div>`;
     });
     html += `<button class="btn btn-sm" onclick="addSlot('${h}')">${ic("plus",14)} Tambah Jam</button></div>`;
@@ -26,22 +56,52 @@ PAGES.jadwal = function(){
   html += `</div>`;
   return html;
 };
-function addSlot(h){ db.jadwal[h].push({jam:"__.__-__.__",mapel:""}); renderPage("jadwal"); }
-function removeSlot(h,idx){ db.jadwal[h].splice(idx,1); renderPage("jadwal"); }
+function addSlot(h){
+  db.jadwal[h] = db.jadwal[h] || [];
+  const last = db.jadwal[h][db.jadwal[h].length-1];
+  let mulai = "07:00";
+  if(last){
+    const s = jadwalParseJam(last.jam)[1];
+    if(s) mulai = s;
+  }
+  const mnt = parseInt(mulai.slice(0,2),10)*60 + parseInt(mulai.slice(3),10) + 35;
+  const selesai = String(Math.floor(mnt/60)).padStart(2,"0")+":"+String(mnt%60).padStart(2,"0");
+  db.jadwal[h].push({jam: jadwalFmtJam(mulai, selesai), mapel:""});
+  saveDB(); renderPage("jadwal");
+  toast("Slot jam "+jadwalFmtJam(mulai, selesai)+" ditambahkan.");
+}
+function removeSlot(h,idx){ db.jadwal[h].splice(idx,1); saveDB(); renderPage("jadwal"); }
+function copyJadwalDari(hTujuan){
+  const el = document.getElementById("jd_copy_"+hTujuan);
+  const hSumber = el ? el.value : "";
+  if(!hSumber || hSumber===hTujuan) return;
+  db.jadwal[hTujuan] = JSON.parse(JSON.stringify(db.jadwal[hSumber]||[]));
+  saveDB(); renderPage("jadwal");
+  toast("Jadwal hari "+hSumber+" disalin ke "+hTujuan+".");
+}
 function saveJadwal(){
-  HARI.forEach(h=>{ db.jadwal[h].forEach((slot,idx)=>{ const el=document.getElementById(`jd_${h}_${idx}`); if(el) slot.mapel=el.value; }); });
+  HARI.forEach(h=>{ (db.jadwal[h]||[]).forEach((slot,idx)=>{
+    const e1 = document.getElementById(`jd_mulai_${h}_${idx}`);
+    const e2 = document.getElementById(`jd_selesai_${h}_${idx}`);
+    const e3 = document.getElementById(`jd_mapel_${h}_${idx}`);
+    if(e1 && e2) slot.jam = jadwalFmtJam(e1.value, e2.value);
+    if(e3) slot.mapel = e3.value.trim();
+  }); });
   saveDB(); toast("Jadwal pelajaran tersimpan.");
 }
 function printJadwal(){
-  let body = `<table><thead><tr><th>Jam</th>${HARI.map(h=>`<th>${h}</th>`).join("")}</tr></thead><tbody>`;
-  const maxRows = Math.max(...HARI.map(h=>db.jadwal[h].length));
+  let body = `<table><thead><tr>${HARI.map(h=>`<th>${h}</th>`).join("")}</tr></thead><tbody>`;
+  const maxRows = Math.max(0, ...HARI.map(h=>(db.jadwal[h]||[]).length));
   for(let i=0;i<maxRows;i++){
-    body += `<tr><td>${db.jadwal[HARI[0]][i]?db.jadwal[HARI[0]][i].jam:''}</td>`;
-    HARI.forEach(h=>{ body += `<td>${db.jadwal[h][i]?escapeHtml(db.jadwal[h][i].mapel||'-'):''}</td>`; });
+    body += `<tr>`;
+    HARI.forEach(h=>{
+      const s = (db.jadwal[h]||[])[i];
+      body += `<td>${s?`<span class="muted" style="font-size:11px;">${escapeHtml(s.jam||"")}</span><br><strong>${escapeHtml(s.mapel||"-")}</strong>`:""}</td>`;
+    });
     body += `</tr>`;
   }
   body += `</tbody></table>`;
-  printDocument("JADWAL PELAJARAN KELAS "+db.sekolah.kelas.toUpperCase(), body);
+  printDocument("JADWAL PELAJARAN KELAS "+String(db.sekolah.kelas||"").toUpperCase(), body);
 }
 
 /* ---------- AGENDA / JURNAL HARIAN ---------- */
