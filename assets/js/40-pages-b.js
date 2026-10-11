@@ -358,23 +358,41 @@ function regenerateKKTP(){
 
 /* ---------- MODUL AJAR ---------- */
 function modulAjarFields(){
+  // Struktur baku Modul Ajar (Panduan Pembelajaran & Asesmen BSKAP, revisi 2025):
+  // A. Informasi Umum | B. Komponen Inti | C. Lampiran
+  const DIMENSI = ["Keimanan & ketakwaan kepada Tuhan YME","Kewargaan","Penalaran kritis","Kreativitas","Kolaborasi","Kemandirian","Kesehatan","Komunikasi"];
   return [
+    {key:"_h1",label:"A. INFORMASI UMUM",type:"heading"},
     {key:"judul",label:"Judul / Topik Modul Ajar",required:true},
     {key:"mapel",label:"Mata Pelajaran",type:"select",options:MAPEL_LIST,required:true},
+    {key:"materiPokok",label:"Materi Pokok / Bab"},
+    {key:"kelasFase",label:"Kelas / Fase",placeholder:"cth: Kelas 1 / Fase A"},
     {key:"tanggal",label:"Tanggal Pelaksanaan",type:"date"},
+    {key:"alokasiWaktu",label:"Alokasi Waktu",placeholder:"cth: 2 x 35 menit"},
+    {key:"penyusun",label:"Penyusun"},
+    {key:"kompetensiAwal",label:"Kompetensi Awal",type:"textarea",placeholder:"Pengetahuan/keterampilan prasyarat yang harus dimiliki peserta didik"},
+    {key:"profilLulusan",label:"Dimensi Profil Lulusan yang Dituju",placeholder:"cth: Penalaran Kritis, Kolaborasi, Kemandirian"},
+    {key:"saranaPrasarana",label:"Sarana & Prasarana",type:"textarea",placeholder:"cth: LCD proyektor, LKPD, alat peraga balok"},
+    {key:"targetPesertaDidik",label:"Target Peserta Didik",placeholder:"cth: Peserta didik reguler"},
+    {key:"modelPembelajaran",label:"Model / Metode Pembelajaran",placeholder:"cth: Pembelajaran Berbasis Proyek (PjBL)"},
+    {key:"_h2",label:"B. KOMPONEN INTI",type:"heading"},
     {key:"tp",label:"Tujuan Pembelajaran",type:"textarea",required:true},
-    {key:"profilLulusan",label:"Dimensi Profil Lulusan yang Dituju (pisahkan koma)",placeholder:"cth: Penalaran Kritis, Kolaborasi"},
-    {key:"materi",label:"Materi Esensial",type:"textarea"},
-    {key:"kegiatanAwal",label:"Kegiatan Awal (Pembuka)",type:"textarea"},
-    {key:"kegiatanMemahami",label:"Kegiatan Inti - MEMAHAMI",type:"textarea",placeholder:"Membangun pemahaman awal peserta didik terhadap konsep."},
-    {key:"kegiatanMengaplikasi",label:"Kegiatan Inti - MENGAPLIKASI",type:"textarea",placeholder:"Peserta didik menerapkan pengetahuan pada konteks nyata."},
-    {key:"kegiatanMerefleksi",label:"Kegiatan Inti - MEREFLEKSI",type:"textarea",placeholder:"Peserta didik merefleksikan proses & hasil belajar."},
+    {key:"pemahamanBermakna",label:"Pemahaman Bermakna",type:"textarea"},
+    {key:"pertanyaanPemantik",label:"Pertanyaan Pemantik",type:"textarea"},
+    {key:"kegiatanAwal",label:"Kegiatan Pendahuluan",type:"textarea"},
+    {key:"kegiatanMemahami",label:"Kegiatan Inti — MEMAHAMI",type:"textarea",placeholder:"Membangun pemahaman awal peserta didik terhadap konsep"},
+    {key:"kegiatanMengaplikasi",label:"Kegiatan Inti — MENGAPLIKASI",type:"textarea",placeholder:"Peserta didik menerapkan pengetahuan pada konteks nyata"},
+    {key:"kegiatanMerefleksi",label:"Kegiatan Inti — MEREFLEKSI",type:"textarea",placeholder:"Peserta didik merefleksikan proses & hasil belajar"},
     {key:"kegiatanPenutup",label:"Kegiatan Penutup",type:"textarea"},
-    {key:"asesmen",label:"Rencana Asesmen",type:"textarea"},
+    {key:"asesmen",label:"Asesmen (formatif, sumatif & rubrik)",type:"textarea"},
+    {key:"pengayaanRemedial",label:"Pengayaan & Remedial",type:"textarea"},
+    {key:"refleksi",label:"Refleksi Peserta Didik & Guru",type:"textarea"},
+    {key:"_h3",label:"C. LAMPIRAN",type:"heading"},
+    {key:"materi",label:"Materi / Bahan Ajar",type:"textarea"},
+    {key:"lampiran",label:"Lampiran (LKPD, instrumen asesmen, media)",type:"textarea"},
     {key:"sumberBelajar",label:"Sumber & Media Belajar",type:"textarea"},
   ];
-}
-PAGES.modulajar = function(){
+}PAGES.modulajar = function(){
   const rows = db.modulAjar.slice();
   const body = rows.map((r,i)=>`<tr><td>${i+1}</td><td><strong>${escapeHtml(r.judul)}</strong></td><td>${escapeHtml(r.mapel)}</td><td>${fmtDate(r.tanggal)}</td>
     <td><div class="row-actions">
@@ -420,45 +438,55 @@ PAGES.modulajar = function(){
 };
 function viewModulAjar(id){
   const m = db.modulAjar.find(x=>x.id===id); if(!m) return;
-  const bodyHtml = `<table><tbody>
-    <tr><td style="width:170px;"><strong>Mata Pelajaran</strong></td><td>: ${escapeHtml(m.mapel)}</td></tr>
-    <tr><td><strong>Kelas / Semester</strong></td><td>: ${escapeHtml(db.sekolah.kelas)} / ${escapeHtml(db.sekolah.semester)}</td></tr>
-    <tr><td><strong>Tanggal</strong></td><td>: ${fmtDate(m.tanggal)}</td></tr>
-    <tr><td><strong>Tujuan Pembelajaran</strong></td><td>: ${escapeHtml(m.tp)}</td></tr>
-    <tr><td><strong>Dimensi Profil Lulusan</strong></td><td>: ${escapeHtml(m.profilLulusan)}</td></tr>
-    <tr><td><strong>Materi Esensial</strong></td><td>: ${escapeHtml(m.materi)}</td></tr>
-  </tbody></table>
-  <div class="divider"></div>
-  <h4>Kegiatan Awal</h4><p>${escapeHtml(m.kegiatanAwal)||'-'}</p>
-  <h4>Kegiatan Inti - Memahami</h4><p>${escapeHtml(m.kegiatanMemahami)||'-'}</p>
-  <h4>Kegiatan Inti - Mengaplikasi</h4><p>${escapeHtml(m.kegiatanMengaplikasi)||'-'}</p>
-  <h4>Kegiatan Inti - Merefleksi</h4><p>${escapeHtml(m.kegiatanMerefleksi)||'-'}</p>
-  <h4>Kegiatan Penutup</h4><p>${escapeHtml(m.kegiatanPenutup)||'-'}</p>
-  <h4>Asesmen</h4><p>${escapeHtml(m.asesmen)||'-'}</p>
-  <h4>Sumber &amp; Media Belajar</h4><p>${escapeHtml(m.sumberBelajar)||'-'}</p>`;
+  const bodyHtml = modulAjarStrukturHtml(m);
   openModal({title:m.judul, bodyHtml,
     footHtml:`<button class="btn" onclick="closeModal()">Tutup</button>
       <button class="btn" onclick="exportModulWord('${m.id}')">${ic("doc",15)} Word</button>
       <button class="btn btn-primary" onclick="printModulAjar('${m.id}')">${ic("print",15)} Cetak</button>`});
 }
-function modulAjarDocHtml(m){
-  return `<table><tbody>
-    <tr><td style="width:170px;"><strong>Mata Pelajaran</strong></td><td>: ${escapeHtml(m.mapel)}</td></tr>
-    <tr><td><strong>Kelas / Semester</strong></td><td>: ${escapeHtml(db.sekolah.kelas)} / ${escapeHtml(db.sekolah.semester)}</td></tr>
-    <tr><td><strong>Tanggal</strong></td><td>: ${fmtDate(m.tanggal)}</td></tr>
-    <tr><td><strong>Tujuan Pembelajaran</strong></td><td>: ${escapeHtml(m.tp)}</td></tr>
-    <tr><td><strong>Dimensi Profil Lulusan</strong></td><td>: ${escapeHtml(m.profilLulusan)}</td></tr>
-    <tr><td><strong>Materi Esensial</strong></td><td>: ${escapeHtml(m.materi)}</td></tr>
-  </tbody></table><br>
-  <p><strong>Kegiatan Awal:</strong> ${escapeHtml(m.kegiatanAwal)||'-'}</p>
-  <p><strong>Kegiatan Inti - Memahami:</strong> ${escapeHtml(m.kegiatanMemahami)||'-'}</p>
-  <p><strong>Kegiatan Inti - Mengaplikasi:</strong> ${escapeHtml(m.kegiatanMengaplikasi)||'-'}</p>
-  <p><strong>Kegiatan Inti - Merefleksi:</strong> ${escapeHtml(m.kegiatanMerefleksi)||'-'}</p>
-  <p><strong>Kegiatan Penutup:</strong> ${escapeHtml(m.kegiatanPenutup)||'-'}</p>
-  <p><strong>Asesmen:</strong> ${escapeHtml(m.asesmen)||'-'}</p>
-  <p><strong>Sumber &amp; Media Belajar:</strong> ${escapeHtml(m.sumberBelajar)||'-'}</p>`;
+function modulAjarStrukturHtml(m){
+  const s_ = db.sekolah;
+  const baris = (lbl,val)=>`<tr><td style="width:200px;"><strong>${lbl}</strong></td><td>: ${escapeHtml(val||"")||"-"}</td></tr>`;
+  return `
+  <h4 style="margin:0 0 8px;">A. INFORMASI UMUM</h4>
+  <table><tbody>
+    ${baris("Satuan Pendidikan", s_.namaSekolah)}
+    ${baris("Kelas / Fase", m.kelasFase || s_.kelas)}
+    ${baris("Mata Pelajaran", m.mapel)}
+    ${baris("Materi Pokok", m.materiPokok || m.judul)}
+    ${baris("Alokasi Waktu", m.alokasiWaktu)}
+    ${baris("Tanggal Pelaksanaan", m.tanggal?fmtDate(m.tanggal):"")}
+    ${baris("Tahun Pelajaran", s_.tahunAjaran)}
+    ${baris("Penyusun", m.penyusun)}
+    ${baris("Kompetensi Awal", m.kompetensiAwal)}
+    ${baris("Dimensi Profil Lulusan", m.profilLulusan)}
+    ${baris("Sarana & Prasarana", m.saranaPrasarana)}
+    ${baris("Target Peserta Didik", m.targetPesertaDidik)}
+    ${baris("Model Pembelajaran", m.modelPembelajaran)}
+  </tbody></table>
+  <div class="divider"></div>
+  <h4 style="margin:0 0 8px;">B. KOMPONEN INTI</h4>
+  <p><strong>1. Tujuan Pembelajaran:</strong><br>${escapeHtml(m.tp)||"-"}</p>
+  <p><strong>2. Pemahaman Bermakna:</strong><br>${escapeHtml(m.pemahamanBermakna)||"-"}</p>
+  <p><strong>3. Pertanyaan Pemantik:</strong><br>${escapeHtml(m.pertanyaanPemantik)||"-"}</p>
+  <p><strong>4. Kegiatan Pembelajaran:</strong></p>
+  <p style="padding-left:14px;"><strong>a. Pendahuluan:</strong><br>${escapeHtml(m.kegiatanAwal)||"-"}</p>
+  <p style="padding-left:14px;"><strong>b. Inti — Memahami:</strong><br>${escapeHtml(m.kegiatanMemahami)||"-"}</p>
+  <p style="padding-left:14px;"><strong>c. Inti — Mengaplikasi:</strong><br>${escapeHtml(m.kegiatanMengaplikasi)||"-"}</p>
+  <p style="padding-left:14px;"><strong>d. Inti — Merefleksi:</strong><br>${escapeHtml(m.kegiatanMerefleksi)||"-"}</p>
+  <p style="padding-left:14px;"><strong>e. Penutup:</strong><br>${escapeHtml(m.kegiatanPenutup)||"-"}</p>
+  <p><strong>5. Asesmen:</strong><br>${escapeHtml(m.asesmen)||"-"}</p>
+  <p><strong>6. Pengayaan & Remedial:</strong><br>${escapeHtml(m.pengayaanRemedial)||"-"}</p>
+  <p><strong>7. Refleksi Peserta Didik & Guru:</strong><br>${escapeHtml(m.refleksi)||"-"}</p>
+  <div class="divider"></div>
+  <h4 style="margin:0 0 8px;">C. LAMPIRAN</h4>
+  <p><strong>Materi / Bahan Ajar:</strong><br>${escapeHtml(m.materi)||"-"}</p>
+  <p><strong>Lampiran (LKPD, instrumen asesmen, media):</strong><br>${escapeHtml(m.lampiran)||"-"}</p>
+  <p><strong>Sumber & Media Belajar:</strong><br>${escapeHtml(m.sumberBelajar)||"-"}</p>`;
 }
-function printModulAjar(id){ const m=db.modulAjar.find(x=>x.id===id); printDocument("MODUL AJAR: "+m.judul.toUpperCase(), modulAjarDocHtml(m)); }
+function modulAjarDocHtml(m){
+  return modulAjarStrukturHtml(m);
+}function printModulAjar(id){ const m=db.modulAjar.find(x=>x.id===id); printDocument("MODUL AJAR: "+m.judul.toUpperCase(), modulAjarDocHtml(m)); }
 function exportModulWord(id){ const m=db.modulAjar.find(x=>x.id===id); htmlToWordDoc(letterheadHtml()+`<div class="doc-title">MODUL AJAR: ${escapeHtml(m.judul.toUpperCase())}</div>`+modulAjarDocHtml(m), "Modul_Ajar_"+m.judul.replace(/\s+/g,"_"), m.judul); }
 
 /* ---------- ASESMEN (Diagnostik / Formatif / Sumatif) ---------- */
@@ -754,40 +782,122 @@ PAGES.asesform = ()=>asesmenPage("asesmenFormatif","Asesmen Formatif","Penilaian
 PAGES.asessum  = ()=>asesmenPage("asesmenSumatif","Asesmen Sumatif","Penilaian pada akhir lingkup materi/semester untuk mengetahui capaian belajar.", "num");
 
 /* ---------- REKAP NILAI ---------- */
-PAGES.rekapnilai = function(){
-  const mapelSel = window._rekapMapel || MAPEL_LIST[0];
-  const jenisSel = window._rekapJenis || "asesmenSumatif";
-  const rows = db[jenisSel].filter(r=>r.mapel===mapelSel);
+/* ============================================================
+   DAFTAR NILAI — format ledger formal Kurikulum Merdeka
+   ------------------------------------------------------------
+   Alur resmi (Panduan Pembelajaran & Asesmen BSKAP, revisi 2025):
+   - Asesmen FORMATIF = kualitatif, bahan perbaikan & deskripsi.
+     TIDAK diperhitungkan dalam nilai rapor.
+   - Asesmen SUMATIF per Lingkup Materi = kuantitatif, satu-satunya
+     dasar nilai rapor. SAS tidak wajib (kewenangan sekolah).
+   - Nilai Rapor = rata-rata NA Sumatif dan SAS (bila SAS ada).
+   Konvensi input: tulis "STS" / "SAS" pada kolom Lingkup Materi
+   di menu Input Nilai untuk menandai nilai tengah/akhir semester.
+   ============================================================ */
+function daftarNilaiRows(mapelSel, semSel){
+  const rows = (db.asesmenSumatif||[]).filter(r=>r.mapel===mapelSel && String(r.semester||"")===""+semSel);
+  const lmSet = [];
+  rows.forEach(r=>{
+    const lm = String(r.lingkupMateri||"Umum").trim()||"Umum";
+    if(/^(STS|SAS)\b/i.test(lm)) return;
+    if(lmSet.indexOf(lm)<0) lmSet.push(lm);
+  });
   const bySiswa = {};
-  rows.forEach(r=>{ if(!bySiswa[r.siswaId]) bySiswa[r.siswaId]=[]; bySiswa[r.siswaId].push(Number(r.nilai)||0); });
+  rows.forEach(r=>{ (bySiswa[r.siswaId]=bySiswa[r.siswaId]||[]).push(r); });
   const table = siswaSortedAlpha().map(s=>{
     const arr = bySiswa[s.id]||[];
-    const avg = arr.length? (arr.reduce((a,b)=>a+b,0)/arr.length) : null;
-    let predikat = "-";
-    if(avg!=null){ predikat = avg>=85?"Sangat Berkembang":avg>=70?"Berkembang Sesuai Harapan":avg>=60?"Mulai Berkembang":"Belum Berkembang"; }
-    return {nama:s.nama, jumlah:arr.length, rata:avg==null?"-":avg.toFixed(1), predikat};
+    const lmVals = lmSet.map(lm=>{
+      const v = arr.filter(r=>String(r.lingkupMateri||"Umum").trim()===lm).map(r=>Number(r.nilai)||0);
+      return v.length? v.reduce((a,b)=>a+b,0)/v.length : null;
+    });
+    const stsR = arr.find(r=>/^STS\b/i.test(String(r.lingkupMateri||"").trim()));
+    const sasR = arr.find(r=>/^SAS\b/i.test(String(r.lingkupMateri||"").trim()));
+    const sts = stsR? Number(stsR.nilai) : null;
+    const sas = sasR? Number(sasR.nilai) : null;
+    const valid = lmVals.filter(v=>v!=null);
+    const naSumatif = valid.length? valid.reduce((a,b)=>a+b,0)/valid.length : null;
+    const nilaiAkhir = naSumatif==null? null : (sas==null? naSumatif : (naSumatif+sas)/2);
+    let deskripsi = "-";
+    if(valid.length){
+      let iMax=0, iMin=0, pertama=true;
+      lmVals.forEach((v,i)=>{ if(v==null) return;
+        if(pertama){ iMax=iMin=i; pertama=false; return; }
+        if(v>lmVals[iMax]) iMax=i; if(v<lmVals[iMin]) iMin=i; });
+      deskripsi = (lmVals[iMax]===lmVals[iMin])
+        ? "Menunjukkan penguasaan yang baik dalam "+lmSet[iMax]+"."
+        : "Menunjukkan penguasaan dalam "+lmSet[iMax]+". Perlu bimbingan dalam "+lmSet[iMin]+".";
+    }
+    return {s:s, lmVals:lmVals, sts:sts, sas:sas, naSumatif:naSumatif, nilaiAkhir:nilaiAkhir, deskripsi:deskripsi};
   });
-  const body = table.map((r,i)=>`<tr><td>${i+1}</td><td><strong>${escapeHtml(r.nama)}</strong></td><td>${r.jumlah}</td><td>${r.rata}</td>
-    <td><span class="badge ${r.predikat==='Sangat Berkembang'?'badge-green':r.predikat==='Berkembang Sesuai Harapan'?'badge-blue':r.predikat==='Mulai Berkembang'?'badge-orange':'badge-red'}">${r.predikat}</span></td></tr>`).join("");
+  return {lmSet:lmSet, table:table};
+}
+PAGES.rekapnilai = function(){
+  const mapelSel = window._rekapMapel || MAPEL_LIST[0];
+  const semSel = window._rekapSemester || "1";
+  const dn = daftarNilaiRows(mapelSel, semSel);
+  const lmSet = dn.lmSet, table = dn.table;
+  const fmt = v=> v==null? "-": String(Math.round(v*10)/10);
+  const head = `<tr><th rowspan="2">No</th><th rowspan="2">NIS</th><th rowspan="2">Nama Peserta Didik</th><th rowspan="2">L/P</th>`
+    + (lmSet.length? `<th colspan="${lmSet.length}">Nilai Sumatif per Lingkup Materi</th>` : "")
+    + `<th rowspan="2">STS</th><th rowspan="2">SAS</th><th rowspan="2">NA Sumatif</th><th rowspan="2">Nilai Akhir</th><th rowspan="2">Deskripsi Capaian</th></tr>`
+    + (lmSet.length? `<tr>${lmSet.map(l=>`<th>${escapeHtml(l)}</th>`).join("")}</tr>` : "");
+  const body = table.map((r,i)=>`<tr><td>${i+1}</td><td>${escapeHtml(r.s.nis||"-")}</td>`
+    + `<td style="text-align:left;"><strong>${escapeHtml(r.s.nama)}</strong></td><td>${escapeHtml(r.s.jk||"-")}</td>`
+    + r.lmVals.map(v=>`<td>${fmt(v)}</td>`).join("")
+    + `<td><strong>${fmt(r.sts)}</strong></td><td><strong>${fmt(r.sas)}</strong></td>`
+    + `<td><strong>${fmt(r.naSumatif)}</strong></td>`
+    + `<td style="background:var(--primary-ghost);"><strong>${fmt(r.nilaiAkhir)}</strong></td>`
+    + `<td style="text-align:left;min-width:230px;font-size:12px;">${escapeHtml(r.deskripsi)}</td></tr>`).join("");
   return `
-  <div class="section-head"><div><h1>Rekap Nilai</h1><div class="desc">Rata-rata nilai per siswa berdasarkan mata pelajaran & jenis asesmen terpilih.</div></div>
+  <div class="section-head"><div><h1>Daftar Nilai</h1><div class="desc">Ledger formal per mata pelajaran &amp; semester — alur Kurikulum Merdeka: sumatif per lingkup materi &rarr; NA sumatif &rarr; nilai akhir. Nilai formatif bersifat kualitatif (arsip) dan tidak masuk hitungan rapor.</div></div>
     <div class="grow"></div>
-    <button class="btn" onclick="exportRekapExcel()">${ic("bar",15)} Excel</button>
-    <button class="btn" onclick="printRekap()">${ic("print",15)} Cetak</button></div>
+    <button class="btn" onclick="exportDaftarNilaiExcel()">${ic("download",15)} Excel</button>
+    <button class="btn btn-primary" onclick="printDaftarNilai()">${ic("print",15)} Cetak</button></div>
   <div class="toolbar">
-    <select style="padding:10px;border-radius:11px;border:1px solid var(--border);" onchange="window._rekapJenis=this.value; renderPage('rekapnilai');">
-      <option value="asesmenFormatif" ${jenisSel==='asesmenFormatif'?'selected':''}>Asesmen Formatif</option>
-      <option value="asesmenSumatif" ${jenisSel==='asesmenSumatif'?'selected':''}>Asesmen Sumatif</option>
-    </select>
-    <select style="padding:10px;border-radius:11px;border:1px solid var(--border);" onchange="window._rekapMapel=this.value; renderPage('rekapnilai');">
+    <div class="field" style="min-width:200px;margin-bottom:0;"><label>Mata Pelajaran</label><select onchange="window._rekapMapel=this.value; renderPage('rekapnilai');">
       ${MAPEL_LIST.map(m=>`<option value="${escapeHtml(m)}" ${m===mapelSel?"selected":""}>${escapeHtml(m)}</option>`).join("")}
-    </select>
+    </select></div>
+    <div class="field" style="min-width:150px;margin-bottom:0;"><label>Semester</label><select onchange="window._rekapSemester=this.value; renderPage('rekapnilai');">
+      <option value="1" ${semSel==="1"?"selected":""}>Semester 1</option>
+      <option value="2" ${semSel==="2"?"selected":""}>Semester 2</option>
+    </select></div>
+    <div class="grow"></div>
+    <span class="hint">Tips: saat <strong>Input Nilai</strong>, tulis <strong>STS</strong> / <strong>SAS</strong> pada kolom Lingkup Materi untuk menandai nilai tengah &amp; akhir semester.</span>
   </div>
-  <div id="rekapTableHolder" class="table-wrap"><table><thead><tr><th>No</th><th>Nama Siswa</th><th>Jumlah Data</th><th>Rata-rata</th><th>Predikat</th></tr></thead>
-  <tbody>${body}</tbody></table></div>`;
+  ${table.length
+    ? `<div id="daftarNilaiHolder" class="table-wrap"><table><thead>${head}</thead><tbody>${body}</tbody></table></div>`
+    : `<div class="empty-state">${ic("bar",40)}<p>Belum ada nilai sumatif untuk mapel &amp; semester ini.<br>Isi dulu melalui menu <strong>Input Nilai Massal</strong>.</p></div>`}`;
 };
-function exportRekapExcel(){ htmlToExcelXls(document.getElementById("rekapTableHolder").innerHTML, "Rekap_Nilai_"+(window._rekapMapel||"").replace(/\s+/g,"_"), "Rekap Nilai"); }
-function printRekap(){ printDocument("REKAP NILAI - "+ (window._rekapMapel||"").toUpperCase(), document.getElementById("rekapTableHolder").innerHTML); }
+function daftarNilaiKop(){
+  const s = db.sekolah, mapelSel = window._rekapMapel || MAPEL_LIST[0], semSel = window._rekapSemester || "1";
+  return `<table style="margin-bottom:10px;"><tbody>
+    <tr><td style="width:180px;"><strong>Satuan Pendidikan</strong></td><td>: ${escapeHtml(s.namaSekolah||"")}</td></tr>
+    <tr><td><strong>Kelas / Semester</strong></td><td>: ${escapeHtml(classInfo(activeClassId).label)} / ${semSel==="1"?"1 (Ganjil)":"2 (Genap)"}</td></tr>
+    <tr><td><strong>Mata Pelajaran</strong></td><td>: ${escapeHtml(mapelSel)}</td></tr>
+    <tr><td><strong>Tahun Pelajaran</strong></td><td>: ${escapeHtml(s.tahunAjaran||"")}</td></tr>
+  </tbody></table>`;
+}
+function daftarNilaiPengesahan(){
+  const s = db.sekolah;
+  const wali = (db.guru||[]).find(g=>g.id===s.waliKelasId);
+  return `<br><table style="width:100%;"><tbody><tr>
+    <td style="width:50%;text-align:center;">Mengetahui,<br>Kepala Sekolah<br><br><br><br><br><strong><u>${escapeHtml(s.kepalaSekolah||"")}</u></strong><br>NIP. ${escapeHtml(s.nipKepsek||"")}</td>
+    <td style="width:50%;text-align:center;">${escapeHtml(s.desa||"")}, ${fmtDate(todayISO())}<br>Wali Kelas<br><br><br><br><br><strong><u>${escapeHtml(wali?wali.nama:"")}</u></strong><br>NIP. ${escapeHtml(wali?(wali.nip||""):"")}</td>
+  </tr></tbody></table>
+  <p style="font-size:10pt;margin-top:10px;"><strong>Keterangan:</strong> NA Sumatif = rata-rata nilai sumatif lingkup materi. Nilai Akhir = rata-rata NA Sumatif dan SAS (apabila SAS dilaksanakan). Nilai formatif bersifat kualitatif sebagai bahan deskripsi dan tidak diperhitungkan dalam nilai rapor.</p>`;
+}
+function exportDaftarNilaiExcel(){
+  const holder = document.getElementById("daftarNilaiHolder");
+  if(!holder){ toast("Tidak ada data untuk diekspor"); return; }
+  htmlToExcelXls(daftarNilaiKop()+holder.innerHTML+daftarNilaiPengesahan(),
+    "Daftar_Nilai_"+(window._rekapMapel||"").replace(/\s+/g,"_"), "Daftar Nilai");
+}
+function printDaftarNilai(){
+  const holder = document.getElementById("daftarNilaiHolder");
+  if(!holder){ toast("Tidak ada data untuk dicetak"); return; }
+  printDocument("DAFTAR NILAI - "+(window._rekapMapel||"").toUpperCase(),
+    daftarNilaiKop()+holder.innerHTML+daftarNilaiPengesahan());
+}
 
 /* ---------- DESKRIPSI RAPOR ---------- */
 function generateRaporDraft(siswaId){
@@ -831,44 +941,9 @@ function printRaporSiswa(id){
 }
 
 /* ---------- KEHADIRAN ---------- */
-PAGES.kehadiran = function(){
-  const tgl = window._kehadiranTgl || todayISO();
-  db.kehadiran[tgl] = db.kehadiran[tgl] || {};
-  const rows = siswaSortedAlpha().map(s=>{
-    const st = db.kehadiran[tgl][s.id] || "H";
-    const opts = [["H","Hadir","badge-green"],["S","Sakit","badge-orange"],["I","Izin","badge-blue"],["A","Alpa","badge-red"]];
-    return `<tr><td><strong>${escapeHtml(s.nama)}</strong></td><td>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;">
-      ${opts.map(o=>`<button class="btn btn-sm ${st===o[0]?'btn-primary':''}" onclick="setKehadiran('${tgl}','${s.id}','${o[0]}')">${o[1]}</button>`).join("")}
-      </div></td></tr>`;
-  }).join("");
-  // Rekap bulanan sederhana
-  const bulan = tgl.slice(0,7);
-  const rekap = siswaSortedAlpha().map(s=>{
-    let h=0,sk=0,iz=0,al=0;
-    Object.keys(db.kehadiran).forEach(d=>{
-      if(d.startsWith(bulan)){
-        const st = db.kehadiran[d][s.id];
-        if(st==="H") h++; else if(st==="S") sk++; else if(st==="I") iz++; else if(st==="A") al++;
-      }
-    });
-    return {nama:s.nama,h,sk,iz,al};
-  });
-  return `
-  <div class="section-head"><div><h1>Kehadiran Siswa</h1><div class="desc">Tandai kehadiran harian, lalu lihat rekap bulanan di bawah.</div></div>
-    <div class="grow"></div>
-    <button class="btn" onclick="printKehadiran()">${ic("print",15)} Cetak Rekap Bulan Ini</button></div>
-  <div class="card" style="margin-bottom:16px;">
-    <div class="field" style="max-width:220px;"><label>Tanggal</label><input type="date" value="${tgl}" onchange="window._kehadiranTgl=this.value; renderPage('kehadiran');"></div>
-    <div class="table-wrap"><table><thead><tr><th>Nama Siswa</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div>
-  </div>
-  <div class="card">
-    <h3>Rekap Bulan ${bulan}</h3>
-    <div id="rekapAbsenHolder" class="table-wrap"><table><thead><tr><th>Nama</th><th>Hadir</th><th>Sakit</th><th>Izin</th><th>Alpa</th></tr></thead>
-    <tbody>${rekap.map(r=>`<tr><td>${escapeHtml(r.nama)}</td><td>${r.h}</td><td>${r.sk}</td><td>${r.iz}</td><td>${r.al}</td></tr>`).join("")}</tbody></table></div>
-  </div>`;
-};
-/* setKehadiran & printKehadiran kini didefinisikan di modul BATCH 2 (mendukung pilihan bulan & export Word/Excel resmi) */
+/* DIHAPUS (redundan): versi lama PAGES.kehadiran dipindah/digabung ke
+   80-ai.js yang aktif (dengan pemilih bulan + grid absensi bulanan).
+   Dihapus agar tidak membingungkan saat edit manual. */
 
 /* ---------- CATATAN PERKEMBANGAN ---------- */
 PAGES.perkembangan = function(){
