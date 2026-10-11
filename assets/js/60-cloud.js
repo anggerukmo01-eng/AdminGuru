@@ -63,8 +63,12 @@ function cloudOpenAuthModal(){
       </div>
       <div class="field"><label>Email</label><input type="email" id="cloudAuthEmail" placeholder="guru@sekolah.sch.id"></div>
       <div class="field"><label>Password</label><input type="password" id="cloudAuthPassword" placeholder="Minimal 6 karakter"></div>
-      <p class="hint" id="cloudAuthHint">Masuk memakai akun Supabase (Email &amp; Password) yang sudah didaftarkan.</p>
+      <p class="hint" id="cloudAuthHint">Masuk memakai akun Supabase (Email &amp; Password) yang sudah didaftarkan. Akun baru wajib diklik tautan verifikasi di email sebelum bisa masuk.</p>
       <div id="cloudAuthError" style="display:none;" class="alert alert-danger"></div>
+      <div style="margin-top:10px;display:flex;gap:16px;flex-wrap:wrap;">
+        <button class="btn btn-sm" onclick="cloudResendVerification()">Kirim ulang email verifikasi</button>
+        <button class="btn btn-sm" onclick="cloudForgotPassword()">Lupa password?</button>
+      </div>
     `,
     footHtml:`<button class="btn" onclick="closeModal()">Batal</button><button class="btn btn-primary" id="cloudAuthSubmitBtn">${ic("check",15)} Masuk</button>`
   });
@@ -125,6 +129,85 @@ async function cloudSubmitAuth(){
     if(errEl){ errEl.style.display = "block"; errEl.textContent = cloudAuthErrMsg(e); }
     toast("Gagal: "+cloudAuthErrMsg(e));
   }finally{ btn.disabled = false; }
+}
+async function cloudResendVerification(){
+  const client = cloudClient(); if(!client) return;
+  const email = (document.getElementById("cloudAuthEmail").value||"").trim();
+  if(!email){ toast("Isi email terlebih dahulu pada kolom di atas."); return; }
+  try{
+    const {error} = await client.auth.resend({type:"signup", email});
+    if(error) throw error;
+    cloudLog("Verifikasi Email","Berhasil",email);
+    toast("Email verifikasi dikirim ulang. Cek kotak masuk / folder spam, lalu klik tautannya.");
+  }catch(e){
+    cloudLog("Verifikasi Email","Gagal",e.message);
+    toast("Gagal: "+cloudAuthErrMsg(e));
+  }
+}
+async function cloudForgotPassword(){
+  const client = cloudClient(); if(!client) return;
+  const email = (document.getElementById("cloudAuthEmail").value||"").trim();
+  if(!email){ toast("Isi email terlebih dahulu pada kolom di atas."); return; }
+  try{
+    const {error} = await client.auth.resetPasswordForEmail(email);
+    if(error) throw error;
+    cloudLog("Lupa Password","Berhasil",email);
+    toast("Tautan atur ulang password dikirim ke email. Buka dari perangkat ini, lalu ikuti langkahnya.");
+  }catch(e){
+    cloudLog("Lupa Password","Gagal",e.message);
+    toast("Gagal: "+cloudAuthErrMsg(e));
+  }
+}
+/* Menangani tautan pemulihan dari email (…#type=recovery…): tampilkan form password baru.
+   Dipanggil saat boot; hanya aktif bila URL mengandung type=recovery. */
+function cloudHandleRecoveryLink(){
+  const client = cloudClient(); if(!client) return;
+  if((window.location.hash||"").indexOf("type=recovery")===-1) return;
+  let tries = 0;
+  const iv = setInterval(async ()=>{
+    tries++;
+    let sess = null;
+    try{ const r = await client.auth.getSession(); sess = r.data && r.data.session; }catch(e){}
+    const btn = document.getElementById("cloudRecSubmit");
+    if(sess){
+      clearInterval(iv);
+      // Tautan recovery = bukti kepemilikan email; tampilkan di atas lock screen.
+      const lock = document.getElementById("lockScreen"); if(lock) lock.classList.add("hidden");
+      const app = document.getElementById("app"); if(app) app.classList.add("ready");
+      openModal({
+        title:"Buat Password Baru",
+        bodyHtml:`
+          <p class="hint">Tautan pemulihan valid untuk <strong>${escapeHtml(sess.user.email||"")}</strong>. Silakan buat password baru.</p>
+          <div class="field"><label>Password Baru (min. 6 karakter)</label><input type="password" id="cloudNewPass1" autocomplete="new-password"></div>
+          <div class="field"><label>Ulangi Password Baru</label><input type="password" id="cloudNewPass2" autocomplete="new-password"></div>
+          <div id="cloudRecError" style="display:none;" class="alert alert-danger"></div>`,
+        footHtml:`<button class="btn btn-primary" id="cloudRecSubmit">${ic("check",15)} Simpan Password Baru</button>`
+      });
+      document.getElementById("cloudRecSubmit").onclick = async ()=>{
+        const p1 = document.getElementById("cloudNewPass1").value||"";
+        const p2 = document.getElementById("cloudNewPass2").value||"";
+        const errEl = document.getElementById("cloudRecError");
+        const showErr = m=>{ errEl.style.display="block"; errEl.textContent=m; };
+        if(p1.length<6){ showErr("Password minimal 6 karakter."); return; }
+        if(p1!==p2){ showErr("Konfirmasi password tidak sama."); return; }
+        try{
+          const {error} = await client.auth.updateUser({password:p1});
+          if(error) throw error;
+          closeModal();
+          try{ history.replaceState(null,"",location.pathname+location.search); }catch(e){}
+          cloudLog("Atur Ulang Password","Berhasil",sess.user.email||"");
+          toast("Password baru tersimpan. Silakan masuk dengan password baru.");
+          cloudUser = {id:sess.user.id, email:sess.user.email};
+          settings.cloud.email = cloudUser.email; saveSettings();
+          renderPage(currentPage);
+        }catch(e){ showErr(cloudAuthErrMsg(e)); }
+      };
+    } else if(tries>=25){
+      clearInterval(iv);
+      toast("Tautan pemulihan tidak valid atau kedaluwarsa. Minta tautan baru lewat 'Lupa password?'.");
+      try{ history.replaceState(null,"",location.pathname+location.search); }catch(e){}
+    }
+  }, 200);
 }
 async function cloudLogout(){
   const client = cloudClient(); if(!client) return;
