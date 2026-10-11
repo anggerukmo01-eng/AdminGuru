@@ -628,3 +628,133 @@ canvas.pen-canvas{width:100%; height:420px; touch-action:none; border-radius:var
 /* input nomor absen (data siswa) */
 .no-absen-input{width:52px;padding:6px 4px;text-align:center;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);font-size:12.5px;font-weight:700;}
 .no-absen-input:focus{outline:none;border-color:var(--primary);box-shadow:var(--shadow-glow);}
+
+/* ============================================================
+   15. MODERNISASI UI v2.9 — colorful namun tetap formal
+   ------------------------------------------------------------
+   - Tombol primer: gradien biru modern
+   - Judul halaman: aksen gradien
+   - Sidebar: kode warna per grup menu (pemindaian lebih cepat)
+   - Tabel: header bertinta lembut, baris hover
+   - Badge: varian violet & teal
+   - Empty-state: ilustrasi SVG modern
+   ============================================================ */
+:root{
+  --gradient-primary:linear-gradient(135deg,#3e63f2 0%,#5b4df0 60%,#7048e8 100%);
+  --gradient-accent:linear-gradient(135deg,#0ca678 0%,#1098ad 100%);
+  --gradient-warm:linear-gradient(135deg,#e8890c 0%,#e5484d 100%);
+  --shadow-btn:0 4px 14px rgba(62,99,242,.32);
+}
+
+/* --- tombol --- */
+.btn-primary{
+  background:var(--gradient-primary);
+  border:none;
+  box-shadow:var(--shadow-btn);
+  transition:transform .15s ease, box-shadow .15s ease, filter .15s ease;
+}
+.btn-primary:hover{filter:brightness(1.07); transform:translateY(-1px); box-shadow:0 7px 20px rgba(62,99,242,.42);}
+.btn-primary:active{transform:translateY(0);}
+.btn{transition:transform .15s ease, box-shadow .15s ease, background .15s ease;}
+.btn:not(.btn-primary):hover{transform:translateY(-1px); box-shadow:0 4px 12px rgba(23,32,58,.10);}
+
+/* --- judul halaman --- */
+.section-head h1{
+  position:relative;
+  padding-bottom:8px;
+}
+.section-head h1::after{
+  content:""; position:absolute; left:0; bottom:0;
+  width:56px; height:4px; border-radius:4px;
+  background:var(--gradient-primary);
+}
+.section-head .desc{margin-top:8px;}
+
+/* --- kartu --- */
+.card{transition:box-shadow .2s ease, transform .2s ease;}
+.stat-card{position:relative; overflow:hidden;}
+.stat-card::before{
+  content:""; position:absolute; top:0; left:0; right:0; height:4px;
+  background:var(--gradient-primary); opacity:.85;
+}
+
+/* --- tabel --- */
+.table-wrap table thead th, table thead th{
+  background:linear-gradient(180deg,var(--primary-ghost),var(--primary-soft));
+  color:var(--primary-ink);
+  font-weight:800;
+  letter-spacing:.3px;
+}
+.table-wrap table tbody tr, table tbody tr{transition:background .12s ease;}
+.table-wrap table tbody tr:hover, table tbody tr:hover{background:var(--primary-ghost);}
+[data-theme="dark"] .table-wrap table thead th, [data-theme="dark"] table thead th{color:var(--text);}
+
+/* --- badge tambahan --- */
+.badge-violet{background:var(--violet-soft);color:#5f3dc4;}
+[data-theme="dark"] .badge-violet{color:var(--violet);}
+.badge-teal{background:var(--info-soft);color:#0b7285;}
+[data-theme="dark"] .badge-teal{color:var(--info);}
+
+/* --- sidebar: kode warna per grup --- */
+.navgroup-head{position:relative; padding-left:14px;}
+.navgroup-head::before{
+  content:""; position:absolute; left:2px; top:50%; transform:translateY(-50%);
+  width:5px; height:18px; border-radius:5px; background:var(--ng-accent,#3e63f2);
+  transition:height .2s ease;
+}
+.navgroup-head:hover::before{height:24px;}
+.navgroup[data-group="Utama"]{--ng-accent:#3e63f2;}
+.navgroup[data-group="Identitas"]{--ng-accent:#7048e8;}
+.navgroup[data-group="Statistik & Riwayat Siswa"]{--ng-accent:#1098ad;}
+.navgroup[data-group="Perencanaan"]{--ng-accent:#e8890c;}
+.navgroup[data-group="Kurikulum"]{--ng-accent:#7048e8;}
+.navgroup[data-group="Penilaian"]{--ng-accent:#0ca678;}
+.navgroup[data-group="Pembinaan"]{--ng-accent:#e64980;}
+.navgroup[data-group="Administrasi Kelas"]{--ng-accent:#3e63f2;}
+.navgroup[data-group="Kegiatan & Sarana Kelas"]{--ng-accent:#f08c00;}
+.navgroup[data-group="AI Teacher Suite Pro"]{--ng-accent:#7048e8;}
+.navgroup[data-group="Sistem"]{--ng-accent:#868e96;}
+.navitem{border-radius:10px; margin:1px 6px; width:calc(100% - 12px);}
+.navitem svg{color:var(--text-soft); transition:color .15s ease, transform .15s ease;}
+.navitem:hover svg{color:var(--primary); transform:scale(1.08);}
+.navitem.active{
+  background:linear-gradient(135deg,var(--primary-soft),var(--violet-soft));
+  color:var(--primary-ink);
+  font-weight:700;
+  box-shadow:inset 0 0 0 1px var(--border);
+}
+.navitem.active svg{color:var(--primary);}
+[data-theme="dark"] .navitem.active{color:var(--text);}
+
+/* --- empty state modern --- */
+.empty-state{
+  text-align:center; padding:36px 20px; color:var(--text-soft);
+  display:flex; flex-direction:column; align-items:center; gap:10px;
+}
+.empty-state svg{margin-bottom:6px; filter:drop-shadow(0 8px 16px rgba(62,99,242,.18));}
+.empty-state p{margin:0; max-width:420px; line-height:1.6;}
+
+/* --- fokus aksesibel --- */
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible{
+  outline:2px solid var(--primary); outline-offset:2px;
+}
+
+/* --- toolbar & search --- */
+.search-box{transition:box-shadow .15s ease, border-color .15s ease;}
+.search-box:focus-within{border-color:var(--primary); box-shadow:var(--shadow-glow);}
+
+/* --- modal --- */
+.modal-card{animation:modalPop .22s cubic-bezier(.2,.9,.3,1.2);}
+@keyframes modalPop{from{transform:scale(.94) translateY(10px); opacity:0;}to{transform:scale(1) translateY(0); opacity:1;}}
+
+/* --- chip ikon gradien (Pusat AI Guru) --- */
+.ai-chip{
+  display:inline-flex; align-items:center; justify-content:center;
+  width:34px; height:34px; border-radius:11px; flex-shrink:0;
+  box-shadow:0 4px 10px rgba(23,32,58,.18);
+}
+.ai-chip svg{width:16px; height:16px; color:#fff;}
+h3 .ai-chip{width:30px; height:30px; border-radius:10px;}
+h3 .ai-chip svg{width:15px; height:15px;}
+.ai-tool-btn{display:flex; align-items:center; gap:12px;}
+.ai-tool-btn:hover{border-color:var(--primary); background:var(--primary-ghost);}
