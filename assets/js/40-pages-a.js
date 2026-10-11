@@ -1050,16 +1050,56 @@ function checkKalenderReminders(){
    Cocokkan berdasar nama ternormalisasi untuk mempertahankan ID lama
    (agar data absensi & nilai tidak putus). Siswa lama yang tidak cocok
    dengan Dapodik dianggap data usang dan diganti. */
-const BI_SEED_FLAG = "tpsd2026_bukuinduk_seed_v2";
+/* Ekspansi SEED_BI_TXT (string delimited "|") -> objek siswa lengkap.
+   Urutan field: nama|jk|nis|nisn|ttl|agama|alamat|ayahNama|ibuNama|pekAyah|
+   nik|noKK|tempatLahir|tglLahir|rt|rw|dusun|kel|kec|kodePos|jenisTinggal|transportasi|
+   telp|hp|anakKe|jmlSdr|bb|tb|lk|jarak|khusus|sekolahAsal|
+   aNama|aThn|aPend|aPek|aHasil|aNik| iNama|iThn|iPend|iPek|iHasil|iNik|
+   wNama|wThn|wPend|wPek|wHasil|wNik| kip|noKIP|noKKS|layakPIP|alasanPIP */
+function biExpandOrtu(f, o){
+  return {nama:f[o]||"", tahunLahir:f[o+1]||"", pendidikan:f[o+2]||"", pekerjaan:f[o+3]||"",
+          penghasilan:f[o+4]||"", nik:f[o+5]||"", agama:"Islam", wn:"Indonesia", alamat:"", hp:""};
+}
+function biExpandSeed(){
+  const out = {};
+  if(typeof SEED_BI_TXT === "undefined") return out;
+  Object.keys(SEED_BI_TXT).forEach(kelas=>{
+    out[kelas] = SEED_BI_TXT[kelas].map((line, i)=>{
+      const f = line.split("|");
+      while(f.length < 55) f.push("");
+      const ayah = biExpandOrtu(f, 32), ibu = biExpandOrtu(f, 38);
+      return {
+        id: "bi" + kelas.replace("kelas-","") + "_" + i,
+        no: i+1, nama: f[0], jk: f[1], nis: f[2], nisn: f[3],
+        ttl: f[4], agama: f[5]||"Islam", alamat: f[6],
+        ayah: f[7]||ayah.nama, ibu: f[8]||ibu.nama, pekerjaanOrtu: f[9]||ayah.pekerjaan,
+        bi: {nik:f[10], noKK:f[11], tempatLahir:f[12], tanggalLahir:f[13],
+             rt:f[14], rw:f[15], dusun:f[16], kelurahan:f[17],
+             kecamatan:f[18], kodePos:f[19], jenisTinggal:f[20],
+             transportasi:f[21], telepon:f[22], hp:f[23],
+             anakKe:f[24], jmlSaudara:f[25], beratBadan:f[26],
+             tinggiBadan:f[27], lingkarKepala:f[28], jarakSekolah:f[29],
+             kebutuhanKhusus:f[30], sekolahAsal:f[31],
+             ayah:ayah, ibu:ibu, wali:biExpandOrtu(f, 44),
+             penerimaKIP:f[50], nomorKIP:f[51], nomorKKS:f[52],
+             layakPIP:f[53], alasanPIP:f[54],
+             wn:"Indonesia", tinggalBersama:"Orang Tua"}
+      };
+    });
+  });
+  return out;
+}
+const BI_SEED_FLAG = "tpsd2026_bukuinduk_seed_v3";
 
 function biNormNama(n){
   return String(n||"").toLowerCase().replace(/[^a-z\s]/g,"").replace(/\s+/g," ").trim();
 }
 
 function runBukuIndukSeedIfNeeded(){
-  if(typeof SEED_BI === "undefined") return;
+  if(typeof SEED_BI_TXT === "undefined") return;
   if(localStorage.getItem(BI_SEED_FLAG)) return;
   try{
+    const SEED_BI = biExpandSeed();
     Object.keys(SEED_BI).forEach(classId=>{
       const cls = loadClassDB(classId);
       cls.siswa = cls.siswa || [];
