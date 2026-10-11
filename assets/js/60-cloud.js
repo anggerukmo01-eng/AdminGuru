@@ -64,6 +64,7 @@ function cloudOpenAuthModal(){
       <div class="field"><label>Email</label><input type="email" id="cloudAuthEmail" placeholder="guru@sekolah.sch.id"></div>
       <div class="field"><label>Password</label><input type="password" id="cloudAuthPassword" placeholder="Minimal 6 karakter"></div>
       <p class="hint" id="cloudAuthHint">Masuk memakai akun Supabase (Email &amp; Password) yang sudah didaftarkan.</p>
+      <div id="cloudAuthError" style="display:none;" class="alert alert-danger"></div>
     `,
     footHtml:`<button class="btn" onclick="closeModal()">Batal</button><button class="btn btn-primary" id="cloudAuthSubmitBtn">${ic("check",15)} Masuk</button>`
   });
@@ -77,6 +78,16 @@ function cloudSwitchAuthTab(mode){
   document.getElementById("cloudAuthHint").textContent = mode==="login"
     ? "Masuk memakai akun Supabase (Email & Password) yang sudah didaftarkan."
     : "Membuat akun baru. Tergantung pengaturan project Supabase, mungkin perlu verifikasi email terlebih dahulu sebelum bisa masuk.";
+}
+function cloudAuthErrMsg(e){
+  const m = String((e && e.message) || e || "");
+  if(/invalid login credentials/i.test(m)) return "Email atau password salah. Periksa kembali, atau bila belum punya akun klik tab \"Daftar Baru\".";
+  if(/email not confirmed/i.test(m)) return "Email belum diverifikasi. Cek kotak masuk / folder spam pada email Anda, klik tautan verifikasi dari Supabase, lalu masuk lagi di sini.";
+  if(/user already registered/i.test(m)) return "Email ini sudah terdaftar. Silakan masuk lewat tab \"Masuk\".";
+  if(/password should be at least/i.test(m)) return "Password terlalu pendek (minimal 6 karakter).";
+  if(/failed to fetch|network/i.test(m)) return "Tidak dapat menjangkau server Supabase. Periksa koneksi internet Anda.";
+  if(/invalid email/i.test(m)) return "Format email tidak valid.";
+  return m;
 }
 async function cloudSubmitAuth(){
   const client = cloudClient(); if(!client) return;
@@ -110,7 +121,9 @@ async function cloudSubmitAuth(){
     }
   }catch(e){
     cloudLog(window._cloudAuthMode==="register"?"Daftar Akun":"Login","Gagal",e.message);
-    toast("Gagal: "+e.message);
+    const errEl = document.getElementById("cloudAuthError");
+    if(errEl){ errEl.style.display = "block"; errEl.textContent = cloudAuthErrMsg(e); }
+    toast("Gagal: "+cloudAuthErrMsg(e));
   }finally{ btn.disabled = false; }
 }
 async function cloudLogout(){
