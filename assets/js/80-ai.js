@@ -457,12 +457,28 @@ PAGES.aiModul = function(){
   return `<div class="ai-layout">
     <div class="card">
       <h3>${ic("clipboard",18)} AI Generator: Modul Ajar</h3>
-      <p class="hint" style="margin-bottom:10px;">Isi form berikut. Data sekolah, guru, dan CP diambil otomatis dari data yang sudah tersimpan.</p>
-      <div class="field"><label>Kelas</label>${aiKelasSelect("am_kelas", kelasId)}</div>
+      <details style="margin-bottom:12px;background:var(--primary-ghost);border:1px solid var(--primary);border-radius:12px;padding:10px 14px;">
+        <summary style="cursor:pointer;font-weight:800;font-size:13px;">📖 Panduan Pengisian (klik untuk buka)</summary>
+        <ol class="hint" style="font-size:12.5px;line-height:1.9;padding-left:18px;margin:8px 0 0;">
+          <li><strong>Kelas &amp; Semester</strong> — pilih sesuai jadwal mengajar.</li>
+          <li><strong>Mata Pelajaran</strong> — daftar CP/TP otomatis menyesuaikan.</li>
+          <li><strong>Elemen / CP</strong> — capaian pembelajaran acuan (dari data CP aplikasi).</li>
+          <li><strong>Tujuan Pembelajaran (TP)</strong> — pilih dari ATP, atau tulis manual bila belum ada.</li>
+          <li><strong>Lingkup Materi</strong> — bab/subbab spesifik, mis. "Bab 2: Penjumlahan".</li>
+          <li><strong>Model, Metode, Asesmen</strong> — sesuaikan dengan karakteristik kelas.</li>
+          <li>Klik <strong>Generate</strong> — hasil mengikuti struktur baku A/B/C dan bisa disimpan sebagai dokumen.</li>
+        </ol>
+      </details>
+      <div class="grid grid-2">
+        <div class="field"><label>Kelas</label>${aiKelasSelect("am_kelas", kelasId)}</div>
+        <div class="field"><label>Semester</label><select id="am_semester"><option value="1">Semester 1 (Ganjil)</option><option value="2">Semester 2 (Genap)</option></select></div>
+      </div>
       <div class="field"><label>Mata Pelajaran</label>${aiMapelSelect("am_mapel", MAPEL_LIST[0])}
-        <div class="hint" style="margin-top:4px;"><button class="btn btn-sm" type="button" onclick="aiRefreshElemen('am_kelas','am_mapel','am_elemenHolder')">${ic("check",13)} Muat Elemen/CP</button></div></div>
+        <div class="hint" style="margin-top:4px;"><button class="btn btn-sm" type="button" onclick="aiRefreshElemen('am_kelas','am_mapel','am_elemenHolder');aiRefreshTp('am_kelas','am_mapel','am_tpHolder')">${ic("check",13)} Muat Elemen/CP</button></div></div>
       <div class="field"><label>Elemen / Capaian Pembelajaran</label><div id="am_elemenHolder">${aiElemenSelect("am_elemenHolder_sel", kelasId, MAPEL_LIST[0])}</div></div>
-      <div class="field"><label>Materi Pembelajaran</label><input type="text" id="am_materi" placeholder="mis. Mengenal Bilangan 1-20"></div>
+      <div class="field"><label>Tujuan Pembelajaran (TP)</label><div id="am_tpHolder">${aiTpSelect("am_tpHolder_sel", kelasId, MAPEL_LIST[0])}</div>
+        <input type="text" id="am_tpManual" placeholder="atau tulis TP manual di sini..." style="margin-top:6px;"></div>
+      <div class="field"><label>Lingkup Materi / Bab</label><input type="text" id="am_materi" placeholder="mis. Bab 2: Penjumlahan Bilangan 1-20"></div>
       <div class="field"><label>Alokasi Waktu</label><input type="text" id="am_alokasi" placeholder="mis. 2 x 35 menit (1 pertemuan)"></div>
       <div class="field"><label>Model Pembelajaran</label><select id="am_model">${AI_MODEL_PEMBELAJARAN.map(m=>`<option>${m}</option>`).join("")}</select></div>
       <div class="field"><label>Metode</label>${aiCheckGrid("am_metode", AI_METODE, false)}</div>
@@ -483,6 +499,12 @@ function generateAiModul(){
   const cList = aiCpListForKelasMapel(kelasId, mapel);
   const elIdx = document.getElementById("am_elemenHolder_sel") ? document.getElementById("am_elemenHolder_sel").value : "0";
   const cpEntry = cList[elIdx] || cList[0] || {elemen:"-", cp:"-"};
+  const semester = document.getElementById("am_semester").value;
+  const tpManual = document.getElementById("am_tpManual").value.trim();
+  const atpList = aiAtpListForKelasMapel(kelasId, mapel);
+  const tpIdx = document.getElementById("am_tpHolder_sel") ? document.getElementById("am_tpHolder_sel").value : "";
+  const tpPilih = (tpIdx!=="" && atpList[tpIdx]) ? atpList[tpIdx].tp : "";
+  const tpFinal = tpManual || tpPilih || "(turunkan dari CP)";
   const materi = document.getElementById("am_materi").value.trim() || "(sesuai elemen CP terpilih)";
   const alokasi = document.getElementById("am_alokasi").value.trim() || "2 x 35 menit";
   const model = document.getElementById("am_model").value;
@@ -503,12 +525,13 @@ IDENTITAS
 - Nama Guru: ${guru.nama}
 - NIP: ${guru.nip||"-"}
 - Kelas/Fase: ${cls.label} / Fase ${faseForClassId(kelasId)}
-- Semester: ${s.semester}
+- Semester: ${semester} (${semester==="1"?"Ganjil":"Genap"})
 - Mata Pelajaran: ${mapel}
 - Tahun Pelajaran: ${s.tahunAjaran}
 - Elemen: ${cpEntry.elemen}
 - Capaian Pembelajaran (CP): ${cpEntry.cp}
-- Materi: ${materi}
+- Tujuan Pembelajaran (TP): ${tpFinal}
+- Lingkup Materi: ${materi}
 - Alokasi Waktu: ${alokasi}
 - Model Pembelajaran: ${model}
 - Metode: ${metode.join(", ")||"disesuaikan dengan model pembelajaran"}
@@ -576,14 +599,28 @@ PAGES.aiLKPD = function(){
   const kelasId = activeClassId;
   return `<div class="ai-layout">
     <div class="card">
-      <h3>${ic("layers",18)} AI Generator: LKPD</h3>
-      <p class="hint" style="margin-bottom:10px;">Form ini menyusun prompt otomatis berdasarkan 9 komponen rumus LKPD (Peran AI, Identitas, Tujuan, Materi, Model Aktivitas, Struktur, Gaya Bahasa, Format Output, Kriteria Kualitas).</p>
-      <div class="field"><label>Kelas</label>${aiKelasSelect("al_kelas", kelasId)}</div>
+            <h3>${ic("layers",18)} AI Generator: LKPD</h3>
+      <details style="margin-bottom:12px;background:var(--primary-ghost);border:1px solid var(--primary);border-radius:12px;padding:10px 14px;">
+        <summary style="cursor:pointer;font-weight:800;font-size:13px;">📖 Panduan Pengisian (klik untuk buka)</summary>
+        <ol class="hint" style="font-size:12.5px;line-height:1.9;padding-left:18px;margin:8px 0 0;">
+          <li><strong>Kelas &amp; Semester</strong> — pilih sesuai jadwal mengajar.</li>
+          <li><strong>Elemen / CP &amp; TP</strong> — acuan kompetensi; TP bisa dipilih dari ATP atau ditulis manual.</li>
+          <li><strong>Materi / Topik</strong> — fokus aktivitas LKPD, mis. "Mengukur Panjang Benda".</li>
+          <li><strong>Model Aktivitas &amp; Pendekatan</strong> — mis. kelompok kecil + saintifik.</li>
+          <li><strong>Gaya Bahasa</strong> — otomatis disarankan sesuai fase kelas.</li>
+          <li>Klik <strong>Generate</strong> — hasil mencakup identitas, tujuan, langkah kerja, dan tabel pengamatan.</li>
+        </ol>
+      </details>
+      <div class="grid grid-2">
+        <div class="field"><label>Kelas</label>${aiKelasSelect("al_kelas", kelasId)}</div>
+        <div class="field"><label>Semester</label><select id="al_semester"><option value="1">Semester 1 (Ganjil)</option><option value="2">Semester 2 (Genap)</option></select></div>
+      </div>
       <div class="field"><label>Mata Pelajaran</label>${aiMapelSelect("al_mapel", MAPEL_LIST[0])}
-        <div class="hint" style="margin-top:4px;"><button class="btn btn-sm" type="button" onclick="aiRefreshElemen('al_kelas','al_mapel','al_elemenHolder')">${ic("check",13)} Muat Elemen/CP</button></div></div>
+        <div class="hint" style="margin-top:4px;"><button class="btn btn-sm" type="button" onclick="aiRefreshElemen('al_kelas','al_mapel','al_elemenHolder');aiRefreshTp('al_kelas','al_mapel','al_tpHolder')">${ic("check",13)} Muat Elemen/CP</button></div></div>
       <div class="field"><label>Elemen / CP acuan</label><div id="al_elemenHolder">${aiElemenSelect("al_elemenHolder_sel", kelasId, MAPEL_LIST[0])}</div></div>
       <div class="field"><label>Materi / Topik LKPD</label><input type="text" id="al_materi" placeholder="mis. Mengukur Panjang Benda dengan Satuan Tidak Baku"></div>
-      <div class="field"><label>Tujuan Pembelajaran (boleh diketik manual)</label><textarea id="al_tujuan" placeholder="Kosongkan untuk diturunkan otomatis dari CP di atas"></textarea></div>
+      <div class="field"><label>Tujuan Pembelajaran (TP)</label><div id="al_tpHolder">${aiTpSelect("al_tpHolder_sel", kelasId, MAPEL_LIST[0])}</div>
+        <textarea id="al_tujuan" placeholder="atau tulis TP manual di sini (kosongkan untuk diturunkan dari CP)"></textarea></div>
       <div class="field"><label>Model Aktivitas</label><select id="al_aktivitas"><option>Individu</option><option>Berpasangan</option><option>Kelompok Kecil (3-4 siswa)</option><option>Klasikal</option></select></div>
       <div class="field"><label>Pendekatan</label><select id="al_pendekatan"><option>Kontekstual</option><option>Saintifik</option><option>STEAM</option><option>Berbasis Proyek</option><option>Berbasis Masalah</option></select></div>
       <div class="field"><label>Gaya Bahasa</label><select id="al_gaya"><option>Sederhana untuk siswa kelas rendah (1-3)</option><option>Standar untuk siswa kelas tinggi (4-6)</option><option>Naratif dan ceria dengan ilustrasi cerita</option></select></div>
@@ -601,7 +638,12 @@ function generateAiLKPD(){
   const elIdx = document.getElementById("al_elemenHolder_sel") ? document.getElementById("al_elemenHolder_sel").value : "0";
   const cpEntry = cList[elIdx] || cList[0] || {elemen:"-", cp:"-"};
   const materi = document.getElementById("al_materi").value.trim() || "(sesuai elemen CP terpilih)";
+  const semester = document.getElementById("al_semester").value;
   const tujuanManual = document.getElementById("al_tujuan").value.trim();
+  const atpList = aiAtpListForKelasMapel(kelasId, mapel);
+  const tpIdx = document.getElementById("al_tpHolder_sel") ? document.getElementById("al_tpHolder_sel").value : "";
+  const tpPilih = (tpIdx!=="" && atpList[tpIdx]) ? atpList[tpIdx].tp : "";
+  const tpFinal = tujuanManual || tpPilih || "(diturunkan dari CP)";
   const aktivitas = document.getElementById("al_aktivitas").value;
   const pendekatan = document.getElementById("al_pendekatan").value;
   const gaya = document.getElementById("al_gaya").value;
@@ -619,7 +661,8 @@ Anda adalah pengembang bahan ajar profesional yang ahli menyusun Lembar Kerja Pe
 - Kelas/Fase: ${cls.label} / Fase ${faseForClassId(kelasId)}
 - Mata Pelajaran: ${mapel}
 - Elemen/CP acuan: ${cpEntry.elemen} - ${cpEntry.cp}
-- Semester: ${s.semester}
+- Semester: ${semester} (${semester==="1"?"Ganjil":"Genap"})
+- Tujuan Pembelajaran (TP): ${tpFinal}
 - Tahun Pelajaran: ${s.tahunAjaran}
 
 [3. TUJUAN]
@@ -700,14 +743,148 @@ function attendanceGridData(bulan){
 }
 function attendanceGridHtml(bulan){
   const {dayNums, rows, perHari} = attendanceGridData(bulan);
+  const liburDay = {};
+  dayNums.forEach(d=>{
+    const iso = bulan+"-"+String(d).padStart(2,"0");
+    if(tanggalLiburInfo(iso).libur) liburDay[d] = true;
+  });
+  const thDay = d=>`<th${liburDay[d]?' style="background:var(--danger-soft);color:var(--danger);" title="Hari libur"':''}>${d}</th>`;
+  const tdDay = (d,c)=>`<td${liburDay[d]?' style="background:var(--danger-soft);opacity:.55;"':''}>${c||""}</td>`;
   const head = `<tr><th rowspan="2">No</th><th rowspan="2">Nama Siswa</th><th colspan="${dayNums.length}">Tanggal</th><th colspan="4">Rekap</th></tr>
-    <tr>${dayNums.map(d=>`<th>${d}</th>`).join("")}<th>H</th><th>S</th><th>I</th><th>A</th></tr>`;
+    <tr>${dayNums.map(thDay).join("")}<th>H</th><th>S</th><th>I</th><th>A</th></tr>`;
   const body = rows.map((r,i)=>`<tr><td>${i+1}</td><td style="text-align:left;"><strong>${escapeHtml(r.nama)}</strong></td>
-    ${r.cells.map(c=>`<td>${c||""}</td>`).join("")}
+    ${r.cells.map((c,di)=>tdDay(dayNums[di],c)).join("")}
     <td>${r.h}</td><td>${r.sk}</td><td>${r.iz}</td><td>${r.al}</td></tr>`).join("");
-  const footer = `<tr><td colspan="2" style="text-align:right;"><strong>Jumlah Hadir</strong></td>${perHari.map(n=>`<td>${n||""}</td>`).join("")}<td colspan="4"></td></tr>`;
+  const footer = `<tr><td colspan="2" style="text-align:right;"><strong>Jumlah Hadir</strong></td>${perHari.map((n,di)=>tdDay(dayNums[di],n||"")).join("")}<td colspan="4"></td></tr>`;
   return `<table><thead>${head}</thead><tbody>${body}${footer}</tbody></table>
-  <p class="hint" style="margin-top:8px;">Keterangan: H = Hadir, S = Sakit, I = Izin, A = Alpa/Tanpa Keterangan.</p>`;
+  <p class="hint" style="margin-top:8px;">Keterangan: H = Hadir, S = Sakit, I = Izin, A = Alpa/Tanpa Keterangan. Kolom berwarna merah muda = hari libur (Sabtu/Minggu/libur nasional).</p>`;
+}
+/* ============================================================
+   HARI LIBUR & KUNCI ABSENSI (v2.4)
+   - LIBUR_NASIONAL: SKB 3 Menteri 2026 (17 libur + 8 cuti bersama).
+     Untuk 2027 baru tanggal tetap; dilengkapi saat SKB 2027 terbit.
+   - Sabtu & Minggu selalu dianggap libur.
+   - Kunci bisa dibuka per-tanggal via tombol (tersimpan di db).
+   ============================================================ */
+const LIBUR_NASIONAL = {
+  "2026-01-01":"Tahun Baru 2026 Masehi",
+  "2026-01-16":"Isra Mikraj Nabi Muhammad SAW",
+  "2026-02-16":"Cuti Bersama Tahun Baru Imlek",
+  "2026-02-17":"Tahun Baru Imlek 2577 Kongzili",
+  "2026-03-18":"Cuti Bersama Hari Suci Nyepi",
+  "2026-03-19":"Hari Suci Nyepi (Tahun Baru Saka 1948)",
+  "2026-03-20":"Cuti Bersama Idul Fitri",
+  "2026-03-21":"Idul Fitri 1447 Hijriah",
+  "2026-03-22":"Idul Fitri 1447 Hijriah",
+  "2026-03-23":"Cuti Bersama Idul Fitri",
+  "2026-03-24":"Cuti Bersama Idul Fitri",
+  "2026-04-03":"Wafat Yesus Kristus",
+  "2026-04-05":"Kebangkitan Yesus Kristus (Paskah)",
+  "2026-05-01":"Hari Buruh Internasional",
+  "2026-05-14":"Kenaikan Yesus Kristus",
+  "2026-05-15":"Cuti Bersama Kenaikan Yesus Kristus",
+  "2026-05-27":"Idul Adha 1447 Hijriah",
+  "2026-05-28":"Cuti Bersama Idul Adha",
+  "2026-05-31":"Hari Raya Waisak 2570 BE",
+  "2026-06-01":"Hari Lahir Pancasila",
+  "2026-06-16":"1 Muharam Tahun Baru Islam 1448 Hijriah",
+  "2026-08-17":"Proklamasi Kemerdekaan RI",
+  "2026-08-25":"Maulid Nabi Muhammad SAW",
+  "2026-12-24":"Cuti Bersama Natal",
+  "2026-12-25":"Hari Raya Natal",
+  "2027-01-01":"Tahun Baru 2027 Masehi",
+  "2027-05-01":"Hari Buruh Internasional",
+  "2027-06-01":"Hari Lahir Pancasila",
+  "2027-08-17":"Proklamasi Kemerdekaan RI",
+  "2027-12-25":"Hari Raya Natal"
+};
+function tanggalLiburInfo(iso){
+  if(LIBUR_NASIONAL[iso]) return {libur:true, ket:LIBUR_NASIONAL[iso]};
+  const d = new Date(iso+"T00:00:00");
+  const day = d.getDay();
+  if(day===0) return {libur:true, ket:"Hari Minggu"};
+  if(day===6) return {libur:true, ket:"Hari Sabtu"};
+  return {libur:false, ket:""};
+}
+function isTanggalDikunci(iso){
+  const info = tanggalLiburInfo(iso);
+  if(!info.libur) return null;
+  const unlocked = ((db.absenBukaKunci||{})[iso]) ? true : false;
+  return unlocked ? null : info;
+}
+function absenBukaKunci(iso){
+  db.absenBukaKunci = db.absenBukaKunci || {};
+  db.absenBukaKunci[iso] = true;
+  saveDB(); renderPage("kehadiran");
+  toast("Kunci dibuka untuk "+fmtDate(iso)+" — silakan isi absensi");
+}
+function absenKunciLagi(iso){
+  db.absenBukaKunci = db.absenBukaKunci || {};
+  delete db.absenBukaKunci[iso];
+  saveDB(); renderPage("kehadiran");
+  toast("Tanggal "+fmtDate(iso)+" dikunci kembali");
+}
+function hariEfektifBulan(yyyyMM){
+  const n = daysInMonthOf(yyyyMM);
+  let c = 0;
+  for(let d=1; d<=n; d++){
+    const iso = yyyyMM+"-"+String(d).padStart(2,"0");
+    if(!tanggalLiburInfo(iso).libur) c++;
+  }
+  return c;
+}
+/* Daftar bulan sejak awal tahun pelajaran (Juli) s.d. bulan berjalan */
+function absensiBulanList(){
+  const ta = String(db.sekolah.tahunAjaran||"");
+  const m0 = ta.match(/(\d{4})\s*\/\s*\d{4}/);
+  const startYear = m0 ? parseInt(m0[1],10) : (new Date().getFullYear());
+  const now = todayISO().slice(0,7);
+  const list = [];
+  let y = startYear, m = 7, guard = 0;
+  while(guard++ < 30){
+    const ym = y+"-"+String(m).padStart(2,"0");
+    list.push(ym);
+    if(ym >= now) break;
+    m++; if(m>12){ m=1; y++; }
+  }
+  Object.keys(db.kehadiran||{}).forEach(d=>{
+    const ym = d.slice(0,7);
+    if(list.indexOf(ym)<0) list.push(ym);
+  });
+  return list.sort();
+}
+/* Ringkasan persentase kehadiran bulanan */
+function absensiRingkasanHtml(bulan){
+  const data = attendanceGridData(bulan);
+  const rows = data.rows;
+  const nSiswa = rows.length;
+  const hariEfektif = hariEfektifBulan(bulan);
+  let tH=0, tS=0, tI=0, tA=0;
+  rows.forEach(r=>{ tH+=r.h; tS+=r.sk; tI+=r.iz; tA+=r.al; });
+  const penyebut = hariEfektif * nSiswa;
+  const pct = v => penyebut>0 ? (v*100/penyebut) : 0;
+  const f1 = v => (Math.round(v*10)/10).toString().replace(".", ",")+"%";
+  const bar = (p, color) => `<div style="height:8px;border-radius:99px;background:var(--border);overflow:hidden;margin-top:6px;"><div style="height:100%;width:${Math.min(100,p)}%;background:${color};border-radius:99px;"></div></div>`;
+  const card = (label, total, p, color) => `
+    <div class="card" style="margin:0;padding:14px 16px;">
+      <div class="muted" style="font-size:11.5px;font-weight:700;">${label}</div>
+      <div style="font-size:22px;font-weight:800;margin-top:2px;">${f1(p)}</div>
+      <div class="muted" style="font-size:11.5px;">${total} dari ${penyebut} siswa-hari</div>
+      ${bar(p, color)}
+    </div>`;
+  return `
+  <div class="card" style="margin-bottom:16px;">
+    <div class="section-head" style="margin-bottom:12px;"><div>
+      <h3 style="margin:0;">Ringkasan Kehadiran — ${bulanIndoLabel(bulan)}</h3>
+      <div class="desc">Hari efektif: <strong>${hariEfektif} hari</strong> (di luar Sabtu/Minggu &amp; libur nasional) &middot; Siswa: <strong>${nSiswa}</strong> &middot; Rumus: jumlah &times; 100 &divide; (hari efektif &times; jumlah siswa)</div>
+    </div></div>
+    <div class="grid grid-2" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));">
+      ${card("Kehadiran", tH, pct(tH), "var(--accent)")}
+      ${card("Sakit", tS, pct(tS), "var(--warn)")}
+      ${card("Izin", tI, pct(tI), "var(--primary)")}
+      ${card("Alfa", tA, pct(tA), "var(--danger)")}
+    </div>
+  </div>`;
 }
 function attendanceTtdBlockHtml(){
   const s = db.sekolah;
@@ -740,17 +917,20 @@ function exportAbsensiExcel(){
 PAGES.kehadiran = function(){
   const tgl = window._kehadiranTgl || todayISO();
   db.kehadiran[tgl] = db.kehadiran[tgl] || {};
+  const kunciInfo = isTanggalDikunci(tgl);
+  const terkunci = !!kunciInfo;
+  const disAttr = terkunci ? "disabled" : "";
   const siswaList = siswaSortedAlpha();
   const rows = siswaList.map((s,i)=>{
     const st = db.kehadiran[tgl][s.id] || "H";
     const opts = [["H","Hadir","badge-green"],["S","Sakit","badge-orange"],["I","Izin","badge-blue"],["A","Alpa","badge-red"]];
     return `<tr><td style="width:44px;"><span class="badge badge-blue">${i+1}</span></td><td><strong>${escapeHtml(s.nama)}</strong></td><td>
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
-      ${opts.map(o=>`<button class="btn btn-sm ${st===o[0]?'btn-primary':''}" onclick="setKehadiran('${tgl}','${s.id}','${o[0]}')">${o[1]}</button>`).join("")}
+      ${opts.map(o=>`<button class="btn btn-sm ${st===o[0]?'btn-primary':''}" ${disAttr} onclick="setKehadiran('${tgl}','${s.id}','${o[0]}')">${o[1]}</button>`).join("")}
       </div></td></tr>`;
   }).join("");
   const bulanAktif = window._kehadiranBulan || tgl.slice(0,7);
-  const months = absensiAvailableMonths();
+  const months = absensiBulanList();
   if(!months.includes(bulanAktif)) months.push(bulanAktif);
   months.sort();
   return `
@@ -759,20 +939,30 @@ PAGES.kehadiran = function(){
   <div class="card" style="margin-bottom:16px;">
     <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px;">
       <div class="field" style="max-width:200px;margin-bottom:0;"><label>Tanggal</label><input type="date" value="${tgl}" onchange="window._kehadiranTgl=this.value; renderPage('kehadiran');"></div>
-      <button class="btn btn-accent" onclick="kehadiranHadirSemua()">${ic("check",15)} Hadir Semua (1 Klik)</button>
-      <button class="btn" onclick="kehadiranResetHarian()">${ic("x",15)} Reset</button>
+      <button class="btn btn-accent" ${disAttr} onclick="kehadiranHadirSemua()">${ic("check",15)} Hadir Semua (1 Klik)</button>
+      <button class="btn" ${disAttr} onclick="kehadiranResetHarian()">${ic("x",15)} Reset</button>
     </div>
+    ${terkunci ? `
+    <div class="card" style="background:var(--warn-soft);border:1.5px solid var(--warn);margin-bottom:14px;">
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        ${ic("lock",22)}
+        <div style="flex:1;min-width:200px;"><strong>🔒 Terkunci:</strong> ${fmtDate(tgl)} adalah <strong>${kunciInfo.ket}</strong>. Pengisian absensi dikunci agar tidak terisi saat libur.</div>
+        <button class="btn btn-primary btn-sm" onclick="absenBukaKunci('${tgl}')">Buka Kunci</button>
+      </div>
+    </div>` : ((db.absenBukaKunci||{})[tgl] ? `
+    <div class="hint" style="margin-bottom:12px;">🔓 Kunci dibuka manual untuk tanggal ini. <button class="btn btn-sm" onclick="absenKunciLagi('${tgl}')">Kunci lagi</button></div>` : ``)}
     <div style="background:var(--primary-ghost);border:1.5px dashed var(--primary);border-radius:14px;padding:14px 16px;margin-bottom:14px;">
       <div style="font-weight:800;font-size:13px;margin-bottom:8px;">⚡ Absen Cepat <span class="muted" style="font-weight:600;">— ketik nomor/nama yang TIDAK hadir, otomatis tertandai</span></div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
         <div class="field" style="flex:1;min-width:220px;margin-bottom:0;"><label>Nomor / nama siswa (pisahkan koma)</label><input id="absenCepatInput" placeholder="cth: 3, 7, 12  atau: Aji, Eza"></div>
         <div class="field" style="margin-bottom:0;"><label>Keterangan</label><select id="absenCepatKet"><option value="S">Sakit</option><option value="I">Izin</option><option value="A">Alpa</option></select></div>
-        <button class="btn btn-primary" onclick="kehadiranAbsenCepat()">${ic("check",15)} Tandai</button>
+        <button class="btn btn-primary" ${disAttr} onclick="kehadiranAbsenCepat()">${ic("check",15)} Tandai</button>
       </div>
       <div class="hint">Nomor = nomor urut pada tabel di bawah. Nama boleh sebagian (cth: "Aji"), asal hanya cocok dengan 1 siswa.</div>
     </div>
     <div class="table-wrap"><table><thead><tr><th>No</th><th>Nama Siswa</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div>
   </div>
+  ${absensiRingkasanHtml(bulanAktif)}
   <div class="card">
     <div class="section-head" style="margin-bottom:14px;"><div><h3 style="margin:0;">Rekap Absensi Bulanan</h3></div><div class="grow"></div>
       <select style="padding:8px 10px;border-radius:10px;border:1px solid var(--border);margin-right:8px;" onchange="window._kehadiranBulan=this.value; renderPage('kehadiran');">
@@ -1143,41 +1333,117 @@ PAGES.aiBankSoal = function(){
   const kelasId = activeClassId;
   return `<div class="ai-layout"><div class="card">
     <h3>${ic("target",18)} AI Generator: Bank Soal</h3>
-    <p class="hint" style="margin-bottom:10px;">Mencakup Soal Pilihan Ganda, Isian, Uraian, dan HOTS sekaligus - pilih kombinasi sesuai kebutuhan.</p>
-    <div class="field"><label>Kelas</label>${aiKelasSelect("ab_kelas", kelasId)}</div>
-    <div class="field"><label>Mata Pelajaran</label>${aiMapelSelect("ab_mapel", MAPEL_LIST[0])}
-      <div class="hint" style="margin-top:4px;"><button class="btn btn-sm" type="button" onclick="aiRefreshTp('ab_kelas','ab_mapel','ab_tpHolder')">${ic("check",13)} Muat TP dari ATP</button></div></div>
-    <div class="field"><label>Tujuan Pembelajaran acuan</label><div id="ab_tpHolder">${aiTpSelect("ab_tpHolder_sel", kelasId, MAPEL_LIST[0])}</div></div>
-    <div class="field"><label>Materi</label><input type="text" id="ab_materi" placeholder="mis. Ekosistem dan Rantai Makanan"></div>
-    <div class="grid grid-3">
-      <div class="field"><label>Jumlah Soal PG</label><input type="number" id="ab_jmlPG" value="5" min="0" max="30"></div>
-      <div class="field"><label>Jumlah Soal Isian</label><input type="number" id="ab_jmlIsian" value="3" min="0" max="30"></div>
-      <div class="field"><label>Jumlah Soal Uraian</label><input type="number" id="ab_jmlUraian" value="2" min="0" max="30"></div>
+    <details style="margin-bottom:12px;background:var(--primary-ghost);border:1px solid var(--primary);border-radius:12px;padding:10px 14px;">
+      <summary style="cursor:pointer;font-weight:800;font-size:13px;">📖 Panduan &amp; Kaidah Penyusunan (klik untuk buka)</summary>
+      <div class="hint" style="font-size:12.5px;line-height:1.8;margin-top:8px;">
+        <strong>Langkah:</strong> pilih <em>jenis penilaian</em> → isi materi &amp; TP → atur jumlah tiap bentuk soal → Generate. AI otomatis menyusun <strong>kisi-kisi</strong>, <strong>soal</strong>, dan <strong>kunci jawaban + pedoman penskoran</strong>.<br><br>
+        <strong>Kaidah yang diterapkan AI</strong> (sesuai pedoman penulisan soal):
+        <ol style="padding-left:18px;margin:6px 0;">
+          <li><strong>Materi:</strong> soal sesuai indikator/TP; pilihan jawaban homogen &amp; logis; tepat satu kunci jawaban.</li>
+          <li><strong>Konstruksi:</strong> pokok soal jelas &amp; tegas; tidak memberi petunjuk jawaban; hindari negatif ganda; panjang opsi relatif sama; tanpa opsi "semua benar/salah"; angka diurutkan; gambar/tabel jelas &amp; berfungsi; soal tidak bergantung pada soal lain.</li>
+          <li><strong>Bahasa:</strong> kaidah Bahasa Indonesia yang baik, komunikatif, tidak memakai bahasa daerah/tabu.</li>
+        </ol>
+        <span class="muted">Selalu tinjau ulang hasil generate sebelum digunakan — guru penanggung jawab akhir kualitas soal.</span>
+      </div>
+    </details>
+    <div class="grid grid-2">
+      <div class="field"><label>Kelas</label>${aiKelasSelect("ab_kelas", kelasId)}</div>
+      <div class="field"><label>Semester</label><select id="ab_semester"><option value="1">Semester 1 (Ganjil)</option><option value="2">Semester 2 (Genap)</option></select></div>
     </div>
-    <div class="field"><label>Sertakan Soal HOTS</label><select id="ab_hots"><option value="ya">Ya, sisipkan proporsi soal HOTS (C4-C6)</option><option value="tidak">Tidak, level standar saja (C1-C3)</option></select></div>
+    <div class="field"><label>Jenis Penilaian</label><select id="ab_jenis">
+      <option value="Ulangan Harian">Ulangan Harian (akhir bab/lingkup materi)</option>
+      <option value="PR">PR / Tugas Rumah</option>
+      <option value="STS 1">Sumatif Tengah Semester (STS) — Semester 1</option>
+      <option value="STS 2">Sumatif Tengah Semester (STS) — Semester 2</option>
+      <option value="SAS 1">Sumatif Akhir Semester (SAS) — Semester 1</option>
+      <option value="SAS 2">Sumatif Akhir Semester (SAS) — Semester 2</option>
+    </select></div>
+    <div class="field"><label>Mata Pelajaran</label>${aiMapelSelect("ab_mapel", MAPEL_LIST[0])}
+      <div class="hint" style="margin-top:4px;"><button class="btn btn-sm" type="button" onclick="aiRefreshTp('ab_kelas','ab_mapel','ab_tpHolder')">Muat Ulang TP</button></div></div>
+    <div class="field"><label>Tujuan Pembelajaran acuan</label><div id="ab_tpHolder">${aiTpSelect("ab_tpHolder_sel", kelasId, MAPEL_LIST[0])}</div>
+      <input type="text" id="ab_tpManual" placeholder="atau tulis TP/indikator manual..." style="margin-top:6px;"></div>
+    <div class="field"><label>Lingkup Materi / Bab</label><input type="text" id="ab_materi" placeholder="mis. Bab 3: Pengurangan (untuk UH) / Semua materi semester (untuk STS/SAS)"></div>
+    <div class="field"><label>Komposisi Soal</label>
+      <div class="grid grid-3">
+        <div class="field" style="margin-bottom:0;"><label style="font-size:11.5px;">Pilihan Ganda</label><input type="number" id="ab_jmlPG" value="10" min="0" max="40"></div>
+        <div class="field" style="margin-bottom:0;"><label style="font-size:11.5px;">Isian Singkat</label><input type="number" id="ab_jmlIsian" value="5" min="0" max="30"></div>
+        <div class="field" style="margin-bottom:0;"><label style="font-size:11.5px;">Uraian</label><input type="number" id="ab_jmlUraian" value="3" min="0" max="20"></div>
+      </div>
+      <div class="hint" style="margin-top:4px;">Contoh: PG 15, Isian 3, Uraian 2 — kosongkan (0) bila tidak dipakai.</div>
+    </div>
+    <div class="grid grid-2">
+      <div class="field"><label>Level Kognitif</label><select id="ab_hots">
+        <option value="campuran">Campuran C1–C6 (disarankan)</option>
+        <option value="l1">Fokus C1–C3 (pengetahuan &amp; pemahaman)</option>
+        <option value="hots">Fokus HOTS C4–C6 (analisis–kreasi)</option>
+      </select></div>
+      <div class="field"><label>Ilustrasi Gambar</label><select id="ab_ilustrasi">
+        <option value="otomatis">Otomatis (disarankan utk Fase A)</option>
+        <option value="ya">Ya, sertakan deskripsi ilustrasi</option>
+        <option value="tidak">Tidak perlu</option>
+      </select>
+      <div class="hint" style="margin-top:4px;">AI menyisipkan <em>deskripsi ilustrasi</em> (mis. "[Ilustrasi: gambar 5 apel...]") agar guru mudah menggambar/menempelkan gambar.</div></div>
+    </div>
+    <div class="field"><label><input type="checkbox" id="ab_kisi" checked style="width:auto;margin-right:6px;">Sertakan KISI-KISI (tabel: No | Materi | Indikator/TP | Bentuk Soal | No. Soal)</label></div>
+    <div class="field"><label><input type="checkbox" id="ab_kunci" checked style="width:auto;margin-right:6px;">Sertakan KUNCI JAWABAN + pedoman penskoran</label></div>
     <button class="btn btn-primary" style="width:100%;" onclick="generateAiBankSoal()">${ic("star",16)} Generate Bank Soal</button>
   </div><div id="ab_result"></div></div>`;
 };
 function generateAiBankSoal(){
   const kelasId = document.getElementById("ab_kelas").value;
+  const semester = document.getElementById("ab_semester").value;
+  const jenis = document.getElementById("ab_jenis").value;
   const mapel = document.getElementById("ab_mapel").value;
   const atpList = aiAtpListForKelasMapel(kelasId, mapel);
   const tpIdx = document.getElementById("ab_tpHolder_sel") ? document.getElementById("ab_tpHolder_sel").value : "";
-  const tp = atpList[tpIdx] ? atpList[tpIdx].tp : "(sesuai materi)";
+  const tpPilih = (tpIdx!=="" && atpList[tpIdx]) ? atpList[tpIdx].tp : "";
+  const tpManual = document.getElementById("ab_tpManual").value.trim();
+  const tp = tpManual || tpPilih || "(sesuai materi)";
   const materi = document.getElementById("ab_materi").value.trim() || "-";
   const jmlPG = parseInt(document.getElementById("ab_jmlPG").value||0,10);
   const jmlIsian = parseInt(document.getElementById("ab_jmlIsian").value||0,10);
   const jmlUraian = parseInt(document.getElementById("ab_jmlUraian").value||0,10);
-  const hots = document.getElementById("ab_hots").value==="ya";
+  const hots = document.getElementById("ab_hots").value;
+  const ilustrasi = document.getElementById("ab_ilustrasi").value;
+  const pakaiKisi = document.getElementById("ab_kisi").checked;
+  const pakaiKunci = document.getElementById("ab_kunci").checked;
   const cls = classInfo(kelasId);
+  const fase = faseForClassId(kelasId);
+  const s = db.sekolah;
+  if(jmlPG+jmlIsian+jmlUraian===0){ toast("Isi minimal 1 soal (PG/Isian/Uraian)."); return; }
   const bagian = [];
-  if(jmlPG>0) bagian.push(jmlPG+" soal Pilihan Ganda (4 opsi jawaban A-D)");
+  if(jmlPG>0) bagian.push(jmlPG+" soal Pilihan Ganda (4 opsi A-D)");
   if(jmlIsian>0) bagian.push(jmlIsian+" soal Isian Singkat");
-  if(jmlUraian>0) bagian.push(jmlUraian+" soal Uraian/Esai");
-  const prompt = `Susun BANK SOAL untuk mata pelajaran ${mapel}, kelas ${cls.label} (Fase ${faseForClassId(kelasId)}), materi "${materi}", TP acuan: "${tp}".
-Buat: ${bagian.join("; ")||"soal sesuai kebutuhan"}. ${hots?"Sisipkan proporsi wajar soal berpikir tingkat tinggi (HOTS, level C4-C6) terutama pada bagian Uraian/Isian.":"Gunakan level kognitif standar (C1-C3) saja."}
-Susun per bagian (Bagian A: Pilihan Ganda, Bagian B: Isian Singkat, Bagian C: Uraian - tampilkan hanya bagian yang jumlahnya lebih dari 0), setiap soal diberi nomor urut lanjut, dan sertakan KUNCI JAWABAN LENGKAP di bagian akhir dokumen (terpisah dari naskah soal, berjudul "KUNCI JAWABAN"). Format naskah soal harus rapi dan siap cetak.`;
-  const title = "Bank Soal - "+mapel+" - "+cls.label+" - "+materi;
+  if(jmlUraian>0) bagian.push(jmlUraian+" soal Uraian");
+  const levelTxt = hots==="campuran" ? "Gunakan sebaran level kognitif C1-C6 yang proporsional untuk jenjang SD (dominan C1-C3, selipkan C4-C6 secara wajar)."
+    : hots==="hots" ? "Fokus pada soal HOTS level C4 (menganalisis), C5 (mengevaluasi), C6 (mencipta) yang kontekstual untuk siswa SD."
+    : "Fokus pada level C1 (mengingat), C2 (memahami), C3 (mengaplikasikan).";
+  const ilusTxt = ilustrasi==="tidak" ? ""
+    : ilustrasi==="ya" ? "Sertakan DESKRIPSI ILUSTRASI pada soal-soal yang terbantu gambar, dengan format [Ilustrasi: deskripsi rinci gambar]."
+    : (fase==="A" ? "Karena ini Fase A (kelas 1-2), SERTAKAN deskripsi ilustrasi sederhana pada soal-soal yang terbantu gambar, format [Ilustrasi: deskripsi rinci]." : "Sertakan deskripsi ilustrasi [Ilustrasi: ...] hanya bila benar-benar membantu pemahaman soal.");
+  const prompt = `Susun ${jenis.toUpperCase()} untuk SD sesuai Kurikulum Merdeka (pembelajaran mendalam).
+
+IDENTITAS
+- Satuan Pendidikan: ${s.namaSekolah}
+- Kelas/Semester: ${cls.label} / Semester ${semester} (${semester==="1"?"Ganjil":"Genap"}) — Fase ${fase}
+- Mata Pelajaran: ${mapel}
+- Lingkup Materi: ${materi}
+- Acuan TP/Indikator: ${tp}
+
+KOMPOSISI SOAL — buat tepat: ${bagian.join("; ")}.
+${levelTxt}
+${ilusTxt}
+
+KAIDAH PENULISAN SOAL (WAJIB dipatuhi):
+[Materi] (1) Soal harus sesuai indikator/TP. (2) Pilihan jawaban homogen & logis, pengecoh berfungsi. (3) Tepat satu jawaban benar.
+[Konstruksi] (4) Pokok soal jelas & tegas. (5) Hanya memuat pernyataan yang diperlukan. (6) Tidak memberi petunjuk ke jawaban benar. (7) Hindari pernyataan negatif ganda. (8) Panjang opsi relatif sama. (9) Tanpa opsi "semua jawaban benar/salah". (10) Opsi angka diurutkan kecil→besar. (11) Soal tidak bergantung pada jawaban soal lain.
+[Bahasa] (12) Bahasa Indonesia yang baik & komunikatif, sesuai jenjang SD. (13) Tanpa bahasa daerah/tabu.
+
+STRUKTUR OUTPUT (gunakan heading):
+${pakaiKisi ? "1. KISI-KISI (tabel markdown): No | Materi Pokok | Indikator/TP | Bentuk Soal | Nomor Soal\n" : ""}2. NASKAH SOAL — susun per bagian (Bagian A: Pilihan Ganda — hanya bila >0; Bagian B: Isian Singkat; Bagian C: Uraian). Nomor soal berurutan 1 s.d. total.
+${pakaiKunci ? "3. KUNCI JAWABAN — daftar per nomor soal.\n4. PEDOMAN PENSKORAN — skor tiap bentuk soal + rumus nilai akhir (skor diperoleh / skor maksimal × 100)." : ""}
+Tulis siap cetak. Bahasa formal namun ramah anak SD Indonesia.`;
+  const title = jenis+" - "+mapel+" - "+cls.label+" - Smt "+semester+" - "+materi;
   aiRunGenerate("ab_result", {type:"Bank Soal", title, userPrompt: prompt});
 }
 
