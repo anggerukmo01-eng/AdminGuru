@@ -46,10 +46,15 @@ function printJadwal(){
 
 /* ---------- AGENDA / JURNAL HARIAN ---------- */
 function agendaFields(){
+  // Komponen jurnal mengajar lazim (Kurikulum Merdeka): tanggal, mapel,
+  // materi/TP, kegiatan, penilaian, refleksi & tindak lanjut.
   return [
     {key:"tanggal",label:"Tanggal",type:"date",required:true},
     {key:"mapel",label:"Mata Pelajaran",type:"select",options:MAPEL_LIST},
-    {key:"kegiatan",label:"Kegiatan Pembelajaran",type:"textarea",required:true},
+    {key:"materi",label:"Materi / Tujuan Pembelajaran"},
+    {key:"kegiatan",label:"Kegiatan Pembelajaran (pembuka - inti - penutup)",type:"textarea",required:true},
+    {key:"penilaian",label:"Penilaian / Asesmen yang Dilakukan",type:"textarea"},
+    {key:"refleksi",label:"Refleksi & Tindak Lanjut",type:"textarea"},
     {key:"catatan",label:"Catatan / Kendala",type:"textarea"},
   ];
 }
@@ -58,7 +63,7 @@ PAGES.agenda = function(){
     store:"agenda", title:"Agenda / Jurnal Harian Guru (Catatan Teks)",
     desc:"Catatan kegiatan mengajar harian sebagai bukti fisik jurnal mengajar.",
     fields: agendaFields(),
-    columns:[{key:"tanggal",label:"Tanggal",render:v=>fmtDate(v)},{key:"mapel",label:"Mapel"},{key:"kegiatan",label:"Kegiatan",render:v=>escapeHtml((v||"").slice(0,60))+((v||"").length>60?"...":"")}],
+    columns:[{key:"tanggal",label:"Tanggal",render:v=>fmtDate(v)},{key:"mapel",label:"Mapel"},{key:"materi",label:"Materi/TP"},{key:"kegiatan",label:"Kegiatan",render:v=>escapeHtml((v||"").slice(0,60))+((v||"").length>60?"...":"")}],
     searchKeys:["kegiatan","mapel","catatan"]
   });
 
