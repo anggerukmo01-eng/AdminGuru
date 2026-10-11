@@ -626,3 +626,275 @@ function resetApp(){
   });
 }
 
+/* ============================================================
+   SINKRON DAPODIK — Web Service Dapodik (seperti e-Rapor)
+   Pengaturan: Dapodik > Pengaturan > Web Service > Tambah > salin token.
+   CATATAN: hanya berfungsi bila AdminGuru dibuka LOKAL (satu jaringan
+   dengan server Dapodik). Dari situs publik, browser memblokir akses
+   ke jaringan lokal (mixed content / PNA / CORS).
+   ============================================================ */
+const DAPO_CFG_KEY = "tpsd2026_dapodik_cfg";
+function dapoCfgGet(){
+  let cfg = {};
+  try{ cfg = JSON.parse(localStorage.getItem(DAPO_CFG_KEY)||"{}"); }catch(e){}
+  return { host: cfg.host||"localhost", port: cfg.port||5774,
+           npsn: cfg.npsn||"", token: cfg.token||"", semester: cfg.semester||dapoSemesterNow() };
+}
+function dapoSemesterNow(){
+  const d = new Date(), y = d.getFullYear(), m = d.getMonth()+1;
+  // TP mulai Juli: Jul-Des = ganjil (tahun sama), Jan-Jun = genap (TP tahun sebelumnya)
+  if(m>=7) return String(y)+"1";
+  return String(y-1)+"2";
+}
+function dapoSaveCfg(){
+  const cfg = { host: document.getElementById("dapoHost").value.trim()||"localhost",
+    port: parseInt(document.getElementById("dapoPort").value||"5774",10)||5774,
+    npsn: document.getElementById("dapoNpsn").value.trim(),
+    token: document.getElementById("dapoToken").value.trim(),
+    semester: document.getElementById("dapoSemester").value.trim() };
+  localStorage.setItem(DAPO_CFG_KEY, JSON.stringify(cfg));
+  toast("Pengaturan Dapodik tersimpan (hanya di perangkat ini).");
+  return cfg;
+}
+function dapoPick(o, names){
+  for(const n of names){ const v = o && o[n]; if(v!==undefined && v!==null && String(v).trim()!=="") return String(v).trim(); }
+  return "";
+}
+async function dapoFetch(cfg, endpoint, extra){
+  const params = Object.assign({npsn: cfg.npsn}, extra||{});
+  const url = "http://" + cfg.host + ":" + cfg.port + "/WebService/" + endpoint + "?" + new URLSearchParams(params).toString();
+  let res;
+  try{ res = await fetch(url, { headers: { "Authorization": "Bearer " + cfg.token } }); }
+  catch(e){ throw new Error("network"); }
+  if(res.status===401 || res.status===403) throw new Error("auth");
+  if(!res.ok) throw new Error("http"+res.status);
+  const data = await res.json();
+  if(Array.isArray(data)) return data;
+  return data.rows || data.data || [];
+}
+function dapoErrMsg(e, cfg){
+  if(e.message==="network"){
+    return "Tidak bisa menjangkau Dapodik di http://" + cfg.host + ":" + cfg.port + ". " +
+      "Kemungkinan penyebab: (1) AdminGuru dibuka dari situs publik sehingga browser memblokir akses jaringan lokal — " +
+      "gunakan salinan LOKAL AdminGuru; (2) Dapodik belum berjalan / alamat IP salah; (3) token Web Service belum dibuat di Dapodik " +
+      "(Pengaturan > Web Service > Tambah).";
+  }
+  if(e.message==="auth") return "Token ditolak Dapodik (401/403). Periksa token Web Service di Dapodik > Pengaturan > Web Service.";
+  return "Gagal: " + e.message;
+}
+PAGES.dapodik = function(){
+  const cfg = dapoCfgGet();
+  const isPublic = location.protocol==="https:" && !/^(localhost|127\.|192\.168\.|10\.)/.test(location.hostname);
+  return `
+  <div class="section-head"><div><h1>Sinkron Dapodik</h1>
+    <div class="desc">Tarik data langsung dari Dapodik sekolah lewat Web Service — seperti e-Rapor.</div></div></div>
+  ${isPublic ? `<div class="alert alert-warning">Anda membuka AdminGuru dari <strong>situs publik</strong>. Browser modern memblokir situs publik mengakses jaringan lokal, jadi tarik data kemungkinan <strong>gagal dari sini</strong>. Gunakan <strong>salinan lokal</strong> AdminGuru di komputer sekolah (satu jaringan dengan Dapodik).</div>` : ""}
+  <div class="card">
+    <h3 style="margin-top:0;">1. Pengaturan Koneksi</h3>
+    <p class="muted" style="margin-top:0;">Di aplikasi Dapodik: <strong>Pengaturan &gt; Web Service &gt; Tambah</strong>, beri nama "AdminGuru", lalu salin tokennya ke sini.</p>
+    <div class="form-grid">
+      <div class="field"><label>Alamat Server Dapodik (IP/host)</label>
+        <input id="dapoHost" value="${escapeHtml(cfg.host)}" placeholder="localhost atau 192.168.1.x"></div>
+      <div class="field"><label>Port</label><input id="dapoPort" type="number" value="${cfg.port}"></div>
+      <div class="field"><label>NPSN Sekolah</label><input id="dapoNpsn" value="${escapeHtml(cfg.npsn)}" placeholder="cth. 20304050"></div>
+      <div class="field"><label>Semester ID</label><input id="dapoSemester" value="${escapeHtml(cfg.semester)}" placeholder="cth. 20261"></div>
+      <div class="field" style="grid-column:1/-1;"><label>Token Web Service</label>
+        <input id="dapoToken" type="password" value="${escapeHtml(cfg.token)}" placeholder="Tempel token dari Dapodik" autocomplete="off"></div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
+      <button class="btn" onclick="dapoSaveCfg()">${ic("check",15)} Simpan Pengaturan</button>
+      <button class="btn btn-primary" onclick="dapoTest()">${ic("refresh",15)} Tes Koneksi</button>
+    </div>
+    <div id="dapoStatus" style="margin-top:12px;"></div>
+  </div>
+  <div class="card">
+    <h3 style="margin-top:0;">2. Tarik Data</h3>
+    <p class="muted" style="margin-top:0;">Data ditarik lalu ditampilkan sebagai <strong>pratinjau</strong> dulu. Yang diterapkan: siswa dicocokkan via NISN (yang baru ditambahkan, yang cocok diperbarui — kolom kosong tidak menimpa), PTK menggantikan daftar guru/tendik, profil sekolah diperbarui.</p>
+    <label style="display:flex;gap:8px;align-items:center;margin:6px 0;"><input type="checkbox" id="dapoIncSekolah" checked> Profil Sekolah</label>
+    <label style="display:flex;gap:8px;align-items:center;margin:6px 0;"><input type="checkbox" id="dapoIncPtk" checked> Guru &amp; Tendik (PTK)</label>
+    <label style="display:flex;gap:8px;align-items:center;margin:6px 0;"><input type="checkbox" id="dapoIncSiswa" checked> Peserta Didik (semua rombel)</label>
+    <button class="btn btn-primary" style="margin-top:10px;" onclick="dapoPull()">${ic("download",15)} Tarik &amp; Pratinjau</button>
+    <div id="dapoPullStatus" style="margin-top:12px;"></div>
+  </div>
+  <div class="alert">Data hasil tarikan (termasuk NIK asli) hanya tersimpan di <strong>perangkat ini</strong> (localStorage browser) dan tidak dikirim ke mana pun. Samaran hanya berlaku untuk data bawaan di situs publik.</div>`;
+};
+async function dapoTest(){
+  const cfg = dapoSaveCfg();
+  const st = document.getElementById("dapoStatus");
+  st.innerHTML = `<span class="muted">Menghubungi Dapodik...</span>`;
+  try{
+    const rows = await dapoFetch(cfg, "getSekolah");
+    const sk = rows[0]||{};
+    st.innerHTML = `<div class="alert alert-success">Koneksi BERHASIL. Sekolah: <strong>${escapeHtml(dapoPick(sk,["nama","nama_sekolah"])||"-")}</strong> (NPSN ${escapeHtml(dapoPick(sk,["npsn"])||cfg.npsn)})</div>`;
+  }catch(e){ st.innerHTML = `<div class="alert alert-danger">${escapeHtml(dapoErrMsg(e, cfg))}</div>`; }
+}
+/* ---------- Mapping Dapodik -> AdminGuru ---------- */
+function dapoTitleCase(s){ return String(s||"").toLowerCase().replace(/(^|[\s.\-'])\S/g, c=>c.toUpperCase()); }
+function dapoTtl(pd){
+  const t = dapoPick(pd,["tempat_lahir"]), tg = dapoPick(pd,["tanggal_lahir"]);
+  if(!t && !tg) return "";
+  const bulan = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+  let tgl = tg;
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(tg);
+  if(m) tgl = parseInt(m[3],10) + " " + bulan[parseInt(m[2],10)-1] + " " + m[1];
+  return (dapoTitleCase(t) + (tgl ? ", " + tgl : "")).trim();
+}
+function dapoMapPd(pd, classId){
+  const ayahNama = dapoPick(pd,["nama_ayah"]), ibuNama = dapoPick(pd,["nama_ibu_kandung","nama_ibu"]);
+  const pekAyah = dapoPick(pd,["pekerjaan_ayah_id_str","pekerjaan_ayah"]);
+  const pekIbu = dapoPick(pd,["pekerjaan_ibu_id_str","pekerjaan_ibu"]);
+  const mkOrtu = (pre)=>({ nama: dapoTitleCase(dapoPick(pd,["nama_"+pre])),
+    tahunLahir: dapoPick(pd,["tahun_lahir_"+pre]),
+    pendidikan: dapoPick(pd,["jenjang_pendidikan_"+pre+"_id_str","pendidikan_"+pre]),
+    pekerjaan: dapoPick(pd,["pekerjaan_"+pre+"_id_str","pekerjaan_"+pre]),
+    penghasilan: dapoPick(pd,["penghasilan_orang_tua_wali_id_str","penghasilan_"+pre]),
+    nik: dapoPick(pd,["nik_"+pre]), agama:"Islam", wn:"Indonesia", alamat:"", hp:"" });
+  const alamat = [dapoPick(pd,["alamat_jalan"]), dapoPick(pd,["nama_dusun"]),
+    dapoPick(pd,["desa_kelurahan"]), dapoPick(pd,["kecamatan"])].filter(Boolean).join(", ");
+  return {
+    id: "dp" + String(pd.peserta_didik_id||pd.nisn||Math.random()).replace(/[^a-zA-Z0-9]/g,"").slice(0,20),
+    nama: dapoTitleCase(dapoPick(pd,["nama"])),
+    jk: dapoPick(pd,["jenis_kelamin"]).startsWith("P") ? "P" : "L",
+    nis: dapoPick(pd,["nipd"]), nisn: dapoPick(pd,["nisn"]),
+    ttl: dapoTtl(pd),
+    agama: dapoPick(pd,["agama_id_str","nama_agama"])||"Islam",
+    alamat: alamat,
+    ayah: dapoTitleCase(ayahNama), ibu: dapoTitleCase(ibuNama), pekerjaanOrtu: pekAyah,
+    bi: { nik: dapoPick(pd,["nik"]), noKK: dapoPick(pd,["no_kk","nomor_kk"]),
+      tempatLahir: dapoTitleCase(dapoPick(pd,["tempat_lahir"])), tanggalLahir: dapoPick(pd,["tanggal_lahir"]),
+      rt: dapoPick(pd,["rt"]), rw: dapoPick(pd,["rw"]), dusun: dapoPick(pd,["nama_dusun"]),
+      kelurahan: dapoPick(pd,["desa_kelurahan"]), kecamatan: dapoPick(pd,["kecamatan"]),
+      kodePos: dapoPick(pd,["kode_pos"]), jenisTinggal: dapoPick(pd,["jenis_tinggal_id_str","jenis_tinggal"]),
+      transportasi: dapoPick(pd,["alat_transportasi_id_str","alat_transportasi"]),
+      telepon: dapoPick(pd,["nomor_telepon_rumah"]), hp: dapoPick(pd,["nomor_telepon_seluler","no_hp"]),
+      anakKe: dapoPick(pd,["anak_keberapa"]), jmlSaudara: dapoPick(pd,["jumlah_saudara_kandung"]),
+      beratBadan: dapoPick(pd,["berat_badan"]), tinggiBadan: dapoPick(pd,["tinggi_badan"]),
+      lingkarKepala: dapoPick(pd,["lingkar_kepala"]), jarakSekolah: dapoPick(pd,["jarak_rumah_ke_sekolah"]),
+      kebutuhanKhusus: dapoPick(pd,["kebutuhan_khusus_id_str","kebutuhan_khusus"]),
+      sekolahAsal: dapoPick(pd,["sekolah_asal"]),
+      ayah: mkOrtu("ayah"), ibu: (function(){ const o = mkOrtu("ibu"); if(!o.nama) o.nama = dapoTitleCase(ibuNama); return o; })(),
+      wali: mkOrtu("wali"),
+      penerimaKIP: dapoPick(pd,["penerima_kip"]), nomorKIP: dapoPick(pd,["nomor_kip"]),
+      nomorKKS: dapoPick(pd,["nomor_kks","no_kks"]), layakPIP: dapoPick(pd,["layak_pip"]),
+      alasanPIP: dapoPick(pd,["alasan_layak_pip","alasan_pip"]),
+      wn: "Indonesia", tinggalBersama: "Orang Tua" },
+    _classId: classId
+  };
+}
+function dapoMapPtk(p){
+  return { id: "dp" + String(p.ptk_id||p.nip||Math.random()).replace(/[^a-zA-Z0-9]/g,"").slice(0,20),
+    nama: dapoTitleCase(dapoPick(p,["nama"])), nip: dapoPick(p,["nip"]), nuptk: dapoPick(p,["nuptk"]),
+    jk: dapoPick(p,["jenis_kelamin"]).startsWith("P") ? "P" : "L",
+    tempatLahir: dapoTitleCase(dapoPick(p,["tempat_lahir"])), tglLahir: dapoPick(p,["tanggal_lahir"]),
+    status: dapoPick(p,["status_kepegawaian_id_str","status_kepegawaian"]),
+    jenisPTK: dapoPick(p,["jenis_ptk_id_str","jenis_ptk"]), jabatan: dapoPick(p,["tugas_tambahan_id_str","tugas_tambahan"]),
+    agama: dapoPick(p,["agama_id_str","nama_agama"])||"Islam",
+    alamat: dapoPick(p,["alamat_jalan"]), hp: dapoPick(p,["no_hp","nomor_telepon_seluler"]),
+    email: dapoPick(p,["email"]), pangkat: dapoPick(p,["pangkat_golongan_id_str","pangkat_golongan"]) };
+}
+async function dapoPull(){
+  const cfg = dapoSaveCfg();
+  const st = document.getElementById("dapoPullStatus");
+  const inc = { sekolah: document.getElementById("dapoIncSekolah").checked,
+                ptk: document.getElementById("dapoIncPtk").checked,
+                siswa: document.getElementById("dapoIncSiswa").checked };
+  st.innerHTML = `<span class="muted">Menarik data dari Dapodik...</span>`;
+  try{
+    const out = { sekolah:null, guru:[], tendik:[], perKelas:{}, totalSiswa:0 };
+    if(inc.sekolah){
+      const rows = await dapoFetch(cfg, "getSekolah");
+      if(rows[0]) out.sekolah = rows[0];
+    }
+    if(inc.ptk){
+      const rows = await dapoFetch(cfg, "getGuru");
+      rows.forEach(p=>{
+        const jenis = dapoPick(p,["jenis_ptk_id_str","jenis_ptk"]).toLowerCase();
+        const mapped = dapoMapPtk(p);
+        if(/tendik|tenaga|administrasi|perpustakaan|laboran|penjaga/.test(jenis) && !/guru|kepala/.test(jenis)) out.tendik.push(mapped);
+        else out.guru.push(mapped);
+      });
+    }
+    if(inc.siswa){
+      const rombelRows = await dapoFetch(cfg, "getRombel", { semester_id: cfg.semester });
+      const rombelMap = {};
+      rombelRows.forEach(r=>{
+        const tingkat = parseInt(dapoPick(r,["tingkat_pendidikan_id","tingkat_pendidikan"]),10);
+        if(tingkat>=1 && tingkat<=6) rombelMap[dapoPick(r,["rombongan_belajar_id"])] = "kelas-" + tingkat;
+      });
+      const pdRows = await dapoFetch(cfg, "getPesertaDidik");
+      pdRows.forEach(pd=>{
+        const cid = rombelMap[dapoPick(pd,["rombongan_belajar_id"])] || "";
+        const stu = dapoMapPd(pd, cid);
+        if(!cid) return; // lewati yang tidak terpetakan ke kelas 1-6
+        (out.perKelas[cid] = out.perKelas[cid] || []).push(stu);
+        out.totalSiswa++;
+      });
+    }
+    window._dapoPull = { out, inc };
+    const perKelasTxt = Object.keys(out.perKelas).sort().map(k=> k.replace("kelas-","Kelas ") + ": " + out.perKelas[k].length).join(" &middot; ");
+    openModal({ title:"Pratinjau Tarik Data Dapodik", bodyHtml:`
+      <div class="stat-grid" style="grid-template-columns:repeat(3,1fr);">
+        <div class="stat-card"><div class="stat-num">${out.totalSiswa}</div><div class="stat-label">Peserta Didik</div></div>
+        <div class="stat-card"><div class="stat-num">${out.guru.length}</div><div class="stat-label">Guru</div></div>
+        <div class="stat-card"><div class="stat-num">${out.tendik.length}</div><div class="stat-label">Tendik</div></div>
+      </div>
+      ${out.sekolah?`<p>Sekolah: <strong>${escapeHtml(dapoPick(out.sekolah,["nama","nama_sekolah"]))}</strong></p>`:""}
+      ${perKelasTxt?`<p class="muted">${perKelasTxt}</p>`:""}
+      <p class="muted" style="font-size:12px;">Siswa diterapkan dengan pencocokan NISN per kelas (baru ditambah, cocok diperbarui, tidak ada yang dihapus). PTK &amp; profil sekolah diperbarui menyeluruh dari Dapodik.</p>`,
+      footHtml:`<button class="btn" onclick="closeModal()">Batal</button>
+        <button class="btn btn-primary" onclick="dapoApply()">${ic("check",15)} Terapkan Data</button>` });
+    st.innerHTML = "";
+  }catch(e){ st.innerHTML = `<div class="alert alert-danger">${escapeHtml(dapoErrMsg(e, cfg))}</div>`; }
+}
+function dapoApply(){
+  const pull = window._dapoPull;
+  if(!pull) return;
+  const { out, inc } = pull;
+  if(inc.sekolah && out.sekolah){
+    const sk = out.sekolah;
+    const setIf = (key, val)=>{ if(val) db.sekolah[key] = val; };
+    setIf("namaSekolah", dapoPick(sk,["nama","nama_sekolah"]));
+    setIf("npsn", dapoPick(sk,["npsn"]));
+    setIf("alamat", dapoPick(sk,["alamat_jalan"]));
+    setIf("desa", dapoPick(sk,["desa_kelurahan"]));
+    setIf("kecamatan", dapoPick(sk,["kecamatan"]));
+    setIf("kabupaten", dapoPick(sk,["kabupaten_kota","kabupaten"]));
+    setIf("provinsi", dapoPick(sk,["propinsi","provinsi"]));
+    setIf("kodePos", dapoPick(sk,["kode_pos"]));
+    setIf("email", dapoPick(sk,["email"]));
+  }
+  if(inc.ptk){ if(out.guru.length) db.guru = out.guru; if(out.tendik.length) db.tendik = out.tendik; }
+  if(inc.siswa){
+    Object.keys(out.perKelas).forEach(cid=>{
+      const cls = loadClassDB(cid);
+      cls.siswa = cls.siswa || [];
+      const byNisn = {};
+      cls.siswa.forEach(s=>{ if(s.nisn) byNisn[String(s.nisn).trim()] = s; });
+      out.perKelas[cid].forEach(nu=>{
+        const old = nu.nisn && byNisn[String(nu.nisn).trim()];
+        if(old){
+          const keepId = old.id;
+          Object.keys(nu).forEach(k=>{ if(k==="_classId") return;
+            const v = nu[k];
+            if(v && typeof v==="object"){ old[k] = old[k]||{}; Object.keys(v).forEach(k2=>{ const vv = v[k2];
+              if(vv && typeof vv==="object"){ old[k][k2] = old[k][k2]||{}; Object.keys(vv).forEach(k3=>{ if(String(vv[k3]).trim()!=="") old[k][k2][k3]=vv[k3]; }); }
+              else if(String(vv).trim()!=="") old[k][k2]=vv; }); }
+            else if(String(v).trim()!=="") old[k]=v; });
+          old.id = keepId;
+        }else{
+          nu.no = cls.siswa.length + 1;
+          delete nu._classId;
+          cls.siswa.push(nu);
+        }
+      });
+      cls.siswa.forEach((s,i)=>{ s.no = i+1; });
+      saveClassDB(cid, cls);
+    });
+    db.siswa = loadClassDB(activeClassId).siswa || [];
+  }
+  saveDB();
+  window._dapoPull = null;
+  closeModal();
+  toast("Data Dapodik diterapkan.");
+  renderPage("dapodik");
+}
