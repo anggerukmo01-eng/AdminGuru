@@ -1454,12 +1454,54 @@ function printBukuInduk(siswaId){
 /* ============================================================
    UNGGAH PEMBARUAN BUKU INDUK (via Template Excel/CSV)
    ============================================================ */
-function downloadBITemplate(){
-  const a = document.createElement("a");
-  a.href = "assets/Template_Buku_Induk_2026.xlsx";
-  a.download = "Template_Buku_Induk_2026.xlsx";
-  document.body.appendChild(a); a.click(); a.remove();
-  toast("Template Buku Induk diunduh. Isi lalu unggah kembali via 'Unggah Pembaruan'.");
+const BI_TEMPLATE_HEADERS = ["NISN","Nama Lengkap","Kelas","Nama Panggilan","Jenis Kelamin (L/P)","NIS/NIPD",
+  "NIK","No. KK","Tempat Lahir","Tanggal Lahir (TTTT-BB-HH)","Agama","Kewarganegaraan","Anak Ke-","Jumlah Saudara Kandung",
+  "Status Yatim/Piatu","RT","RW","Dusun","Kelurahan/Desa","Kecamatan","Kode Pos","Jenis Tinggal","Transportasi",
+  "Telepon","HP","Berat Badan (kg)","Tinggi Badan (cm)","Lingkar Kepala (cm)","Jarak ke Sekolah","Kebutuhan Khusus",
+  "Sekolah Asal","Nama Ayah","Tahun Lahir Ayah","Pendidikan Ayah","Pekerjaan Ayah","Penghasilan Ayah","NIK Ayah",
+  "Nama Ibu","Tahun Lahir Ibu","Pendidikan Ibu","Pekerjaan Ibu","Penghasilan Ibu","NIK Ibu",
+  "Nama Wali","Tahun Lahir Wali","Pendidikan Wali","Pekerjaan Wali","Penghasilan Wali","NIK Wali",
+  "Penerima KIP (Ya/Tidak)","Nomor KIP","Nomor KKS","Layak PIP (Ya/Tidak)","Alasan PIP"];
+function biStudentToRow(stu, kelasLabel){
+  const b = stu.bi || {};
+  const o = d => [ (d&&d.nama)||"", (d&&d.tahunLahir)||"", (d&&d.pendidikan)||"", (d&&d.pekerjaan)||"", (d&&d.penghasilan)||"", (d&&d.nik)||"" ];
+  return [stu.nisn||"", stu.nama||"", kelasLabel, "", stu.jk||"", stu.nis||"",
+    b.nik||"", b.noKK||"", b.tempatLahir||"", b.tanggalLahir||"", stu.agama||"", b.wn||"", b.anakKe||"", b.jmlSaudara||"",
+    b.statusYatim||"", b.rt||"", b.rw||"", b.dusun||"", b.kelurahan||"", b.kecamatan||"", b.kodePos||"",
+    b.jenisTinggal||"", b.transportasi||"", b.telepon||"", b.hp||"",
+    b.beratBadan||"", b.tinggiBadan||"", b.lingkarKepala||"", b.jarakSekolah||"", b.kebutuhanKhusus||"",
+    b.sekolahAsal||"", ...o(b.ayah), ...o(b.ibu), ...o(b.wali),
+    b.penerimaKIP||"", b.nomorKIP||"", b.nomorKKS||"", b.layakPIP||"", b.alasanPIP||""];
+}
+async function downloadBITemplate(){
+  try{
+    await loadXlsxLib();
+    const rows = [BI_TEMPLATE_HEADERS.slice()];
+    ["kelas-1","kelas-2","kelas-3","kelas-4","kelas-5","kelas-6"].forEach(cid=>{
+      const label = cid.replace("kelas-","");
+      (loadClassDB(cid).siswa||[]).forEach(stu=> rows.push(biStudentToRow(stu, label)));
+    });
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws["!cols"] = BI_TEMPLATE_HEADERS.map(()=>({wch:16}));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "DATA");
+    const pet = XLSX.utils.aoa_to_sheet([
+      ["PETUNJUK PENGISIAN TEMPLATE BUKU INDUK SISWA"],
+      [""],
+      ["1. Kolom A-C (NISN, Nama Lengkap, Kelas) adalah IDENTITAS - JANGAN diubah/dihapus."],
+      ["   Siswa baru boleh ditambahkan di baris bawah dengan mengisi NISN, Nama, dan Kelas."],
+      ["2. Isi/lengkapi kolom D dst. sesuai data sebenarnya (Buku Induk / KK / akta)."],
+      ["3. Format Tanggal Lahir: TTTT-BB-HH, contoh 2019-06-27."],
+      ["4. NIK & No. KK: 16 digit angka. Data hanya tersimpan di perangkat Bapak."],
+      ["5. Setelah selesai simpan file, di AdminGuru: Data Siswa > Unggah Pembaruan > pilih file > Periksa > Terapkan."],
+      ["6. Pencocokan berdasarkan NISN. Baris tanpa NISN cocok akan dilaporkan dan dilewati."],
+    ]);
+    XLSX.utils.book_append_sheet(wb, pet, "PETUNJUK");
+    XLSX.writeFile(wb, "Template_Buku_Induk_2026.xlsx");
+    toast("Template Buku Induk diunduh. Isi lalu unggah kembali via 'Unggah Pembaruan'.");
+  }catch(e){
+    toast("Gagal membuat template (butuh internet untuk pustaka Excel). Coba lagi saat online.");
+  }
 }
 function openBIUpload(){
   openModal({title:"Unggah Pembaruan Buku Induk", bodyHtml:`
