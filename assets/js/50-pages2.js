@@ -578,7 +578,7 @@ PAGES.backup = function(){
            <button class="btn" onclick="cloudBackupNow(true)">${ic("backup",15)} Sinkronkan Sekarang</button>
            <button class="btn" onclick="cloudRefreshList()">${ic("search",15)} Segarkan</button>
            <button class="btn btn-danger" onclick="cloudLogout()">Logout</button>`
-        : `<button class="btn btn-primary" onclick="cloudLogin()">${ic("lock",15)} Login Cloud</button>`}
+        : `<button class="btn btn-primary" onclick="cloudOpenAuthModal()">${ic("lock",15)} Login Cloud</button>`}
     </div>
     <div id="cloudListHolder" style="margin-top:12px;">${cloudUser_?`<p class="muted">Memuat daftar backup...</p>`:`<p class="muted">Masuk (login) terlebih dahulu untuk melihat daftar backup cloud.</p>`}</div>
   </div>
