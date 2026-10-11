@@ -492,80 +492,9 @@ PAGES.kenaikanKelas = function(){
   });
 };
 
-/* ---------- TULISAN TANGAN (DIGITAL PEN) ---------- */
-let penCtx=null, penDrawing=false, penColor="#1c2333", penSize=3, penErase=false;
-PAGES.pen = function(){
-  setTimeout(initPenCanvas, 30);
-  const list = db.tulisan.slice().reverse();
-  return `
-  <div class="section-head"><div><h1>Tulisan Tangan (Digital Pen)</h1><div class="desc">Gunakan stylus/pointer untuk menulis catatan tangan. Cocok untuk perangkat dengan dukungan pen seperti Xiaomi Pad 7 Pro.</div></div></div>
-  <div class="card" style="background:var(--warn-soft);border-color:var(--warn);margin-bottom:14px;">
-    <div style="display:flex;gap:10px;align-items:flex-start;">
-      ${ic("info",20)}
-      <p style="margin:0;font-size:12.5px;color:var(--text);">Konversi tulisan tangan ke teks memerlukan layanan OCR atau AI eksternal sehingga <strong>tidak tersedia pada mode offline</strong>. Tulisan tangan tetap dapat disimpan sebagai gambar dan diekspor ke PDF melalui menu cetak.</p>
-    </div>
-  </div>
-  <div class="card">
-    <div class="toolbar">
-      <input type="text" id="penJudul" placeholder="Judul catatan..." style="flex:1;min-width:160px;padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:var(--surface-solid);">
-      <input type="color" value="${penColor}" onchange="penColor=this.value; penErase=false;" style="width:42px;height:40px;border-radius:10px;border:1px solid var(--border);">
-      <select onchange="penSize=Number(this.value)" style="padding:10px;border-radius:10px;border:1px solid var(--border);">
-        <option value="2">Tipis</option><option value="3" selected>Sedang</option><option value="6">Tebal</option>
-      </select>
-      <button class="btn" onclick="penErase=true;">${ic("x",14)} Hapus (Eraser)</button>
-      <button class="btn" onclick="clearPenCanvas()">${ic("trash",14)} Bersihkan</button>
-      <button class="btn btn-primary" onclick="savePenDrawing()">${ic("check",14)} Simpan</button>
-    </div>
-    <canvas id="penCanvas" class="pen-canvas"></canvas>
-  </div>
-  <div class="grid grid-3" style="margin-top:16px;">
-    ${list.map(t=>`<div class="card">
-      <img src="${t.dataUrl}" style="width:100%;border-radius:10px;border:1px solid var(--border);margin-bottom:8px;background:#fff;">
-      <strong style="font-size:13px;">${escapeHtml(t.judul||"Tanpa judul")}</strong>
-      <div class="muted" style="font-size:11.5px;margin-bottom:8px;">${fmtDate(t.tanggal)}</div>
-      <div style="display:flex;gap:6px;">
-        <button class="btn btn-sm" onclick="printTulisan('${t.id}')">${ic("print",13)} PDF</button>
-        <button class="btn btn-sm btn-danger" onclick="deleteTulisan('${t.id}')">${ic("trash",13)}</button>
-      </div></div>`).join("") || `<p class="muted">Belum ada catatan tulisan tangan tersimpan.</p>`}
-  </div>`;
-};
-function initPenCanvas(){
-  const canvas = document.getElementById("penCanvas"); if(!canvas) return;
-  const ratio = window.devicePixelRatio||1;
-  const rect = canvas.getBoundingClientRect();
-  canvas.width = rect.width*ratio; canvas.height = rect.height*ratio;
-  penCtx = canvas.getContext("2d");
-  penCtx.scale(ratio,ratio);
-  penCtx.fillStyle="#fff"; penCtx.fillRect(0,0,rect.width,rect.height);
-  penCtx.lineCap="round"; penCtx.lineJoin="round";
-  let last=null;
-  function pos(e){ const r=canvas.getBoundingClientRect(); return {x:(e.clientX-r.left), y:(e.clientY-r.top)}; }
-  canvas.onpointerdown = e=>{ penDrawing=true; last=pos(e); canvas.setPointerCapture(e.pointerId); };
-  canvas.onpointermove = e=>{
-    if(!penDrawing) return;
-    const p = pos(e);
-    penCtx.strokeStyle = penErase ? "#ffffff" : penColor;
-    penCtx.lineWidth = penErase ? penSize*6 : (e.pressure? Math.max(1,penSize*e.pressure*2) : penSize);
-    penCtx.beginPath(); penCtx.moveTo(last.x,last.y); penCtx.lineTo(p.x,p.y); penCtx.stroke();
-    last = p;
-  };
-  canvas.onpointerup = ()=>{ penDrawing=false; };
-  canvas.onpointerleave = ()=>{ penDrawing=false; };
-}
-function clearPenCanvas(){ const c=document.getElementById("penCanvas"); const rect=c.getBoundingClientRect(); penCtx.fillStyle="#fff"; penCtx.fillRect(0,0,rect.width,rect.height); }
-function savePenDrawing(){
-  const canvas = document.getElementById("penCanvas");
-  const judul = document.getElementById("penJudul").value || "Catatan "+fmtDate(todayISO());
-  const dataUrl = canvas.toDataURL("image/png");
-  db.tulisan.push({id:uid("pen"), judul, tanggal: todayISO(), dataUrl});
-  saveDB(); toast("Catatan tulisan tangan tersimpan."); renderPage("pen");
-}
-function deleteTulisan(id){ confirmDialog("Hapus catatan tulisan tangan ini?", ()=>{ db.tulisan = db.tulisan.filter(t=>t.id!==id); saveDB(); renderPage("pen"); }); }
-function printTulisan(id){
-  const t = db.tulisan.find(x=>x.id===id); if(!t) return;
-  printDocument(t.judul.toUpperCase(), `<img src="${t.dataUrl}" style="width:100%;border:1px solid #333;">`);
-}
-
+/* DIHAPUS (v2.2): Halaman Digital Pen dihapus dari navigasi —
+   fitur OCR tidak berfungsi offline & nilai administratif rendah.
+   Data lama di db.tulisan tetap tersimpan (tidak dihapus). */
 /* ---------- BACKUP & RESTORE (mencakup seluruh kelas) ---------- */
 function collectFullBackupPayload(){
   saveDB(); // pastikan kelas aktif tersimpan dulu sebelum dikumpulkan
@@ -600,26 +529,69 @@ function applyFullBackupPayload(payload){
   localStorage.setItem(ACTIVE_CLASS_KEY, activeClassId);
   db = loadDB();
 }
+/* ============================================================
+   BACKUP & SINKRON DATA (gabungan v2.2)
+   Menggabungkan 3 halaman: Backup Lokal + Cloud Storage +
+   Riwayat Backup Cloud — agar administrasi backup terpusat.
+   ============================================================ */
 PAGES.backup = function(){
+  setTimeout(()=>{ if(typeof cloudUser!=="undefined" && cloudUser && typeof cloudRefreshList==="function") cloudRefreshList(); }, 30);
   const sizeKb = Math.round((JSON.stringify(collectFullBackupPayload()).length)/1024);
+  const c = settings.cloud;
+  const cloudUser_ = (typeof cloudUser!=="undefined") ? cloudUser : null;
+  const notConfigured = (typeof cloudConfigured==="function") ? !cloudConfigured() : true;
+  const logRows = (c.log||[]).slice().reverse().map(l=>`<tr><td>${fmtDate(l.waktu.slice(0,10))} ${l.waktu.slice(11,16)}</td><td>${escapeHtml(l.aktivitas||"")}</td>`
+    + `<td><span class="badge ${l.status==="Berhasil"?"badge-green":"badge-red"}">${escapeHtml(l.status||"")}</span></td><td>${escapeHtml(l.keterangan||"")}</td></tr>`).join("");
   return `
-  <div class="section-head"><div><h1>Backup &amp; Restore Data (Semua Kelas)</h1><div class="desc">Backup mencakup Kelas 1 s.d. Kelas 6 sekaligus, data sekolah bersama (guru/tendik/kalender), dan arsip alumni. Tersimpan lokal di perangkat ini.</div></div></div>
-  <div class="grid grid-2">
+  <div class="section-head"><div><h1>Backup &amp; Sinkron Data</h1><div class="desc">Pusat pencadangan: file lokal, Cloud Storage (Supabase), dan riwayat aktivitas — mencakup Kelas 1 s.d. Kelas 6.</div></div>
+    <div class="grow"></div>${(typeof cloudStatusBadge==="function")?cloudStatusBadge():""}</div>
+
+  ${notConfigured ? `<div class="card" style="background:var(--warn-soft);border-color:var(--warn);margin-bottom:16px;">
+    <div style="display:flex;gap:10px;align-items:flex-start;">${ic("info",20)}
+    <p style="margin:0;font-size:12.5px;">Konfigurasi Supabase belum diisi — backup cloud belum aktif. Buka file <code>supabase.js</code> di folder aplikasi untuk mengisi URL &amp; API key, atau cukup gunakan Backup Lokal di bawah.</p>
+    </div></div>` : ``}
+
+  <div class="grid grid-2" style="margin-bottom:16px;">
     <div class="card">
-      <h3>${ic("backup",16)} Backup Data</h3>
+      <h3>${ic("download",16)} Backup Lokal (.json)</h3>
       <p class="muted">Ukuran data seluruh kelas saat ini: &plusmn; ${sizeKb} KB.</p>
-      <button class="btn btn-primary" onclick="backupData()">${ic("download",15)} Unduh Backup (.json)</button>
+      <button class="btn btn-primary" onclick="backupData()">${ic("download",15)} Unduh Backup</button>
     </div>
     <div class="card">
-      <h3>${ic("backup",16)} Restore Data</h3>
-      <p class="muted">Pilih file backup .json (mendukung backup baru multi-kelas maupun backup lama Kelas 1) untuk memulihkan data.</p>
+      <h3>${ic("upload",16)} Restore Lokal</h3>
+      <p class="muted">Pilih file backup .json untuk memulihkan data.</p>
       <input type="file" id="restoreFile" accept=".json" style="margin-bottom:10px;">
       <button class="btn btn-primary" onclick="restoreData()">${ic("check",15)} Pulihkan Data</button>
     </div>
   </div>
-  <div class="card" style="margin-top:16px;border-color:var(--danger);">
-    <h3 style="color:var(--danger);">${ic("trash",16)} Reset Aplikasi</h3>
-    <p class="muted">Menghapus SELURUH data (semua kelas, sekolah, alumni) dan mengembalikan ke data awal (siswa/guru Kelas 1 dari dokumen resmi; Kelas 2-6 kosong). Tindakan tidak dapat dibatalkan.</p>
+
+  <div class="card" style="margin-bottom:16px;">
+    <h3>${ic("backup",16)} Cloud Storage (Supabase)</h3>
+    <div class="grid grid-3" style="margin-bottom:10px;">
+      <div><div class="muted" style="font-size:11.5px;">Status Login</div><strong>${cloudUser_?escapeHtml(cloudUser_.email):"Belum login"}</strong></div>
+      <div><div class="muted" style="font-size:11.5px;">Backup Terakhir</div><strong>${c.lastBackupAt?fmtDate(c.lastBackupAt.slice(0,10)):"-"}</strong></div>
+      <div><div class="muted" style="font-size:11.5px;">Total Backup</div><strong>${c.totalBackup||0}</strong></div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      ${cloudUser_
+        ? `<button class="btn btn-primary" onclick="cloudBackupNow(false)">${ic("download",15)} Backup Cloud</button>
+           <button class="btn" onclick="cloudBackupNow(true)">${ic("backup",15)} Sinkronkan Sekarang</button>
+           <button class="btn" onclick="cloudRefreshList()">${ic("search",15)} Segarkan</button>
+           <button class="btn btn-danger" onclick="cloudLogout()">Logout</button>`
+        : `<button class="btn btn-primary" onclick="cloudLogin()">${ic("lock",15)} Login Cloud</button>`}
+    </div>
+    <div id="cloudListHolder" style="margin-top:12px;">${cloudUser_?`<p class="muted">Memuat daftar backup...</p>`:`<p class="muted">Masuk (login) terlebih dahulu untuk melihat daftar backup cloud.</p>`}</div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px;">
+    <h3>${ic("archive",16)} Riwayat Aktivitas Backup</h3>
+    <div class="table-wrap"><table><thead><tr><th>Waktu</th><th>Aktivitas</th><th>Status</th><th>Keterangan</th></tr></thead>
+    <tbody>${logRows || `<tr><td colspan="4" class="empty-state">Belum ada aktivitas backup.</td></tr>`}</tbody></table></div>
+  </div>
+
+  <div class="card" style="border-color:var(--danger);">
+    <h3 style="color:var(--danger);">${ic("trash",16)} Zona Berbahaya — Reset Aplikasi</h3>
+    <p class="muted">Menghapus SELURUH data (semua kelas, sekolah, alumni) dan mengembalikan ke data awal.</p>
     <button class="btn btn-danger" onclick="resetApp()">Reset Seluruh Data</button>
   </div>`;
 };
