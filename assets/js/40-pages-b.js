@@ -56,6 +56,15 @@ function agendaFields(){
     {key:"penilaian",label:"Penilaian / Asesmen yang Dilakukan",type:"textarea"},
     {key:"refleksi",label:"Refleksi & Tindak Lanjut",type:"textarea"},
     {key:"catatan",label:"Catatan / Kendala",type:"textarea"},
+    {key:"pengingatAktif",label:"Aktifkan Pengingat?",type:"select",options:["Tidak","Ya"]},
+    {key:"pengingatJam",label:"Jam Pengingat (jika aktif)",type:"time",placeholder:"19.00"},
+    {key:"pengingatMenit",label:"Ingatkan Berapa Menit Sebelumnya",type:"select",options:[
+      {value:"0",label:"Tepat pada jam tersebut"},
+      {value:"15",label:"15 menit sebelumnya"},
+      {value:"30",label:"30 menit sebelumnya"},
+      {value:"60",label:"1 jam sebelumnya"},
+      {value:"1440",label:"1 hari sebelumnya"},
+    ]},
   ];
 }
 PAGES.agenda = function(){
@@ -73,11 +82,21 @@ PAGES.agenda = function(){
   window._arsipOnRefresh = ()=> renderArsipListInto("jurnalFileListHolder", window._jurnalFileFilters);
   setTimeout(window._arsipOnRefresh, 0);
 
+  const remJurnalToday = (db.agenda||[]).filter(a=>a.tanggal===todayISO() && a.pengingatAktif==="Ya");
+  const remJurnalCard = remJurnalToday.length ? `
+  <div class="card" style="background:var(--accent-soft);border-color:var(--accent);margin-bottom:16px;">
+    <h3 style="font-size:13px;">${ic("bell",16)} Pengingat Jurnal Hari Ini (${fmtDate(todayISO())})</h3>
+    ${remJurnalToday.map(r=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:12.5px;">
+      <span><strong>${escapeHtml(r.mapel||"Jurnal")}</strong> <span class="muted">— ${escapeHtml((r.materi||"").split("\n")[0].slice(0,60))}</span></span>
+      <span class="badge badge-blue">${escapeHtml(r.pengingatJam||'-')}</span></div>`).join("")}
+  </div>` : "";
+
   return `
   <div class="section-head"><div><h1>Jurnal Mengajar</h1><div class="desc">Unggah scan/foto/PDF jurnal mengajar -- teks di dalamnya dapat dibaca otomatis dengan OCR agar mudah dicari, dan dokumen asli tetap tersimpan sebagai arsip.</div></div>
     <div class="grow"></div>
     <button class="btn btn-primary" onclick="uploadArsipFile({title:'Upload Scan Jurnal Mengajar', kategori:'Jurnal Mengajar', kelasId:activeClassId, showTanggalMengajar:true, enableOcr:true, onDone:window._arsipOnRefresh})">${ic("upload",15)} Upload Scan Jurnal</button>
   </div>
+  ${remJurnalCard}
 
   <div class="card" style="margin-bottom:16px;">
     <h3 style="font-size:14px;margin-bottom:10px;">${ic("upload",16)} Scan / Foto / PDF Jurnal Terunggah</h3>
@@ -623,6 +642,7 @@ PAGES.inputnilai = function(){
       <div class="grow"></div>
       <span class="hint" id="niAutosaveLabel">Draf tersimpan otomatis di perangkat ini.</span>
     </div>
+    <div class="hint" id="niFormatifHint" style="display:${ctx.jenis==="Formatif"?"":"none"};margin-top:10px;">ℹ️ Asesmen formatif bersifat kualitatif untuk umpan balik &amp; bahan deskripsi rapor — <strong>tidak masuk hitungan nilai rapor</strong> (Panduan Pembelajaran dan Asesmen).</div>
   </div>
   <div id="niTableHolder"><p class="muted">Memuat daftar siswa...</p></div>`;
 };
@@ -632,6 +652,8 @@ function inputNilaiUpdateCtxAndRender(){
   ctx.jenis = document.getElementById("niJenis").value;
   ctx.bab = document.getElementById("niBab").value || "Umum";
   ctx.semester = document.getElementById("niSemester").value;
+  const hint = document.getElementById("niFormatifHint");
+  if(hint) hint.style.display = ctx.jenis==="Formatif" ? "" : "none";
   inputNilaiRenderTable();
 }
 function inputNilaiComputeRowValue(ctx, siswaId, existingMap, draft){
@@ -800,11 +822,16 @@ PAGES.asessum  = ()=>asesmenPage("asesmenSumatif","Asesmen Sumatif","Penilaian p
    di menu Input Nilai untuk menandai nilai tengah/akhir semester.
    ============================================================ */
 function daftarNilaiRows(mapelSel, semSel){
+  // Alur Kurikulum Merdeka (Panduan Pembelajaran dan Asesmen):
+  // NA Sumatif = rata-rata nilai sumatif per lingkup materi (TERMASUK STS);
+  // NA SAS = rata-rata nilai Sumatif Akhir Semester;
+  // Nilai Akhir (Rapor) = rata-rata NA Sumatif dan NA SAS (jika SAS ada).
+  // Nilai formatif TIDAK masuk hitungan (kualitatif, bahan deskripsi).
   const rows = (db.asesmenSumatif||[]).filter(r=>r.mapel===mapelSel && String(r.semester||"")===""+semSel);
   const lmSet = [];
   rows.forEach(r=>{
     const lm = String(r.lingkupMateri||"Umum").trim()||"Umum";
-    if(/^(STS|SAS)\b/i.test(lm)) return;
+    if(/^SAS\b/i.test(lm)) return; // SAS dipisah; STS ikut dihitung sebagai sumatif
     if(lmSet.indexOf(lm)<0) lmSet.push(lm);
   });
   const bySiswa = {};
@@ -815,10 +842,8 @@ function daftarNilaiRows(mapelSel, semSel){
       const v = arr.filter(r=>String(r.lingkupMateri||"Umum").trim()===lm).map(r=>Number(r.nilai)||0);
       return v.length? v.reduce((a,b)=>a+b,0)/v.length : null;
     });
-    const stsR = arr.find(r=>/^STS\b/i.test(String(r.lingkupMateri||"").trim()));
-    const sasR = arr.find(r=>/^SAS\b/i.test(String(r.lingkupMateri||"").trim()));
-    const sts = stsR? Number(stsR.nilai) : null;
-    const sas = sasR? Number(sasR.nilai) : null;
+    const sasVals = arr.filter(r=>/^SAS\b/i.test(String(r.lingkupMateri||"").trim())).map(r=>Number(r.nilai)||0);
+    const sas = sasVals.length? sasVals.reduce((a,b)=>a+b,0)/sasVals.length : null;
     const valid = lmVals.filter(v=>v!=null);
     const naSumatif = valid.length? valid.reduce((a,b)=>a+b,0)/valid.length : null;
     const nilaiAkhir = naSumatif==null? null : (sas==null? naSumatif : (naSumatif+sas)/2);
@@ -832,7 +857,7 @@ function daftarNilaiRows(mapelSel, semSel){
         ? "Menunjukkan penguasaan yang baik dalam "+lmSet[iMax]+"."
         : "Menunjukkan penguasaan dalam "+lmSet[iMax]+". Perlu bimbingan dalam "+lmSet[iMin]+".";
     }
-    return {s:s, lmVals:lmVals, sts:sts, sas:sas, naSumatif:naSumatif, nilaiAkhir:nilaiAkhir, deskripsi:deskripsi};
+    return {s:s, lmSet:lmSet, lmVals:lmVals, sas:sas, naSumatif:naSumatif, nilaiAkhir:nilaiAkhir, deskripsi:deskripsi};
   });
   return {lmSet:lmSet, table:table};
 }
@@ -843,18 +868,18 @@ PAGES.rekapnilai = function(){
   const lmSet = dn.lmSet, table = dn.table;
   const fmt = v=> v==null? "-": String(Math.round(v*10)/10);
   const head = `<tr><th rowspan="2">No</th><th rowspan="2">NIS</th><th rowspan="2">Nama Peserta Didik</th><th rowspan="2">L/P</th>`
-    + (lmSet.length? `<th colspan="${lmSet.length}">Nilai Sumatif per Lingkup Materi</th>` : "")
-    + `<th rowspan="2">STS</th><th rowspan="2">SAS</th><th rowspan="2">NA Sumatif</th><th rowspan="2">Nilai Akhir</th><th rowspan="2">Deskripsi Capaian</th></tr>`
+    + (lmSet.length? `<th colspan="${lmSet.length}">Nilai Sumatif per Lingkup Materi (termasuk STS)</th>` : "")
+    + `<th rowspan="2">SAS</th><th rowspan="2">NA Sumatif</th><th rowspan="2">Nilai Akhir (Rapor)</th><th rowspan="2">Deskripsi Capaian</th></tr>`
     + (lmSet.length? `<tr>${lmSet.map(l=>`<th>${escapeHtml(l)}</th>`).join("")}</tr>` : "");
   const body = table.map((r,i)=>`<tr><td>${i+1}</td><td>${escapeHtml(r.s.nis||"-")}</td>`
     + `<td style="text-align:left;"><strong>${escapeHtml(r.s.nama)}</strong></td><td>${escapeHtml(r.s.jk||"-")}</td>`
     + r.lmVals.map(v=>`<td>${fmt(v)}</td>`).join("")
-    + `<td><strong>${fmt(r.sts)}</strong></td><td><strong>${fmt(r.sas)}</strong></td>`
+    + `<td><strong>${fmt(r.sas)}</strong></td>`
     + `<td><strong>${fmt(r.naSumatif)}</strong></td>`
     + `<td style="background:var(--primary-ghost);"><strong>${fmt(r.nilaiAkhir)}</strong></td>`
     + `<td style="text-align:left;min-width:230px;font-size:12px;">${escapeHtml(r.deskripsi)}</td></tr>`).join("");
   return `
-  <div class="section-head"><div><h1>Daftar Nilai</h1><div class="desc">Ledger formal per mata pelajaran &amp; semester — alur Kurikulum Merdeka: sumatif per lingkup materi &rarr; NA sumatif &rarr; nilai akhir. Nilai formatif bersifat kualitatif (arsip) dan tidak masuk hitungan rapor.</div></div>
+  <div class="section-head"><div><h1>Daftar Nilai</h1><div class="desc">Ledger formal per mata pelajaran &amp; semester — alur Kurikulum Merdeka: sumatif per lingkup materi (termasuk STS) &rarr; NA Sumatif &rarr; Nilai Akhir (rata-rata NA Sumatif &amp; SAS). Nilai formatif bersifat kualitatif (arsip) dan tidak masuk hitungan rapor.</div></div>
     <div class="grow"></div>
     <button class="btn" onclick="exportDaftarNilaiExcel()">${ic("download",15)} Excel</button>
     <button class="btn btn-primary" onclick="printDaftarNilai()">${ic("print",15)} Cetak</button></div>
@@ -867,7 +892,7 @@ PAGES.rekapnilai = function(){
       <option value="2" ${semSel==="2"?"selected":""}>Semester 2</option>
     </select></div>
     <div class="grow"></div>
-    <span class="hint">Tips: saat <strong>Input Nilai</strong>, tulis <strong>STS</strong> / <strong>SAS</strong> pada kolom Lingkup Materi untuk menandai nilai tengah &amp; akhir semester.</span>
+    <span class="hint">Tips: tulis <strong>STS</strong> pada kolom Lingkup Materi saat <strong>Input Nilai</strong> agar dihitung sebagai salah satu nilai sumatif; tulis <strong>SAS</strong> untuk Sumatif Akhir Semester.</span>
   </div>
   ${table.length
     ? `<div id="daftarNilaiHolder" class="table-wrap"><table><thead>${head}</thead><tbody>${body}</tbody></table></div>`
@@ -889,7 +914,7 @@ function daftarNilaiPengesahan(){
     <td style="width:50%;text-align:center;">Mengetahui,<br>Kepala Sekolah<br><br><br><br><br><strong><u>${escapeHtml(s.kepalaSekolah||"")}</u></strong><br>NIP. ${escapeHtml(s.nipKepsek||"")}</td>
     <td style="width:50%;text-align:center;">${escapeHtml(s.desa||"")}, ${fmtDate(todayISO())}<br>Wali Kelas<br><br><br><br><br><strong><u>${escapeHtml(wali?wali.nama:"")}</u></strong><br>NIP. ${escapeHtml(wali?(wali.nip||""):"")}</td>
   </tr></tbody></table>
-  <p style="font-size:10pt;margin-top:10px;"><strong>Keterangan:</strong> NA Sumatif = rata-rata nilai sumatif lingkup materi. Nilai Akhir = rata-rata NA Sumatif dan SAS (apabila SAS dilaksanakan). Nilai formatif bersifat kualitatif sebagai bahan deskripsi dan tidak diperhitungkan dalam nilai rapor.</p>`;
+  <p style="font-size:10pt;margin-top:10px;"><strong>Keterangan:</strong> NA Sumatif = rata-rata nilai sumatif per lingkup materi (termasuk STS). Nilai Akhir (Rapor) = rata-rata NA Sumatif dan SAS (apabila SAS dilaksanakan; SAS bersifat pilihan). Nilai formatif bersifat kualitatif sebagai bahan deskripsi dan <strong>tidak</strong> diperhitungkan dalam nilai rapor. Acuan: Permendikbudristek No. 21/2022 tentang Standar Penilaian &amp; Panduan Pembelajaran dan Asesmen (Edisi Revisi 2025). Catatan: panduan memberi 3 opsi pengolahan nilai akhir (rata-rata / pembobotan / persentase ketercapaian) — tabel ini memakai opsi rata-rata; sesuaikan dengan kebijakan satuan pendidikan.</p>`;
 }
 function exportDaftarNilaiExcel(){
   const holder = document.getElementById("daftarNilaiHolder");
@@ -923,7 +948,59 @@ function generateRaporDraft(siswaId){
   }
   return text;
 }
+/* ---------- REKAP NILAI RAPOR (konsolidasi nilai akhir per mapel) ---------- */
+function predikatNilai(v){
+  if(v==null) return "-";
+  if(v>=85) return "Sangat Berkembang";
+  if(v>=70) return "Berkembang Sesuai Harapan";
+  if(v>=60) return "Mulai Berkembang";
+  return "Belum Berkembang";
+}
+function raporKop(semSel){
+  const s = db.sekolah;
+  return `<table style="margin-bottom:10px;"><tbody>
+    <tr><td style="width:180px;"><strong>Satuan Pendidikan</strong></td><td>: ${escapeHtml(s.namaSekolah||"")}</td></tr>
+    <tr><td><strong>Kelas / Semester</strong></td><td>: ${escapeHtml(classInfo(activeClassId).label)} / ${semSel==="1"?"1 (Ganjil)":"2 (Genap)"}</td></tr>
+    <tr><td><strong>Tahun Pelajaran</strong></td><td>: ${escapeHtml(s.tahunAjaran||"")}</td></tr>
+  </tbody></table>`;
+}
+function raporNilaiTable(semSel){
+  const siswa = siswaSortedAlpha();
+  const perMapel = MAPEL_LIST.map(m=>{
+    const dn = daftarNilaiRows(m, semSel);
+    const map = {};
+    dn.table.forEach(r=>{ map[r.s.id] = r.nilaiAkhir; });
+    return {mapel:m, map:map};
+  });
+  const fmt1 = v=> v==null? "-": String(Math.round(v*10)/10);
+  const head = `<tr><th>No</th><th>Nama Peserta Didik</th>${perMapel.map(p=>`<th>${escapeHtml(p.mapel)}</th>`).join("")}<th>Rata-rata</th></tr>`;
+  const body = siswa.map((s,i)=>{
+    const vals = perMapel.map(p=>p.map[s.id]);
+    const valid = vals.filter(v=>v!=null);
+    const avg = valid.length? valid.reduce((a,b)=>a+b,0)/valid.length : null;
+    return `<tr><td>${i+1}</td><td style="text-align:left;"><strong>${escapeHtml(s.nama)}</strong></td>`
+      + vals.map(v=>`<td>${fmt1(v)}</td>`).join("")
+      + `<td style="background:var(--primary-ghost);"><strong>${fmt1(avg)}</strong></td></tr>`;
+  }).join("");
+  return {head:head, body:body, count:siswa.length};
+}
+function printRekapRapor(){
+  const semSel = window._raporSemester || String(db.sekolah.semester||"1");
+  const nt = raporNilaiTable(semSel);
+  if(!nt.count){ toast("Belum ada data siswa."); return; }
+  printDocument("REKAP NILAI RAPOR SEMESTER "+semSel,
+    raporKop(semSel)+`<div class="table-wrap"><table><thead>${nt.head}</thead><tbody>${nt.body}</tbody></table></div>`+daftarNilaiPengesahan());
+}
+function exportRekapRaporExcel(){
+  const semSel = window._raporSemester || String(db.sekolah.semester||"1");
+  const nt = raporNilaiTable(semSel);
+  if(!nt.count){ toast("Belum ada data siswa."); return; }
+  htmlToExcelXls(raporKop(semSel)+`<table><thead>${nt.head}</thead><tbody>${nt.body}</tbody></table>`+daftarNilaiPengesahan(),
+    "Rekap_Nilai_Rapor_Semester_"+semSel, "Rekap Nilai Rapor");
+}
 PAGES.rapor = function(){
+  const semSel = window._raporSemester || String(db.sekolah.semester||"1");
+  const nt = raporNilaiTable(semSel);
   const rows = siswaSortedAlpha().map(s=>{
     const text = db.raporDeskripsi[s.id] || "";
     return `<div class="card" style="margin-bottom:14px;">
@@ -935,7 +1012,22 @@ PAGES.rapor = function(){
         <button class="btn btn-sm" onclick="printRaporSiswa('${s.id}')">${ic("print",14)} Cetak</button>
       </div></div>`;
   }).join("");
-  return `<div class="section-head"><div><h1>Deskripsi Rapor</h1><div class="desc">Narasi capaian belajar per siswa. Draf otomatis dihitung dari data Asesmen Sumatif, dapat Bapak/Ibu Guru edit bebas.</div></div></div>${rows}`;
+  return `<div class="section-head"><div><h1>Rapor Semester</h1><div class="desc">Rekap Nilai Akhir per mata pelajaran (otomatis dari Daftar Nilai) siap dipakai untuk pengisian rapor, dilanjutkan dengan deskripsi capaian per siswa.</div></div>
+    <div class="grow"></div>
+    <button class="btn" onclick="exportRekapRaporExcel()">${ic("download",15)} Excel</button>
+    <button class="btn btn-primary" onclick="printRekapRapor()">${ic("print",15)} Cetak Rekap</button></div>
+  <div class="toolbar">
+    <div class="field" style="min-width:150px;margin-bottom:0;"><label>Semester</label><select onchange="window._raporSemester=this.value; renderPage('rapor');">
+      <option value="1" ${semSel==="1"?"selected":""}>Semester 1</option>
+      <option value="2" ${semSel==="2"?"selected":""}>Semester 2</option>
+    </select></div>
+    <div class="grow"></div>
+    <span class="hint">Nilai Akhir = rata-rata NA Sumatif &amp; SAS per mapel (lihat Daftar Nilai).</span>
+  </div>
+  <div class="card" style="margin-bottom:16px;"><h3 style="font-size:14px;margin-bottom:10px;">${ic("bar",16)} Rekap Nilai Akhir per Mata Pelajaran</h3>
+    <div class="table-wrap"><table><thead>${nt.head}</thead><tbody>${nt.body}</tbody></table></div></div>
+  <h2 style="font-size:15px;margin:18px 0 10px;">${ic("reportcard",16)} Deskripsi Capaian per Siswa</h2>
+  ${rows}`;
 };
 function draftRapor(id){ document.getElementById("rapor_"+id).value = generateRaporDraft(id); }
 function saveRapor(id){ db.raporDeskripsi[id] = document.getElementById("rapor_"+id).value; saveDB(); toast("Deskripsi rapor tersimpan."); }
