@@ -246,21 +246,21 @@ function aiSaveSettingsFromForm(){
 
 /* ---------- 4. PAGE: PUSAT AI GURU (hub alur kerja) ---------- */
 const AI_WORKFLOWS = [
-  {judul:"Perencanaan Pembelajaran", icon:"clipboard", desc:"Siapkan perangkat sebelum mengajar — terhubung dengan data CP/TP aplikasi.", items:[
-    {id:"aiModul", label:"Modul Ajar", desc:"Modul Ajar lengkap siap pakai"},
-    {id:"aiTP", label:"TP", desc:"Tujuan Pembelajaran dari CP"},
-    {id:"aiATP", label:"ATP", desc:"Alur TP per semester"},
-    {id:"aiLKPD", label:"LKPD", desc:"Lembar kerja peserta didik"},
+  {judul:"Perencanaan Pembelajaran", icon:"clipboard", grad:["#3e63f2","#7048e8"], desc:"Siapkan perangkat sebelum mengajar — terhubung dengan data CP/TP aplikasi.", items:[
+    {id:"aiModul", label:"Modul Ajar", desc:"Modul Ajar lengkap siap pakai", icon:"clipboard"},
+    {id:"aiTP", label:"TP", desc:"Tujuan Pembelajaran dari CP", icon:"target"},
+    {id:"aiATP", label:"ATP", desc:"Alur TP per semester", icon:"layers"},
+    {id:"aiLKPD", label:"LKPD", desc:"Lembar kerja peserta didik", icon:"edit"},
   ]},
-  {judul:"Penilaian & Tindak Lanjut", icon:"target", desc:"Soal, rubrik, dan tindak lanjut hasil belajar.", items:[
-    {id:"aiBankSoal", label:"Bank Soal", desc:"UH / STS / SAS + kisi, kunci, skor"},
-    {id:"aiAsesForm", label:"Asesmen Formatif", desc:"Kuis & instrumen umpan balik"},
-    {id:"aiRubrik", label:"Rubrik Penilaian", desc:"Rubrik sikap, unjuk kerja, produk"},
-    {id:"aiPengRem", label:"Pengayaan & Remedial", desc:"RTL dari hasil Analisis Nilai"},
+  {judul:"Penilaian & Tindak Lanjut", icon:"target", grad:["#0ca678","#1098ad"], desc:"Soal, rubrik, dan tindak lanjut hasil belajar.", items:[
+    {id:"aiBankSoal", label:"Bank Soal", desc:"UH / STS / SAS + kisi, kunci, skor", icon:"doc"},
+    {id:"aiAsesForm", label:"Asesmen Formatif", desc:"Kuis & instrumen umpan balik", icon:"check2"},
+    {id:"aiRubrik", label:"Rubrik Penilaian", desc:"Rubrik sikap, unjuk kerja, produk", icon:"star"},
+    {id:"aiPengRem", label:"Pengayaan & Remedial", desc:"RTL dari hasil Analisis Nilai", icon:"heart"},
   ]},
-  {judul:"Administrasi Harian & Wali Kelas", icon:"clock", desc:"Jurnal mengajar dan surat menyurat.", items:[
-    {id:"aiJurnal", label:"Jurnal Mengajar", desc:"Jurnal harian dari rencana minggu ini"},
-    {id:"aiSuratOrtu", label:"Surat Orang Tua", desc:"Undangan, pemberitahuan, pemanggilan"},
+  {judul:"Administrasi Harian & Wali Kelas", icon:"clock", grad:["#e8890c","#e64980"], desc:"Jurnal mengajar dan surat menyurat.", items:[
+    {id:"aiJurnal", label:"Jurnal Mengajar", desc:"Jurnal harian dari rencana minggu ini", icon:"book"},
+    {id:"aiSuratOrtu", label:"Surat Orang Tua", desc:"Undangan, pemberitahuan, pemanggilan", icon:"pen"},
   ]},
 ];
 PAGES.aiDashboard = function(){
@@ -272,11 +272,12 @@ PAGES.aiDashboard = function(){
   const apiOk = !!(aiSettings.apiKey && String(aiSettings.apiKey).trim());
   const wfHtml = AI_WORKFLOWS.map(w=>`
     <div class="card" style="margin-bottom:16px;">
-      <h3 style="font-size:14px;margin-bottom:4px;">${ic(w.icon,16)} ${w.judul}</h3>
+      <h3 style="font-size:14px;margin-bottom:4px;display:flex;align-items:center;gap:8px;"><span class="ai-chip" style="background:linear-gradient(135deg,${w.grad[0]},${w.grad[1]});">${ic(w.icon,15)}</span> ${w.judul}</h3>
       <p class="hint" style="margin:0 0 10px;">${w.desc}</p>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px;">
         ${w.items.map(it=>`
-          <button class="btn" style="justify-content:flex-start;height:auto;padding:12px 14px;text-align:left;" onclick="navigate('${it.id}')">
+          <button class="btn ai-tool-btn" style="justify-content:flex-start;height:auto;padding:12px 14px;text-align:left;" onclick="navigate('${it.id}')">
+            <span class="ai-chip" style="background:linear-gradient(135deg,${w.grad[0]},${w.grad[1]});">${ic(it.icon||"star",16)}</span>
             <span><strong>${it.label}</strong><br><span class="hint" style="font-weight:400;">${it.desc}</span></span>
           </button>`).join("")}
       </div>
@@ -302,7 +303,7 @@ PAGES.aiDashboard = function(){
 /* ---------- 5. PAGE: AI HISTORY ---------- */
 PAGES.aiHistory = function(){
   const hist = loadAiHistory();
-  if(!hist.length) return `<div class="card"><p class="hint">Belum ada dokumen AI yang dihasilkan.</p></div>`;
+  if(!hist.length) return `<div class="card"><div class="empty-state">${illus("dokumen",130)}<p>Belum ada dokumen AI yang dihasilkan.<br>Gunakan salah satu generator di <strong>Pusat AI Guru</strong>.</p></div></div>`;
   return `<div class="card">
     <h3>Riwayat Dokumen AI (${hist.length})</h3>
     <div id="aiHistList">${hist.map(h=>aiHistItemHtml(h)).join("")}</div>
