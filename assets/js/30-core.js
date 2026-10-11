@@ -52,6 +52,38 @@ const ICONS = {
 function ic(name,size=18){ return (ICONS[name]||"").replace("<svg ", `<svg width="${size}" height="${size}" `); }
 
 /* ============================================================
+   ILUSTRASI EMPTY-STATE — gaya flat modern, palet formal
+   (biru #3e63f2, violet #7048e8, hijau #0ca678, kuning #e8890c)
+   ============================================================ */
+function illus(kind, size){
+  size = size || 120;
+  const bg = `<circle cx="60" cy="60" r="56" fill="#e9edff"/><circle cx="60" cy="60" r="56" fill="url(#ilgrad)" fill-opacity=".25"/>`;
+  const defs = `<defs><linearGradient id="ilgrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3e63f2"/><stop offset="1" stop-color="#7048e8"/></linearGradient></defs>`;
+  let inner = "";
+  if(kind==="nilai"){
+    inner = bg
+      + `<rect x="30" y="58" width="14" height="34" rx="4" fill="#3e63f2"/>`
+      + `<rect x="50" y="44" width="14" height="48" rx="4" fill="#7048e8"/>`
+      + `<rect x="70" y="66" width="14" height="26" rx="4" fill="#0ca678"/>`
+      + `<path d="M32 52 L57 38 L76 48 L92 30" stroke="#e8890c" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>`
+      + `<circle cx="92" cy="30" r="5" fill="#e8890c"/>`
+      + `<rect x="26" y="96" width="68" height="5" rx="2.5" fill="#c9d3e6"/>`;
+  } else if(kind==="siswa"){
+    inner = bg
+      + `<circle cx="46" cy="48" r="13" fill="#3e63f2"/><path d="M24 92c0-13 10-21 22-21s22 8 22 21v4H24v-4z" fill="#3e63f2" opacity=".85"/>`
+      + `<circle cx="78" cy="44" r="10" fill="#7048e8"/><path d="M62 92c0-10 7-16 16-16s16 6 16 16v4H62v-4z" fill="#7048e8" opacity=".85"/>`
+      + `<circle cx="88" cy="78" r="11" fill="#0ca678"/><path d="M84 76l3 3 6-7" stroke="#fff" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
+  } else { /* dokumen */
+    inner = bg
+      + `<path d="M38 26h28l14 14v44a6 6 0 0 1-6 6H38a6 6 0 0 1-6-6V32a6 6 0 0 1 6-6z" fill="#fff" stroke="#3e63f2" stroke-width="3"/>`
+      + `<path d="M66 26v14h14" fill="none" stroke="#3e63f2" stroke-width="3" stroke-linejoin="round"/>`
+      + `<rect x="40" y="52" width="28" height="5" rx="2.5" fill="#c9d3e6"/><rect x="40" y="62" width="40" height="5" rx="2.5" fill="#c9d3e6"/><rect x="40" y="72" width="32" height="5" rx="2.5" fill="#c9d3e6"/>`
+      + `<circle cx="82" cy="82" r="13" fill="#0ca678"/><path d="M76 82l4 4 8-9" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
+  }
+  return `<svg width="${size}" height="${size}" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-hidden="true">${defs}${inner}</svg>`;
+}
+
+/* ============================================================
    4. NAVIGATION / ROUTER
    ============================================================ */
 const NAV = [
@@ -94,8 +126,8 @@ const NAV = [
    {id:"asessum", label:"Asesmen Sumatif", icon:"check2"},
    {id:"rekapnilai", label:"Daftar Nilai", icon:"bar"},
    {id:"analisisnilai", label:"Analisis Nilai", icon:"target"},
-   {id:"prestasiSiswa", label:"Buku Prestasi Siswa", icon:"star"},
    {id:"rapor", label:"Rapor Semester", icon:"reportcard"},
+   {id:"prestasiSiswa", label:"Buku Prestasi Siswa", icon:"star"},
    {id:"kehadiran", label:"Kehadiran", icon:"attendance"},
    {id:"rekapAbsenTahunan", label:"Rekap Absen Bulanan (12 Bulan)", icon:"attendance"},
  ]},
