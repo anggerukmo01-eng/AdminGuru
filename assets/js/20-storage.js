@@ -192,23 +192,39 @@ function runCpRevisi2026SeedIfNeeded(){
 // Jadwal yang sudah pernah diisi/disunting guru TIDAK akan ditimpa.
 const JADWAL_KELAS1_SEED_FLAG = "tpsd2026_jadwalkelas1_seed_v1";
 function runJadwalKelas1SeedIfNeeded(){
-  if(localStorage.getItem(JADWAL_KELAS1_SEED_FLAG)) return;
+  if(!localStorage.getItem(JADWAL_KELAS1_SEED_FLAG)){
+    try{
+      const cls = loadClassDB("kelas-1");
+      const jadwalKosong = !cls.jadwal || Object.keys(cls.jadwal).length===0 ||
+        HARI.every(h => !cls.jadwal[h] || cls.jadwal[h].length===0);
+      if(jadwalKosong){
+        cls.jadwal = JSON.parse(JSON.stringify(SEED_JADWAL_KELAS1));
+        saveClassDB("kelas-1", cls);
+      }
+    }catch(e){ console.warn("Gagal menjalankan migrasi jadwal Kelas 1.", e); }
+    localStorage.setItem(JADWAL_KELAS1_SEED_FLAG, "1");
+  }
+  // Normalisasi nama mapel singkatan lama -> baku (idempoten, untuk data yang sudah ada)
   try{
-    const cls = loadClassDB("kelas-1");
-    const jadwalKosong = !cls.jadwal || Object.keys(cls.jadwal).length===0 ||
-      HARI.every(h => !cls.jadwal[h] || cls.jadwal[h].length===0);
-    if(jadwalKosong){
-      cls.jadwal = JSON.parse(JSON.stringify(SEED_JADWAL_KELAS1));
-      saveClassDB("kelas-1", cls);
+    if(typeof normalisasiMapelJadwal==="function"){
+      const cls = loadClassDB("kelas-1");
+      let changed = false;
+      Object.keys(cls.jadwal||{}).forEach(h=>{
+        (cls.jadwal[h]||[]).forEach(s=>{
+          const n = normalisasiMapelJadwal(s.mapel);
+          if(n!==s.mapel){ s.mapel = n; changed = true; }
+        });
+      });
+      if(changed) saveClassDB("kelas-1", cls);
     }
-  }catch(e){ console.warn("Gagal menjalankan migrasi jadwal Kelas 1.", e); }
-  localStorage.setItem(JADWAL_KELAS1_SEED_FLAG, "1");
+  }catch(e){ console.warn("Gagal normalisasi nama mapel jadwal.", e); }
 }
 
 function loadDB(){
   runMultiClassMigrationIfNeeded();
   runBukuIndukSeedIfNeeded();
   runCpRevisi2026SeedIfNeeded();
+  if(typeof runRencanaPblSeedIfNeeded==="function") runRencanaPblSeedIfNeeded();
   runJadwalKelas1SeedIfNeeded();
   activeClassId = loadActiveClassId();
   const shared = loadSharedDB();
