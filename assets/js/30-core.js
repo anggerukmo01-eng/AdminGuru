@@ -168,7 +168,7 @@ function buildSidebar(){
     navCollapsedSet(collapsed);
   }
   let h = `<div class="brand">
-    <div class="logo logo-img"><img src="assets/img/logo-sekolah.png" alt="Logo SD Negeri 1 Gerduren"></div>
+    <div class="logo logo-img"><img src="${LOGO_SEKOLAH}" alt="Logo SD Negeri 1 Gerduren"></div>
     <div class="txt"><strong>Administrasi Guru</strong><span>SD Negeri 1 Gerduren</span></div>
   </div>
   <div class="navsearch">${ic("search",16)}<input id="navSearch" type="search" placeholder="Cari menu..." autocomplete="off" oninput="filterNav(this.value)"></div>
@@ -494,7 +494,7 @@ function tableHtmlFromRows(cols, rows){
 }
 function letterheadHtml(){
   const s = db.sekolah;
-  const logoSrc = s.logoDataUrl || "assets/img/logo-sekolah.png";
+  const logoSrc = s.logoDataUrl || (typeof LOGO_SEKOLAH!=="undefined" ? LOGO_SEKOLAH : "assets/img/logo-sekolah.png");
   return `<div class="letterhead">
     <div class="lh-logo"><img src="${logoSrc}" alt="Logo Sekolah" style="width:66px;height:66px;object-fit:contain;"></div>
     <div class="lh-text">
