@@ -110,7 +110,7 @@ function agendaFields(){
   // materi/TP, kegiatan, penilaian, refleksi & tindak lanjut.
   return [
     {key:"tanggal",label:"Tanggal",type:"date",required:true},
-    {key:"mapel",label:"Mata Pelajaran",type:"select",options:MAPEL_LIST},
+    {key:"mapel",label:"Mata Pelajaran",type:"select",options:[...MAPEL_LIST,"Kokurikuler"]},
     {key:"materi",label:"Materi / Tujuan Pembelajaran"},
     {key:"kegiatan",label:"Kegiatan Pembelajaran (pembuka - inti - penutup)",type:"textarea",required:true},
     {key:"penilaian",label:"Penilaian / Asesmen yang Dilakukan",type:"textarea"},
