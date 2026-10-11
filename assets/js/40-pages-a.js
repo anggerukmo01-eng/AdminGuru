@@ -463,6 +463,8 @@ PAGES.siswa = function(){
     <div class="grow"></div>
     <button class="btn" onclick="exportSiswaCSV()">${ic("download",15)} CSV</button>
     <button class="btn" style="border-color:var(--primary);color:var(--primary);" onclick="downloadSiswaTemplateCSV()">${ic("doc",15)} Unduh Template CSV</button>
+    <button class="btn" style="border-color:#2E75B6;color:#2E75B6;" onclick="downloadBITemplate()">${ic("book",15)} Template Buku Induk</button>
+    <button class="btn" style="border-color:var(--accent);color:var(--accent);" onclick="openBIUpload()">${ic("upload",15)} Unggah Pembaruan</button>
     <button class="btn" onclick="exportSiswaWord()">${ic("doc",15)} Word</button>
     <button class="btn" onclick="exportSiswaExcel()">${ic("bar",15)} Excel</button>
     <button class="btn" onclick="printSiswa()">${ic("print",15)} Cetak</button>
@@ -1447,4 +1449,171 @@ function printBukuInduk(siswaId){
        <p style="text-align:center;margin-top:-8px;">${escapeHtml((s0&&s0.nama)||"")} &middot; ${escapeHtml(classInfo(activeClassId).label)}</p>`
     + bukuIndukLihatHtml(siswaId);
   printDocument("Buku Induk - "+((s0&&s0.nama)||siswaId), html);
+}
+
+/* ============================================================
+   UNGGAH PEMBARUAN BUKU INDUK (via Template Excel/CSV)
+   ============================================================ */
+function downloadBITemplate(){
+  const a = document.createElement("a");
+  a.href = "assets/Template_Buku_Induk_2026.xlsx";
+  a.download = "Template_Buku_Induk_2026.xlsx";
+  document.body.appendChild(a); a.click(); a.remove();
+  toast("Template Buku Induk diunduh. Isi lalu unggah kembali via 'Unggah Pembaruan'.");
+}
+function openBIUpload(){
+  openModal({title:"Unggah Pembaruan Buku Induk", bodyHtml:`
+    <p class="muted" style="margin-top:0;">Unggah file <strong>Template Buku Induk</strong> (.xlsx) yang sudah diisi,
+    atau file .csv dengan kolom yang sama. Sistem mencocokkan berdasarkan <strong>NISN</strong>.</p>
+    <div style="border:2px dashed var(--border);border-radius:12px;padding:24px;text-align:center;">
+      <input type="file" id="biFileInput" accept=".xlsx,.xls,.csv" style="display:none;"
+        onchange="handleBIFile(this)">
+      <button class="btn btn-primary" onclick="document.getElementById('biFileInput').click()">${ic("upload",15)} Pilih File</button>
+      <div class="muted" style="margin-top:8px;font-size:12px;">Belum punya template? <a href="#" onclick="downloadBITemplate();return false;" style="color:var(--primary);">Unduh Template Buku Induk</a></div>
+    </div>
+    <div id="biUploadStatus" style="margin-top:12px;"></div>`,
+    footHtml:`<button class="btn" onclick="closeModal()">Batal</button>`});
+}
+function loadXlsxLib(){
+  return new Promise((res, rej)=>{
+    if(window.XLSX) return res();
+    const sc = document.createElement("script");
+    sc.src = "https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js";
+    sc.onload = ()=>res(); sc.onerror = ()=>rej(new Error("cdn"));
+    document.head.appendChild(sc);
+  });
+}
+// Kolom template (0-based): 0 NISN,1 Nama,2 Kelas,3 Panggilan,4 JK,5 NIS,6 NIK,7 NoKK,
+// 8 TempatLahir,9 TglLahir,10 Agama,11 WN,12 AnakKe,13 JmlSdr,14 StatusYatim,
+// 15 RT,16 RW,17 Dusun,18 Kel,19 Kec,20 KodePos,21 JenisTinggal,22 Transportasi,23 Telp,24 HP,
+// 25 BB,26 TB,27 LK,28 Jarak,29 Khusus,30 SekolahAsal,
+// 31-36 Ayah(nama,thn,pend,pek,hasil,nik), 37-42 Ibu, 43-48 Wali,
+// 49 KIP,50 NoKIP,51 NoKKS,52 LayakPIP,53 AlasanPIP
+function biRowToUpdate(r){
+  const g = i => String(r[i]!==undefined&&r[i]!==null ? r[i] : "").trim();
+  const mkOrtu = o => ({nama:g(o), tahunLahir:g(o+1), pendidikan:g(o+2), pekerjaan:g(o+3),
+    penghasilan:g(o+4), nik:g(o+5), agama:"Islam", wn:"Indonesia", alamat:"", hp:""});
+  return {
+    nisn: g(0), nama: g(1), kelas: g(2),
+    bi: {nik:g(6), noKK:g(7), tempatLahir:g(8), tanggalLahir:g(9),
+      rt:g(15), rw:g(16), dusun:g(17), kelurahan:g(18), kecamatan:g(19), kodePos:g(20),
+      jenisTinggal:g(21), transportasi:g(22), telepon:g(23), hp:g(24),
+      anakKe:g(12), jmlSaudara:g(13),
+      beratBadan:g(25), tinggiBadan:g(26), lingkarKepala:g(27), jarakSekolah:g(28),
+      kebutuhanKhusus:g(29), sekolahAsal:g(30),
+      ayah:mkOrtu(31), ibu:mkOrtu(37), wali:mkOrtu(43),
+      penerimaKIP:g(49), nomorKIP:g(50), nomorKKS:g(51), layakPIP:g(52), alasanPIP:g(53)},
+    flat: {jk:g(4), nis:g(5), agama:g(10), alamat:""}
+  };
+}
+async function handleBIFile(input){
+  const file = input.files[0];
+  if(!file) return;
+  const st = document.getElementById("biUploadStatus");
+  st.innerHTML = `<span class="muted">Membaca file...</span>`;
+  try{
+    let rows = [];
+    if(/\.csv$/i.test(file.name)){
+      const text = await file.text();
+      rows = parseCSV(text);
+    }else{
+      await loadXlsxLib();
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, {type:"array"});
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      rows = XLSX.utils.sheet_to_json(sheet, {header:1, defval:""});
+    }
+    // buang baris header & baris kosong
+    rows = rows.filter((r,i)=> i>0 && r.some(v=>String(v).trim()!==""));
+    if(!rows.length) throw new Error("empty");
+    previewBIImport(rows);
+  }catch(e){
+    st.innerHTML = `<div class="alert alert-danger">Gagal membaca file. Pastikan format .xlsx/.csv dari template resmi.${e.message==="cdn"?" (Butuh internet sekali untuk memuat pustaka Excel.)":""}</div>`;
+  }
+  input.value = "";
+}
+function parseCSV(text){
+  const rows = []; let row = [], cur = "", inQ = false;
+  for(let i=0;i<text.length;i++){
+    const ch = text[i];
+    if(inQ){ if(ch==='"'){ if(text[i+1]==='"'){cur+='"';i++;} else inQ=false; } else cur+=ch; }
+    else if(ch==='"') inQ=true;
+    else if(ch===','){ row.push(cur); cur=""; }
+    else if(ch==="\n"||ch==="\r"){ if(ch==="\n"||text[i+1]!=="\n"){ row.push(cur); rows.push(row); row=[]; cur=""; } }
+    else cur+=ch;
+  }
+  if(cur!==""||row.length){ row.push(cur); rows.push(row); }
+  return rows.filter(r=>r.length>1||String(r[0]).trim()!=="");
+}
+function previewBIImport(rows){
+  const updates = [];
+  const notFound = [];
+  const allSiswa = [];
+  ["kelas-1","kelas-2","kelas-3","kelas-4","kelas-5","kelas-6"].forEach(cid=>{
+    (loadClassDB(cid).siswa||[]).forEach(s=>allSiswa.push({cid, s}));
+  });
+  const byNisn = {};
+  allSiswa.forEach(x=>{ if(x.s.nisn) byNisn[String(x.s.nisn).trim()] = x; });
+  rows.forEach((r, i)=>{
+    const u = biRowToUpdate(r);
+    if(!u.nisn && !u.nama){ return; }
+    const match = u.nisn && byNisn[u.nisn];
+    if(match){ updates.push({row:i+2, match, u}); }
+    else{
+      // coba cocok nama + kelas
+      const nm = u.nama.toLowerCase();
+      const found = allSiswa.find(x=> (x.s.nama||"").toLowerCase()===nm );
+      if(found) updates.push({row:i+2, match:found, u, byName:true});
+      else notFound.push({row:i+2, nisn:u.nisn, nama:u.nama});
+    }
+  });
+  window._biImport = {updates, notFound};
+  const prevRows = updates.slice(0,8).map(x=>`<tr><td>${x.row}</td><td>${escapeHtml(x.match.s.nama)}</td>
+    <td>${escapeHtml(x.u.nisn||"-")}</td><td><span class="badge badge-green">Cocok${x.byName?" (nama)":""}</span></td></tr>`).join("");
+  openModal({title:"Pratinjau Unggahan Buku Induk", bodyHtml:`
+    <div class="stat-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:12px;">
+      <div class="stat-card"><div class="stat-num">${rows.length}</div><div class="stat-label">Baris dibaca</div></div>
+      <div class="stat-card"><div class="stat-num" style="color:var(--success);">${updates.length}</div><div class="stat-label">Cocok & siap diperbarui</div></div>
+      <div class="stat-card"><div class="stat-num" style="color:var(--danger);">${notFound.length}</div><div class="stat-label">Tidak cocok</div></div>
+    </div>
+    ${updates.length?`<div class="table-wrap" style="max-height:220px;overflow:auto;"><table>
+      <thead><tr><th>Baris</th><th>Nama Siswa</th><th>NISN</th><th>Status</th></tr></thead><tbody>${prevRows}</tbody></table></div>
+      ${updates.length>8?`<div class="muted" style="font-size:12px;">...dan ${updates.length-8} lainnya.</div>`:""}`:""}
+    ${notFound.length?`<div class="alert alert-warning" style="margin-top:10px;">${notFound.length} baris tidak cocok (NISN tidak ditemukan): baris ${notFound.slice(0,10).map(x=>x.row).join(", ")}${notFound.length>10?"...":""}. Baris ini akan dilewati.</div>`:""}
+    <p class="muted" style="font-size:12px;margin-top:10px;">Hanya kolom yang terisi yang diperbarui; kolom kosong tidak menimpa data lama.</p>`,
+    footHtml:`<button class="btn" onclick="closeModal()">Batal</button>
+      <button class="btn btn-primary" ${updates.length?"":"disabled"} onclick="applyBIImport()">${ic("check",15)} Terapkan ${updates.length} Pembaruan</button>`});
+}
+function applyBIImport(){
+  const imp = window._biImport;
+  if(!imp) return;
+  let n = 0;
+  const touched = {};
+  imp.updates.forEach(({match, u})=>{
+    const cls = loadClassDB(match.cid);
+    const s = (cls.siswa||[]).find(x=>x.id===match.s.id);
+    if(!s) return;
+    s.bi = s.bi || {};
+    // hanya timpa field yang terisi
+    Object.keys(u.bi).forEach(k=>{
+      const v = u.bi[k];
+      if(v && typeof v === "object"){
+        s.bi[k] = s.bi[k] || {};
+        Object.keys(v).forEach(k2=>{ if(String(v[k2]).trim()!=="") s.bi[k][k2] = v[k2]; });
+      }else if(String(v).trim()!==""){ s.bi[k] = v; }
+    });
+    if(u.flat.jk) s.jk = u.flat.jk;
+    if(u.flat.nis) s.nis = u.flat.nis;
+    if(u.flat.agama) s.agama = u.flat.agama;
+    saveClassDB(match.cid, cls);
+    touched[match.cid] = true;
+    n++;
+  });
+  // sinkronkan db.siswa kelas aktif bila tersentuh
+  if(touched[activeClassId]) db.siswa = loadClassDB(activeClassId).siswa || [];
+  saveDB();
+  window._biImport = null;
+  closeModal();
+  toast(n + " data Buku Induk diperbarui.");
+  renderPage("siswa");
 }
