@@ -82,6 +82,13 @@ PAGES.dashboard = function(){
     return {c, jumlah:(data.siswa||[]).length};
   });
 
+  // Rekap Buku Induk: pekerjaan ortu & PIP (semua kelas)
+  let _rekapOrtu = [], _rekapPip = {penerima:0, usulan:0, byKategori:{}};
+  try{
+    if(typeof rekapPekerjaanOrtu === "function") _rekapOrtu = rekapPekerjaanOrtu().slice(0,8);
+    if(typeof rekapPIP === "function") _rekapPip = rekapPIP();
+  }catch(e){}
+
   setTimeout(()=>{ window.dashRefresh = ()=>renderPage("dashboard"); },0);
 
   return `
@@ -182,6 +189,26 @@ PAGES.dashboard = function(){
       </div>`).join("")}
     </div>
     <button class="btn" style="margin-top:10px;" onclick="navigate('rekapSeluruhKelas')">${ic("bar",15)} Lihat Detail Rekap</button>
+  </div>
+  <div class="grid grid-2" style="margin-top:16px;">
+    <div class="card" style="margin:0;">
+      <h3>${ic("users",16)} Pekerjaan Orang Tua</h3>
+      <p class="muted" style="font-size:11.5px;">Rekap seluruh kelas (ayah + ibu).</p>
+      ${_rekapOrtu.length ? `<div class="table-wrap"><table><thead><tr><th>Pekerjaan</th><th>Ayah</th><th>Ibu</th><th>Total</th></tr></thead><tbody>`
+        + _rekapOrtu.map(r=>`<tr><td style="text-align:left;">${escapeHtml(r.pekerjaan||"-")}</td><td>${r.ayah}</td><td>${r.ibu}</td><td><strong>${r.total}</strong></td></tr>`).join("")
+        + `</tbody></table></div>` : `<p class="muted">Belum ada data Buku Induk.</p>`}
+    </div>
+    <div class="card" style="margin:0;">
+      <h3>${ic("star",16)} PIP — Program Indonesia Pintar</h3>
+      <div class="grid grid-2" style="margin-bottom:10px;">
+        <div><div class="muted" style="font-size:11.5px;">Penerima (KIP)</div><div style="font-size:24px;font-weight:800;color:var(--accent);">${_rekapPip.penerima}</div></div>
+        <div><div class="muted" style="font-size:11.5px;">Usulan Sekolah</div><div style="font-size:24px;font-weight:800;color:var(--warn);">${_rekapPip.usulan}</div></div>
+      </div>
+      ${Object.keys(_rekapPip.byKategori).length ? `<div class="table-wrap"><table><thead><tr><th>Kategori Usulan</th><th>Jumlah</th></tr></thead><tbody>`
+        + Object.entries(_rekapPip.byKategori).map(([k,v])=>`<tr><td style="text-align:left;">${escapeHtml(k)}</td><td><strong>${v}</strong></td></tr>`).join("")
+        + `</tbody></table></div>` : `<p class="muted">Belum ada usulan PIP.</p>`}
+      <p class="hint" style="margin-top:8px;">Kategori sesuai Permendikdasmen No. 11/2026. Nominal SD: Rp450rb/thn.</p>
+    </div>
   </div>
   <div class="card" style="margin-top:16px;">
     <h3>${ic("backup",16)} Status Cloud Storage</h3>
@@ -426,6 +453,7 @@ PAGES.siswa = function(){
     <td>${escapeHtml(s.alamat||'-')}</td>
     <td><div class="row-actions">
       <button class="btn btn-sm btn-icon" title="Ubah" onclick="editSiswa('${s.id}')">${ic("edit",15)}</button>
+      <button class="btn btn-sm btn-icon" title="Buku Induk Siswa" onclick="bukuIndukDetail('${s.id}')">${ic("book",15)}</button>
       <button class="btn btn-sm btn-icon" title="Pindah Kelas" onclick="pindahSiswaKelas('${s.id}')">${ic("users",15)}</button>
       <button class="btn btn-sm btn-icon" title="Siswa Keluar / Mutasi Keluar" style="color:var(--danger);" onclick="prosesSiswaKeluar('${s.id}')">${ic("guest",15)}</button>
       <button class="btn btn-sm btn-icon btn-danger" title="Hapus" onclick="deleteSiswa('${s.id}')">${ic("trash",15)}</button>
@@ -1004,3 +1032,379 @@ function checkKalenderReminders(){
   }catch(e){ console.warn("Gagal memeriksa pengingat kaldik.", e); }
 }
 
+/* ============================================================
+   BUKU INDUK — terintegrasi dalam Data Siswa (bukan berkas/halaman terpisah).
+   Dibuka sebagai modal dari halaman Data Siswa.
+   ============================================================
+/* ============================================================
+   BUKU INDUK SISWA 2026 (v2.5)
+   - Struktur mengikuti format Buku Induk resmi: A. Pribadi,
+     B. Tempat Tinggal, C. Kesehatan, D. Pendidikan,
+     E. Ayah, F. Ibu, G. Wali, H. PIP/KIP.
+   - Data awal dari Dapodik 7 Sep 2026 (SEED_BI per kelas).
+   - Migrasi SEKALI JALAN: cocokkan berdasar nama (normalisasi),
+     pertahankan ID lama agar data absensi & nilai tidak putus.
+   ============================================================ */
+
+/* Migrasi SEKALI JALAN: data Dapodik 2026 (SEED_BI) adalah sumber utama.
+   Cocokkan berdasar nama ternormalisasi untuk mempertahankan ID lama
+   (agar data absensi & nilai tidak putus). Siswa lama yang tidak cocok
+   dengan Dapodik dianggap data usang dan diganti. */
+const BI_SEED_FLAG = "tpsd2026_bukuinduk_seed_v2";
+
+function biNormNama(n){
+  return String(n||"").toLowerCase().replace(/[^a-z\s]/g,"").replace(/\s+/g," ").trim();
+}
+
+function runBukuIndukSeedIfNeeded(){
+  if(typeof SEED_BI === "undefined") return;
+  if(localStorage.getItem(BI_SEED_FLAG)) return;
+  try{
+    Object.keys(SEED_BI).forEach(classId=>{
+      const cls = loadClassDB(classId);
+      cls.siswa = cls.siswa || [];
+      // index siswa lama berdasar nama ternormalisasi
+      const lamaByNama = {};
+      cls.siswa.forEach(s=>{ lamaByNama[biNormNama(s.nama)] = s; });
+      const dipakai = new Set();
+      const hasil = [];
+      SEED_BI[classId].forEach((baru, i)=>{
+        const key = biNormNama(baru.nama);
+        const lama = lamaByNama[key];
+        if(lama && !dipakai.has(lama.id)){
+          // update di tempat: pertahankan id & no absen lama bila ada
+          dipakai.add(lama.id);
+          const noLama = lama.no;
+          Object.assign(lama, baru, {id: lama.id});
+          if(noLama) lama.no = noLama; else lama.no = i+1;
+          hasil.push(lama);
+        } else {
+          baru.id = uid("s");
+          baru.no = i+1;
+          hasil.push(baru);
+        }
+      });
+      // Siswa lama yang tidak cocok dengan Dapodik dianggap data usang
+      // dan TIDAK dibawa (Dapodik adalah sumber utama). ID lama
+      // dipertahankan hanya bila nama cocok, agar absensi & nilai tidak putus.
+      // nomor urut ulang berdasar abjad
+      hasil.sort((a,b)=>(a.nama||"").localeCompare(b.nama||""));
+      hasil.forEach((s,i)=>{ s.no = i+1; });
+      cls.siswa = hasil;
+      saveClassDB(classId, cls);
+    });
+    // sinkronkan kelas aktif ke memori
+    db = loadClassDB(activeClassId);
+  }catch(e){ console.warn("Gagal migrasi Buku Induk.", e); }
+  localStorage.setItem(BI_SEED_FLAG, "1");
+}
+
+/* ---------- Kategori PIP (Permendikdasmen No. 11/2026) ---------- */
+function pipKategoriSiswa(s){
+  const bi = s.bi || {};
+  const cats = [];
+  if(String(bi.penerimaKIP||"").toLowerCase()==="ya" || bi.nomorKIP) cats.push("Pemegang KIP");
+  if(bi.nomorKKS) cats.push("Pemegang KKS");
+  const alasan = String(bi.alasanPIP||"");
+  if(/miskin/i.test(alasan)) cats.push("Keluarga Miskin/Rentan Miskin");
+  if(/PKH|KPS|KKS/i.test(alasan)) cats.push("PKH/KPS/KKS");
+  const ayahWafat = /meninggal/i.test(String(bi.ayah&&bi.ayah.pekerjaan||"")) || !((bi.ayah&&bi.ayah.nama)||"").trim();
+  const ibuWafat = /meninggal/i.test(String(bi.ibu&&bi.ibu.pekerjaan||"")) || !((bi.ibu&&bi.ibu.nama)||"").trim();
+  if(ayahWafat && ibuWafat) cats.push("Yatim Piatu");
+  else if(ayahWafat) cats.push("Yatim");
+  else if(ibuWafat) cats.push("Piatu");
+  if(bi.kebutuhanKhusus && !/^(tidak ada|tidak|-)$/i.test(String(bi.kebutuhanKhusus).trim())) cats.push("Kebutuhan Khusus");
+  const jmlSdr = parseInt(bi.jmlSaudara||"0",10);
+  if(jmlSdr > 3) cats.push("Saudara > 3 orang");
+  return cats;
+}
+function pipStatusSiswa(s){
+  const bi = s.bi || {};
+  const penerima = String(bi.penerimaKIP||"").toLowerCase()==="ya" || !!bi.nomorKIP;
+  const usulan = String(bi.layakPIP||"").toLowerCase()==="ya";
+  if(penerima) return {label:"Penerima", cls:"badge-green"};
+  if(usulan) return {label:"Usulan", cls:"badge-orange"};
+  return {label:"-", cls:"badge-gray"};
+}
+
+/* ---------- Rekap untuk Dashboard ---------- */
+function rekapPekerjaanOrtu(){
+  const all = [];
+  CLASS_LIST.forEach(c=>{
+    const cls = loadClassDB(c.id);
+    (cls.siswa||[]).forEach(s=>{
+      const bi = s.bi || {};
+      if(bi.ayah && bi.ayah.pekerjaan) all.push({ortu:"Ayah", pekerjaan:bi.ayah.pekerjaan});
+      if(bi.ibu && bi.ibu.pekerjaan) all.push({ortu:"Ibu", pekerjaan:bi.ibu.pekerjaan});
+    });
+  });
+  const map = {};
+  all.forEach(e=>{
+    const k = e.pekerjaan;
+    map[k] = map[k] || {pekerjaan:k, ayah:0, ibu:0, total:0};
+    map[k][e.ortu==="Ayah"?"ayah":"ibu"]++;
+    map[k].total++;
+  });
+  return Object.values(map).sort((a,b)=>b.total-a.total);
+}
+function rekapPIP(){
+  let penerima = 0, usulan = 0;
+  const byKategori = {};
+  const daftarUsulan = [];
+  CLASS_LIST.forEach(c=>{
+    const cls = loadClassDB(c.id);
+    (cls.siswa||[]).forEach(s=>{
+      const bi = s.bi || {};
+      const isPenerima = String(bi.penerimaKIP||"").toLowerCase()==="ya" || !!bi.nomorKIP;
+      const isUsulan = String(bi.layakPIP||"").toLowerCase()==="ya";
+      if(isPenerima) penerima++;
+      if(isUsulan){
+        usulan++;
+        const cats = pipKategoriSiswa(s);
+        cats.forEach(k=>{ byKategori[k] = (byKategori[k]||0)+1; });
+        daftarUsulan.push({nama:s.nama, kelas:c.label, kategori:cats.join(", ")||"-", alasan:bi.alasanPIP||"-"});
+      }
+    });
+  });
+  return {penerima, usulan, byKategori, daftarUsulan};
+}
+
+/* ---------- FORM BUKU INDUK ---------- */
+function biField(label, id, val, type){
+  type = type || "text";
+  return `<div class="field"><label>${label}</label><input type="${type}" id="${id}" value="${escapeHtml(val||"")}"></div>`;
+}
+function biSelect(label, id, val, opts){
+  return `<div class="field"><label>${label}</label><select id="${id}">`
+    + opts.map(o=>`<option value="${escapeHtml(o)}" ${String(val||"")===o?"selected":""}>${escapeHtml(o)}</option>`).join("")
+    + `</select></div>`;
+}
+function biOrtuSection(prefix, title, d){
+  d = d || {};
+  return `<div class="card" style="margin-bottom:14px;"><h3 style="font-size:14px;margin-bottom:10px;">${title}</h3>
+  <div class="grid grid-2">
+    ${biField("Nama Lengkap", "bi_"+prefix+"_nama", d.nama)}
+    ${biField("Tahun Lahir", "bi_"+prefix+"_tahun", d.tahunLahir, "number")}
+    ${biSelect("Agama", "bi_"+prefix+"_agama", d.agama||"Islam", ["Islam","Kristen","Katolik","Hindu","Buddha","Konghucu"])}
+    ${biField("Kewarganegaraan", "bi_"+prefix+"_wn", d.wn||"Indonesia")}
+    ${biSelect("Pendidikan", "bi_"+prefix+"_pendidikan", d.pendidikan, ["","Tidak Sekolah","SD","SMP","SMA/SMK","D1","D2","D3","S1","S2","S3"])}
+    ${biSelect("Pekerjaan", "bi_"+prefix+"_pekerjaan", d.pekerjaan, ["","Tidak bekerja","Mengurus Rumah Tangga","Petani","Buruh","Karyawan Swasta","Wiraswasta","Pedagang Kecil","PNS/TNI/Polri","Pensiunan","Lainnya","Sudah Meninggal"])}
+    ${biField("Penghasilan / Bulan", "bi_"+prefix+"_penghasilan", d.penghasilan)}
+    ${biField("NIK", "bi_"+prefix+"_nik", d.nik)}
+  </div>
+  ${biField("Alamat", "bi_"+prefix+"_alamat", d.alamat)}
+  ${biField("No. Telepon/HP", "bi_"+prefix+"_hp", d.hp)}
+  </div>`;
+}
+
+function bukuIndukFormHtml(siswaId){
+  const s = (db.siswa||[]).find(x=>x.id===siswaId);
+  if(!s) return `<div class="empty-state">Siswa tidak ditemukan.</div>`;
+  const bi = s.bi || {};
+  const ayah = bi.ayah||{}, ibu = bi.ibu||{}, wali = bi.wali||{};
+  return `
+
+  <div class="card" style="margin-bottom:14px;"><h3 style="font-size:14px;margin-bottom:10px;">A. Keterangan Pribadi</h3>
+    <div class="grid grid-2">
+      ${biField("Nama Lengkap (sesuai akta)", "bi_nama", s.nama)}
+      ${biField("Nama Panggilan", "bi_panggilan", bi.panggilan)}
+      ${biSelect("Jenis Kelamin", "bi_jk", s.jk, ["L","P"])}
+      ${biField("NIS / NIPD", "bi_nis", s.nis)}
+      ${biField("NISN", "bi_nisn", s.nisn)}
+      ${biField("NIK Siswa", "bi_nik", bi.nik)}
+      ${biField("No. KK", "bi_nokk", bi.noKK)}
+      ${biField("Tempat Lahir", "bi_tempat", bi.tempatLahir)}
+      ${biField("Tanggal Lahir", "bi_tgllahir", bi.tanggalLahir, "date")}
+      ${biSelect("Agama", "bi_agama", s.agama||"Islam", ["Islam","Kristen","Katolik","Hindu","Buddha","Konghucu"])}
+      ${biField("Kewarganegaraan", "bi_wn", bi.wn||"Indonesia")}
+      ${biField("Anak Ke-", "bi_anakke", bi.anakKe, "number")}
+      ${biField("Jumlah Saudara Kandung", "bi_jmlsdr", bi.jmlSaudara, "number")}
+      ${biSelect("Status", "bi_statusyatim", bi.statusYatim||"-", ["-","Yatim","Piatu","Yatim Piatu"])}
+      ${biField("Bahasa Sehari-hari", "bi_bahasa", bi.bahasa||"Indonesia")}
+      ${biField("Kebutuhan Khusus", "bi_khusus", bi.kebutuhanKhusus)}
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:14px;"><h3 style="font-size:14px;margin-bottom:10px;">B. Keterangan Tempat Tinggal</h3>
+    <div class="grid grid-2">
+      ${biField("Alamat", "bi_alamat", s.alamat)}
+      ${biField("RT", "bi_rt", bi.rt)} ${biField("RW", "bi_rw", bi.rw)}
+      ${biField("Dusun", "bi_dusun", bi.dusun)}
+      ${biField("Kelurahan/Desa", "bi_kel", bi.kelurahan)}
+      ${biField("Kecamatan", "bi_kec", bi.kecamatan)}
+      ${biField("Kode Pos", "bi_kodepos", bi.kodePos)}
+      ${biField("No. Telepon", "bi_telp", bi.telepon)}
+      ${biField("No. HP", "bi_hp", bi.hp)}
+      ${biSelect("Tinggal Bersama", "bi_tinggal", bi.tinggalBersama||"Orang Tua", ["Orang Tua","Saudara","Wali","Asrama","Kost","Lainnya"])}
+      ${biField("Jarak ke Sekolah (km)", "bi_jarak", bi.jarakSekolah)}
+      ${biSelect("Transportasi", "bi_transport", bi.transportasi, ["","Jalan Kaki","Sepeda","Sepeda Motor","Mobil Pribadi","Antar Jemput","Angkutan Umum","Lainnya"])}
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:14px;"><h3 style="font-size:14px;margin-bottom:10px;">C. Keterangan Kesehatan</h3>
+    <div class="grid grid-2">
+      ${biField("Berat Badan (kg)", "bi_bb", bi.beratBadan)}
+      ${biField("Tinggi Badan (cm)", "bi_tb", bi.tinggiBadan)}
+      ${biField("Lingkar Kepala (cm)", "bi_lk", bi.lingkarKepala)}
+      ${biSelect("Golongan Darah", "bi_goldar", bi.golDarah||"-", ["-","A","B","AB","O"])}
+      ${biField("Penyakit yang Pernah Diderita", "bi_penyakit", bi.penyakit)}
+      ${biField("Kelainan Jasmani", "bi_kelainan", bi.kelainan)}
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:14px;"><h3 style="font-size:14px;margin-bottom:10px;">D. Keterangan Pendidikan</h3>
+    <div class="grid grid-2">
+      ${biField("Sekolah Asal", "bi_sekolahasal", bi.sekolahAsal)}
+      ${biField("Diterima di Kelas", "bi_diterimakelas", bi.diterimaKelas||classInfo(activeClassId).label)}
+      ${biField("Tanggal Diterima", "bi_diterimatgl", bi.diterimaTanggal, "date")}
+    </div>
+  </div>
+
+  ${biOrtuSection("ayah", "E. Keterangan Ayah Kandung", ayah)}
+  ${biOrtuSection("ibu", "F. Keterangan Ibu Kandung", ibu)}
+  ${biOrtuSection("wali", "G. Keterangan Wali", wali)}
+
+  <div class="card" style="margin-bottom:14px;"><h3 style="font-size:14px;margin-bottom:10px;">H. Keterangan PIP / KIP</h3>
+    <div class="grid grid-2">
+      ${biSelect("Penerima KIP", "bi_kip", bi.penerimaKIP||"Tidak", ["Tidak","Ya"])}
+      ${biField("Nomor KIP", "bi_nokip", bi.nomorKIP)}
+      ${biField("Nomor KKS", "bi_nokks", bi.nomorKKS)}
+      ${biSelect("Layak PIP (usulan sekolah)", "bi_layakpip", bi.layakPIP||"Tidak", ["Tidak","Ya"])}
+      ${biSelect("Alasan Layak PIP", "bi_alasanpip", bi.alasanPIP, ["","Siswa Miskin/Rentan Miskin","Pemegang PKH/KPS/KKS","Yatim/Piatu/Yatim Piatu","Korban Bencana","Putus Sekolah Lanjut Kembali","Kebutuhan Khusus/Disabilitas","Keluarga PHK","Daerah Konflik","Saudara Kandung > 3"])}
+    </div>
+  </div>
+
+`;
+}
+
+function biVal(id){ const el = document.getElementById(id); return el ? el.value.trim() : ""; }
+
+function saveBukuInduk(siswaId){
+  const cls = loadClassDB(activeClassId);
+  const s = (cls.siswa||[]).find(x=>x.id===siswaId);
+  if(!s){ toast("Siswa tidak ditemukan."); return; }
+  const g = p => ({
+    nama: biVal("bi_"+p+"_nama"), tahunLahir: biVal("bi_"+p+"_tahun"),
+    agama: biVal("bi_"+p+"_agama"), wn: biVal("bi_"+p+"_wn"),
+    pendidikan: biVal("bi_"+p+"_pendidikan"), pekerjaan: biVal("bi_"+p+"_pekerjaan"),
+    penghasilan: biVal("bi_"+p+"_penghasilan"), nik: biVal("bi_"+p+"_nik"),
+    alamat: biVal("bi_"+p+"_alamat"), hp: biVal("bi_"+p+"_hp")
+  });
+  // update field utama
+  s.nama = biVal("bi_nama") || s.nama;
+  s.jk = biVal("bi_jk") || s.jk;
+  s.nis = biVal("bi_nis");
+  s.nisn = biVal("bi_nisn");
+  s.agama = biVal("bi_agama");
+  s.alamat = biVal("bi_alamat");
+  const tempat = biVal("bi_tempat"), tgl = biVal("bi_tgllahir");
+  if(tempat || tgl) s.ttl = (tempat||"") + (tempat&&tgl?", ":"") + (tgl?fmtDate(tgl):"");
+  const ayah = g("ayah"), ibu = g("ibu");
+  s.ayah = ayah.nama || s.ayah;
+  s.ibu = ibu.nama || s.ibu;
+  s.pekerjaanOrtu = ayah.pekerjaan || s.pekerjaanOrtu;
+  // update buku induk
+  s.bi = Object.assign(s.bi||{}, {
+    panggilan: biVal("bi_panggilan"),
+    nik: biVal("bi_nik"), noKK: biVal("bi_nokk"),
+    tempatLahir: tempat, tanggalLahir: tgl,
+    wn: biVal("bi_wn"), anakKe: biVal("bi_anakke"),
+    jmlSaudara: biVal("bi_jmlsdr"), statusYatim: biVal("bi_statusyatim"),
+    bahasa: biVal("bi_bahasa"), kebutuhanKhusus: biVal("bi_khusus"),
+    rt: biVal("bi_rt"), rw: biVal("bi_rw"), dusun: biVal("bi_dusun"),
+    kelurahan: biVal("bi_kel"), kecamatan: biVal("bi_kec"), kodePos: biVal("bi_kodepos"),
+    telepon: biVal("bi_telp"), hp: biVal("bi_hp"),
+    tinggalBersama: biVal("bi_tinggal"), jarakSekolah: biVal("bi_jarak"),
+    transportasi: biVal("bi_transport"),
+    beratBadan: biVal("bi_bb"), tinggiBadan: biVal("bi_tb"),
+    lingkarKepala: biVal("bi_lk"), golDarah: biVal("bi_goldar"),
+    penyakit: biVal("bi_penyakit"), kelainan: biVal("bi_kelainan"),
+    sekolahAsal: biVal("bi_sekolahasal"),
+    diterimaKelas: biVal("bi_diterimakelas"), diterimaTanggal: biVal("bi_diterimatgl"),
+    ayah: ayah, ibu: ibu, wali: g("wali"),
+    penerimaKIP: biVal("bi_kip"), nomorKIP: biVal("bi_nokip"),
+    nomorKKS: biVal("bi_nokks"),
+    layakPIP: biVal("bi_layakpip"), alasanPIP: biVal("bi_alasanpip")
+  });
+  saveClassDB(activeClassId, cls);
+  db = cls;
+  toast("Buku Induk tersimpan.");
+  closeModal();
+  renderPage("siswa");
+}
+function openBukuInduk(siswaId){
+  const html = bukuIndukFormHtml(siswaId);
+  openModal({title:"Buku Induk Siswa", bodyHtml:html,
+    footHtml:`<button class="btn" onclick="closeModal()">Batal</button>
+      <button class="btn btn-primary" onclick="saveBukuInduk('${siswaId}')">${ic("check",15)} Simpan</button>`});
+}
+
+/* ---------- CETAK / LIHAT BUKU INDUK ---------- */
+function bukuIndukDetail(siswaId){
+  const s0 = (db.siswa||[]).find(x=>x.id===siswaId);
+  const html = bukuIndukLihatHtml(siswaId);
+  openModal({title:"Buku Induk — " + ((s0&&s0.nama)||""),
+    bodyHtml:`<div style="max-height:70vh;overflow:auto;">${html}</div>`,
+    footHtml:`<button class="btn" onclick="closeModal()">Tutup</button>
+      <button class="btn" onclick="closeModal();openBukuInduk('${siswaId}')">${ic("edit",15)} Ubah</button>
+      <button class="btn btn-primary" onclick="printBukuInduk('${siswaId}')">${ic("print",15)} Cetak</button>`});
+}
+function biRow(no, label, val){
+  return `<tr><td style="width:36px;">${no}</td><td style="width:38%;">${label}</td><td>${escapeHtml(val||"-")}</td></tr>`;
+}
+function bukuIndukLihatHtml(siswaId){
+  const s = (db.siswa||[]).find(x=>x.id===siswaId);
+  if(!s) return `<div class="empty-state">Siswa tidak ditemukan.</div>`;
+  const bi = s.bi||{}, ayah = bi.ayah||{}, ibu = bi.ibu||{}, wali = bi.wali||{};
+  const pip = pipStatusSiswa(s);
+  const cats = pipKategoriSiswa(s);
+  const ortuRows = (t, d) => `
+    <tr><td colspan="3" style="background:var(--primary-ghost);font-weight:800;">${t}</td></tr>
+    ${biRow("", "Nama", d.nama)}${biRow("", "Tahun Lahir", d.tahunLahir)}
+    ${biRow("", "Agama", d.agama)}${biRow("", "Kewarganegaraan", d.wn)}
+    ${biRow("", "Pendidikan", d.pendidikan)}${biRow("", "Pekerjaan", d.pekerjaan)}
+    ${biRow("", "Penghasilan/Bulan", d.penghasilan)}${biRow("", "NIK", d.nik)}`;
+  return `
+  <div class="card" style="margin:0;"><div class="table-wrap"><table>
+    <tr><td colspan="3" style="background:var(--primary-ghost);font-weight:800;">A. KETERANGAN PRIBADI</td></tr>
+    ${biRow(1,"Nama Lengkap",s.nama)}${biRow(2,"Nama Panggilan",bi.panggilan)}
+    ${biRow(3,"Jenis Kelamin",s.jk==="L"?"Laki-laki":"Perempuan")}
+    ${biRow(4,"NIS / NIPD",s.nis)}${biRow(5,"NISN",s.nisn)}
+    ${biRow(6,"NIK",bi.nik)}${biRow(7,"No. KK",bi.noKK)}
+    ${biRow(8,"Tempat, Tanggal Lahir",s.ttl)}
+    ${biRow(9,"Agama",s.agama)}${biRow(10,"Kewarganegaraan",bi.wn)}
+    ${biRow(11,"Anak Ke-",bi.anakKe)}${biRow(12,"Jumlah Saudara Kandung",bi.jmlSaudara)}
+    ${biRow(13,"Status Yatim/Piatu",bi.statusYatim)}
+    ${biRow(14,"Bahasa Sehari-hari",bi.bahasa)}${biRow(15,"Kebutuhan Khusus",bi.kebutuhanKhusus)}
+    <tr><td colspan="3" style="background:var(--primary-ghost);font-weight:800;">B. TEMPAT TINGGAL</td></tr>
+    ${biRow(16,"Alamat",s.alamat)}${biRow(17,"RT/RW",(bi.rt||"-")+"/"+(bi.rw||"-"))}
+    ${biRow(18,"Dusun",bi.dusun)}${biRow(19,"Kelurahan/Desa",bi.kelurahan)}
+    ${biRow(20,"Kecamatan",bi.kecamatan)}${biRow(21,"Kode Pos",bi.kodePos)}
+    ${biRow(22,"Telepon / HP",(bi.telepon||"")+(bi.telepon&&bi.hp?" / ":"")+(bi.hp||""))}
+    ${biRow(23,"Tinggal Bersama",bi.tinggalBersama)}${biRow(24,"Jarak ke Sekolah",bi.jarakSekolah?bi.jarakSekolah+" km":"")}
+    ${biRow(25,"Transportasi",bi.transportasi)}
+    <tr><td colspan="3" style="background:var(--primary-ghost);font-weight:800;">C. KESEHATAN</td></tr>
+    ${biRow(26,"Berat/Tinggi Badan",(bi.beratBadan||"-")+" kg / "+(bi.tinggiBadan||"-")+" cm")}
+    ${biRow(27,"Golongan Darah",bi.golDarah)}${biRow(28,"Penyakit Pernah Diderita",bi.penyakit)}
+    ${biRow(29,"Kelainan Jasmani",bi.kelainan)}
+    <tr><td colspan="3" style="background:var(--primary-ghost);font-weight:800;">D. PENDIDIKAN</td></tr>
+    ${biRow(30,"Sekolah Asal",bi.sekolahAsal)}
+    ${biRow(31,"Diterima di Kelas/Tanggal",(bi.diterimaKelas||"")+(bi.diterimaTanggal?" / "+fmtDate(bi.diterimaTanggal):""))}
+    ${ortuRows("E. KETERANGAN AYAH", ayah)}
+    ${ortuRows("F. KETERANGAN IBU", ibu)}
+    ${ortuRows("G. KETERANGAN WALI", wali)}
+    <tr><td colspan="3" style="background:var(--primary-ghost);font-weight:800;">H. PIP / KIP</td></tr>
+    ${biRow(32,"Status PIP",pip.label)}${biRow(33,"Kategori",cats.join("; ")||"-")}
+    ${biRow(34,"Nomor KIP",bi.nomorKIP)}${biRow(35,"Nomor KKS",bi.nomorKKS)}
+    ${biRow(36,"Alasan Usulan",bi.alasanPIP)}
+  </table></div></div>`;
+}
+
+function printBukuInduk(siswaId){
+  const s0 = (db.siswa||[]).find(x=>x.id===siswaId);
+  const html = letterheadHtml()
+    + `<div class="doc-title">BUKU INDUK SISWA</div>
+       <p style="text-align:center;margin-top:-8px;">${escapeHtml((s0&&s0.nama)||"")} &middot; ${escapeHtml(classInfo(activeClassId).label)}</p>`
+    + bukuIndukLihatHtml(siswaId);
+  printDocument("Buku Induk - "+((s0&&s0.nama)||siswaId), html);
+}

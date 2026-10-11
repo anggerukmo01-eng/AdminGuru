@@ -223,6 +223,7 @@ function runJadwalKelas1SeedIfNeeded(){
 function loadDB(){
   runMultiClassMigrationIfNeeded();
   runSeedKelas2to6IfNeeded();
+  runBukuIndukSeedIfNeeded();
   runCpRevisi2026SeedIfNeeded();
   runJadwalKelas1SeedIfNeeded();
   activeClassId = loadActiveClassId();
