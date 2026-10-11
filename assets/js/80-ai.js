@@ -1255,20 +1255,29 @@ Susun dengan format HTML terstruktur berisi: (1) Tabel identitas jurnal, (2) Keg
   aiRunGenerate("aj_result", {type:"Jurnal Mengajar", title, userPrompt: prompt});
 }
 /* Ambil Materi & TP otomatis dari Rencana Pembelajaran Kelas 1 (44-rencana.js),
-   berdasarkan mapel + minggu berjalan dari tanggal yang dipilih. */
+   berdasarkan mapel + tanggal yang dipilih (v3: entri bertanggal aktual). */
 function aiJurnalAmbilRencana(){
   const mapel = document.getElementById("aj_mapel").value;
   const tgl = document.getElementById("aj_tanggal").value || todayISO();
-  const d = new Date(tgl+"T00:00:00");
-  if(isNaN(d.getTime())){ toast("Tanggal tidak valid."); return; }
-  const monday = new Date(d); monday.setDate(d.getDate() - ((d.getDay()+6)%7));
-  const iso = monday.getFullYear()+"-"+String(monday.getMonth()+1).padStart(2,"0")+"-"+String(monday.getDate()).padStart(2,"0");
   const list = (typeof RENCANA_PBL!=="undefined") ? RENCANA_PBL : [];
-  const it = list.find(r=>r.m===mapel && r.t===iso);
-  if(!it){ toast("Tidak ada Rencana Pembelajaran untuk mapel ini pada minggu "+iso+"."); return; }
+  let it = list.find(r=>r.m===mapel && r.t===tgl);
+  let label = fmtDate(tgl), note = "";
+  if(!it){
+    // fallback: entri mapel tsb. pada minggu yang sama
+    const d = new Date(tgl+"T00:00:00");
+    if(isNaN(d.getTime())){ toast("Tanggal tidak valid."); return; }
+    const monday = new Date(d); monday.setDate(d.getDate() - ((d.getDay()+6)%7));
+    const p2 = n=>String(n).padStart(2,"0");
+    const iso = monday.getFullYear()+"-"+p2(monday.getMonth()+1)+"-"+p2(monday.getDate());
+    const sun = new Date(monday); sun.setDate(monday.getDate()+7);
+    const isoSun = sun.getFullYear()+"-"+p2(sun.getMonth()+1)+"-"+p2(sun.getDate());
+    it = list.find(r=>r.m===mapel && r.t>=iso && r.t<isoSun);
+    if(it){ label = "minggu "+fmtDate(iso); note = " — tanggal persis tidak ada, diambil yang terdekat minggu itu."; }
+  }
+  if(!it){ toast("Tidak ada Rencana Pembelajaran untuk mapel ini pada "+label+"."); return; }
   document.getElementById("aj_materi").value = it.mat;
   document.getElementById("aj_tpManual").value = it.tp;
-  toast("Materi & TP diambil dari Rencana Minggu "+it.w+" ("+it.tl+").");
+  toast("Materi & TP diambil dari Rencana "+label+" ("+(it.per||"")+")"+note);
 }
 
 /* ---- D3. GENERATOR ASESMEN FORMATIF ---- */
