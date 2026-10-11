@@ -42,7 +42,7 @@ function defaultDB(){
     sekolah: SEED_SEKOLAH,
     guru: SEED_STAFF.guru,
     tendik: SEED_STAFF.tendik,
-    siswa: SEED_SISWA,
+    siswa: [], // diisi runBukuIndukSeedIfNeeded dari SEED_BI_COMPACT
     jadwal: SEED_JADWAL_KELAS1, // { "Senin":[{jam,mapel}], ... } - default Kelas 1, kelas lain dikosongkan otomatis
     kalender: SEED_KALENDER.map(e=>({...e})),
     agenda: [],
@@ -164,21 +164,6 @@ function saveAlumni(list){ localStorage.setItem(ALUMNI_KEY, JSON.stringify(list)
    (sheet dipetakan sesuai label kelasnya). Berjalan SATU KALI, dan HANYA
    mengisi kelas yang rosternya masih kosong -- tidak pernah menimpa data
    yang sudah diisi/diubah sendiri oleh guru. */
-const SEED_KELAS2_6_FLAG = "tpsd2026_seeded_kelas2_6_v1";
-function runSeedKelas2to6IfNeeded(){
-  if(localStorage.getItem(SEED_KELAS2_6_FLAG)) return;
-  try{
-    Object.keys(SEED_SISWA_KELAS).forEach(classId=>{
-      const cls = loadClassDB(classId);
-      if(!cls.siswa || cls.siswa.length===0){
-        cls.siswa = SEED_SISWA_KELAS[classId].map((s,i)=>Object.assign({id:uid("s"), no:i+1}, s));
-        saveClassDB(classId, cls);
-      }
-    });
-  }catch(e){ console.warn("Gagal mengisi data siswa Kelas 2-6.", e); }
-  localStorage.setItem(SEED_KELAS2_6_FLAG, "1");
-}
-
 // Migrasi CP revisi 2026: sebelumnya hanya Kelas 1 (Fase A) memiliki data
 // CP/ATP/KKTP bawaan, Kelas 2-6 kosong. Sekali jalan, isi CP/ATP/KKTP setiap
 // kelas yang MASIH KOSONG dengan CP resmi sesuai fasenya (A/B/C), mengikuti
@@ -222,7 +207,6 @@ function runJadwalKelas1SeedIfNeeded(){
 
 function loadDB(){
   runMultiClassMigrationIfNeeded();
-  runSeedKelas2to6IfNeeded();
   runBukuIndukSeedIfNeeded();
   runCpRevisi2026SeedIfNeeded();
   runJadwalKelas1SeedIfNeeded();
