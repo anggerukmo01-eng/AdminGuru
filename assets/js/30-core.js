@@ -77,7 +77,7 @@ const NAV = [
  {group:"Perencanaan", items:[
    {id:"kalender", label:"Kalender Pendidikan", icon:"calendar"},
    {id:"jadwal", label:"Jadwal Pelajaran", icon:"clock"},
-   {id:"agenda", label:"Agenda / Jurnal Harian", icon:"book"},
+   {id:"agenda", label:"Jurnal Mengajar", icon:"book"},
    {id:"progtahunan", label:"Program Tahunan", icon:"doc"},
    {id:"progsemester", label:"Program Semester", icon:"doc"},
  ]},
@@ -113,7 +113,6 @@ const NAV = [
    {id:"pengambilanRapot", label:"Buku Pengambilan Rapor", icon:"reportcard"},
    {id:"tabunganSiswa", label:"Tabungan Siswa", icon:"box"},
    {id:"arsip", label:"Arsip Dokumen", icon:"archive"},
-   {id:"pen", label:"Tulisan Tangan (Digital Pen)", icon:"pen"},
  ]},
  {group:"Kegiatan & Sarana Kelas", items:[
    {id:"ekstrakurikuler", label:"Kegiatan Ekstrakurikuler", icon:"star"},
@@ -147,9 +146,7 @@ const NAV = [
    {id:"aiSettings", label:"AI Settings", icon:"settings"},
  ]},
  {group:"Sistem", items:[
-   {id:"backup", label:"Backup & Restore (Lokal)", icon:"backup"},
-   {id:"cloudStorage", label:"Cloud Storage (Backup & Restore)", icon:"backup"},
-   {id:"riwayatBackup", label:"Riwayat Backup Cloud", icon:"archive"},
+   {id:"backup", label:"Backup & Sinkron Data", icon:"backup"},
    {id:"pengaturan", label:"Pengaturan", icon:"settings"},
  ]},
 ];
