@@ -279,65 +279,16 @@ async function cloudRefreshList(){
 window.cloudRefreshList = cloudRefreshList;
 
 /* ---------- HALAMAN: CLOUD STORAGE (BACKUP & RESTORE) ---------- */
-PAGES.cloudStorage = function(){
-  setTimeout(()=>{ if(cloudUser) cloudRefreshList(); }, 30);
-  const c = settings.cloud;
-  const notConfigured = !cloudConfigured();
-  return `
-  <div class="section-head"><div><h1>Cloud Storage (Backup &amp; Restore)</h1><div class="desc">Cadangkan dan pulihkan seluruh data aplikasi memakai Supabase Cloud (Email &amp; Password, Storage privat per pengguna dengan Row Level Security).</div></div>
-    <div class="grow"></div>${cloudStatusBadge()}</div>
-
-  ${notConfigured ? `<div class="card" style="background:var(--warn-soft);border-color:var(--warn);margin-bottom:16px;">
-    <div style="display:flex;gap:10px;align-items:flex-start;">${ic("info",20)}
-    <p style="margin:0;font-size:12.5px;">Konfigurasi Supabase belum diisi. Buka file <code>supabase.js</code> di folder aplikasi ini, isi <code>SUPABASE_URL</code> dan <code>SUPABASE_ANON_KEY</code> sesuai project Supabase Bapak/Ibu Guru, lalu muat ulang halaman. Panduan lengkap ada di <code>PANDUAN_SUPABASE.md</code>. Fitur "Backup & Restore (Lokal)" tetap berfungsi normal seperti biasa tanpa internet.</p></div>
-  </div>` : ``}
-
-  <div class="grid grid-2" style="margin-bottom:16px;">
-    <div class="card">
-      <h3>${ic("lock",16)} Status Login</h3>
-      <p>Status: ${cloudStatusBadge()}</p>
-      <p class="muted" style="font-size:12.5px;">Email: <strong>${escapeHtml(cloudUser?cloudUser.email:(c.email||"-"))}</strong></p>
-      <p class="muted" style="font-size:12.5px;">Bucket: <code>${CLOUD_BUCKET}</code></p>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
-        ${cloudUser ? `<button class="btn btn-danger" onclick="cloudLogout()">Logout</button>` : `<button class="btn btn-primary" ${notConfigured?"disabled":""} onclick="cloudOpenAuthModal()">${ic("users",15)} Login / Daftar</button>`}
-      </div>
-    </div>
-    <div class="card">
-      <h3>${ic("backup",16)} Ringkasan Cloud</h3>
-      <p class="muted" style="font-size:12.5px;">Status Sinkron: <strong id="cloudSyncStatusText">${escapeHtml(c.lastSyncStatus)}</strong></p>
-      <p class="muted" style="font-size:12.5px;">Total Backup: <strong>${c.totalBackup||0}</strong></p>
-      <p class="muted" style="font-size:12.5px;">Backup Terakhir: ${c.lastBackupAt?fmtDate(c.lastBackupAt.slice(0,10))+" "+c.lastBackupAt.slice(11,16):"belum pernah"}</p>
-      <p class="muted" style="font-size:12.5px;">Ukuran Cloud: ${formatUkuranFile(c.ukuranCloud||0)}</p>
-    </div>
-  </div>
-
-  <div class="card" style="margin-bottom:16px;">
-    <h3>${ic("backup",16)} Backup &amp; Sinkronisasi</h3>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;">
-      <button class="btn btn-primary" ${cloudUser?"":"disabled"} onclick="cloudBackupNow(false)">${ic("download",15)} Backup Cloud</button>
-      <button class="btn" ${cloudUser?"":"disabled"} onclick="cloudBackupNow(true)">${ic("backup",15)} Sinkronkan Sekarang</button>
-      <button class="btn" ${cloudUser?"":"disabled"} onclick="cloudRefreshList()">${ic("search",15)} Segarkan Daftar</button>
-    </div>
-    <p class="hint" style="margin-top:8px;">"Backup Cloud" dan "Sinkronkan Sekarang" sama-sama mengunggah salinan data terbaru sebagai berkas baru -- backup lama TIDAK pernah dihapus otomatis, sehingga riwayat tetap tersimpan lengkap.</p>
-  </div>
-
-  <div class="card">
-    <h3>${ic("archive",16)} Daftar &amp; Restore Backup</h3>
-    <div id="cloudListHolder">${cloudUser?`<p class="muted">Memuat daftar backup...</p>`:`<p class="muted">Masuk (login) terlebih dahulu untuk melihat daftar backup.</p>`}</div>
-  </div>`;
+/* DIHAPUS (v2.2): digabung ke halaman "Backup & Sinkron Data".
+   Dipertahankan sebagai pengalihan agar tombol lama tidak rusak. */
+PAGES.cloudStorage = function(){ setTimeout(()=>navigate("backup"), 30);
+  return `<div class="empty-state">${ic("backup",40)}<p>Mengalihkan ke Backup &amp; Sinkron Data...</p></div>`;
 };
-
 /* ---------- HALAMAN: RIWAYAT BACKUP CLOUD (LOG AKTIVITAS) ---------- */
-PAGES.riwayatBackup = function(){
-  const rows = settings.cloud.log.map(l=>`<tr><td>${fmtDate(l.waktu.slice(0,10))} ${l.waktu.slice(11,16)}</td><td>${escapeHtml(l.aksi)}</td>
-    <td><span class="badge ${l.status==='Berhasil'?'badge-green':'badge-red'}">${escapeHtml(l.status)}</span></td><td>${escapeHtml(l.pesan||"-")}</td></tr>`).join("");
-  return `
-  <div class="section-head"><div><h1>Riwayat Backup Cloud</h1><div class="desc">Log aktivitas login, backup, sinkronisasi, dan restore ke Supabase Cloud. Untuk mengelola/restore berkas, buka menu "Cloud Storage".</div></div>
-    <div class="grow"></div><button class="btn" onclick="navigate('cloudStorage')">${ic("backup",15)} Buka Cloud Storage</button></div>
-  <div class="table-wrap"><table><thead><tr><th>Waktu</th><th>Aktivitas</th><th>Status</th><th>Keterangan</th></tr></thead>
-  <tbody>${rows || `<tr><td colspan="4" class="empty-state">Belum ada aktivitas Cloud Storage.</td></tr>`}</tbody></table></div>`;
+/* DIHAPUS (v2.2): riwayat kini menjadi bagian halaman "Backup & Sinkron Data". */
+PAGES.riwayatBackup = function(){ setTimeout(()=>navigate("backup"), 30);
+  return `<div class="empty-state">${ic("archive",40)}<p>Mengalihkan ke Backup &amp; Sinkron Data...</p></div>`;
 };
-
 /* ---------- PENGATURAN ---------- */
 PAGES.pengaturan = function(){
   return `
