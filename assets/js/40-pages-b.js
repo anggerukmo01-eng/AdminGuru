@@ -1,0 +1,1056 @@
+/* ================================================================
+   FILE: assets/js/40-pages-b.js (bagian 2 dari 2)
+   Dipecah dari index.html monolit. Urutan load = urutan nama file.
+   ================================================================ */
+/* ---------- JADWAL PELAJARAN ---------- */
+const HARI = ["Senin","Selasa","Rabu","Kamis","Jumat","Sabtu"];
+PAGES.jadwal = function(){
+  db.jadwal = db.jadwal || {};
+  HARI.forEach(h=>{ db.jadwal[h] = db.jadwal[h] || [{jam:"07.00-07.35",mapel:""},{jam:"07.35-08.10",mapel:""},{jam:"08.10-08.45",mapel:""},{jam:"08.45-09.20",mapel:""}]; });
+  let html = `<div class="section-head"><div><h1>Jadwal Pelajaran</h1><div class="desc">Kelas ${escapeHtml(db.sekolah.kelas)} &middot; Isi mata pelajaran tiap jam ke sesuai jadwal sekolah.</div></div>
+    <div class="grow"></div>
+    <button class="btn" onclick="printJadwal()">${ic("print",15)} Cetak</button>
+    <button class="btn btn-primary" onclick="saveJadwal()">${ic("check",15)} Simpan Jadwal</button></div>`;
+  html += `<div class="grid grid-3" id="jadwalGrid">`;
+  HARI.forEach(h=>{
+    html += `<div class="card"><h3>${h}</h3>`;
+    db.jadwal[h].forEach((slot,idx)=>{
+      html += `<div class="field" style="display:flex;gap:8px;align-items:flex-end;margin-bottom:8px;">
+        <div style="flex:1;"><label style="font-size:11px;">Jam ke-${idx+1} (${escapeHtml(slot.jam)})</label>
+        <select id="jd_${h}_${idx}">${["",...MAPEL_LIST].map(m=>`<option value="${escapeHtml(m)}" ${m===slot.mapel?"selected":""}>${m||"- kosong -"}</option>`).join("")}</select></div>
+        <button class="btn btn-sm btn-icon btn-danger" onclick="removeSlot('${h}',${idx})">${ic("trash",14)}</button>
+      </div>`;
+    });
+    html += `<button class="btn btn-sm" onclick="addSlot('${h}')">${ic("plus",14)} Tambah Jam</button></div>`;
+  });
+  html += `</div>`;
+  return html;
+};
+function addSlot(h){ db.jadwal[h].push({jam:"__.__-__.__",mapel:""}); renderPage("jadwal"); }
+function removeSlot(h,idx){ db.jadwal[h].splice(idx,1); renderPage("jadwal"); }
+function saveJadwal(){
+  HARI.forEach(h=>{ db.jadwal[h].forEach((slot,idx)=>{ const el=document.getElementById(`jd_${h}_${idx}`); if(el) slot.mapel=el.value; }); });
+  saveDB(); toast("Jadwal pelajaran tersimpan.");
+}
+function printJadwal(){
+  let body = `<table><thead><tr><th>Jam</th>${HARI.map(h=>`<th>${h}</th>`).join("")}</tr></thead><tbody>`;
+  const maxRows = Math.max(...HARI.map(h=>db.jadwal[h].length));
+  for(let i=0;i<maxRows;i++){
+    body += `<tr><td>${db.jadwal[HARI[0]][i]?db.jadwal[HARI[0]][i].jam:''}</td>`;
+    HARI.forEach(h=>{ body += `<td>${db.jadwal[h][i]?escapeHtml(db.jadwal[h][i].mapel||'-'):''}</td>`; });
+    body += `</tr>`;
+  }
+  body += `</tbody></table>`;
+  printDocument("JADWAL PELAJARAN KELAS "+db.sekolah.kelas.toUpperCase(), body);
+}
+
+/* ---------- AGENDA / JURNAL HARIAN ---------- */
+function agendaFields(){
+  return [
+    {key:"tanggal",label:"Tanggal",type:"date",required:true},
+    {key:"mapel",label:"Mata Pelajaran",type:"select",options:MAPEL_LIST},
+    {key:"kegiatan",label:"Kegiatan Pembelajaran",type:"textarea",required:true},
+    {key:"catatan",label:"Catatan / Kendala",type:"textarea"},
+  ];
+}
+PAGES.agenda = function(){
+  const crudHtml = crudSection({
+    store:"agenda", title:"Agenda / Jurnal Harian Guru (Catatan Teks)",
+    desc:"Catatan kegiatan mengajar harian sebagai bukti fisik jurnal mengajar.",
+    fields: agendaFields(),
+    columns:[{key:"tanggal",label:"Tanggal",render:v=>fmtDate(v)},{key:"mapel",label:"Mapel"},{key:"kegiatan",label:"Kegiatan",render:v=>escapeHtml((v||"").slice(0,60))+((v||"").length>60?"...":"")}],
+    searchKeys:["kegiatan","mapel","catatan"]
+  });
+
+  const filters = window._jurnalFileFilters || {kategori:"Jurnal Mengajar", kelasId:activeClassId, mapel:"", semester:"", q:""};
+  filters.kategori = "Jurnal Mengajar";
+  window._jurnalFileFilters = filters;
+  window._arsipOnRefresh = ()=> renderArsipListInto("jurnalFileListHolder", window._jurnalFileFilters);
+  setTimeout(window._arsipOnRefresh, 0);
+
+  return `
+  <div class="section-head"><div><h1>Jurnal Mengajar</h1><div class="desc">Unggah scan/foto/PDF jurnal mengajar -- teks di dalamnya dapat dibaca otomatis dengan OCR agar mudah dicari, dan dokumen asli tetap tersimpan sebagai arsip.</div></div>
+    <div class="grow"></div>
+    <button class="btn btn-primary" onclick="uploadArsipFile({title:'Upload Scan Jurnal Mengajar', kategori:'Jurnal Mengajar', kelasId:activeClassId, showTanggalMengajar:true, enableOcr:true, onDone:window._arsipOnRefresh})">${ic("upload",15)} Upload Scan Jurnal</button>
+  </div>
+
+  <div class="card" style="margin-bottom:16px;">
+    <h3 style="font-size:14px;margin-bottom:10px;">${ic("upload",16)} Scan / Foto / PDF Jurnal Terunggah</h3>
+    <div class="toolbar">
+      <div class="search-box">${ic("search",16)}<input placeholder="Cari nama file / mapel / isi hasil OCR..." value="${escapeHtml(filters.q)}" oninput="window._jurnalFileFilters.q=this.value; window._arsipOnRefresh();"></div>
+      <select style="padding:10px;border-radius:11px;border:1px solid var(--border);" onchange="window._jurnalFileFilters.kelasId=this.value; window._arsipOnRefresh();">
+        <option value="">Semua Kelas</option>
+        ${CLASS_LIST.map(c=>`<option value="${c.id}" ${filters.kelasId===c.id?"selected":""}>${escapeHtml(c.label)}</option>`).join("")}
+      </select>
+      <select style="padding:10px;border-radius:11px;border:1px solid var(--border);" onchange="window._jurnalFileFilters.mapel=this.value; window._arsipOnRefresh();">
+        <option value="">Semua Mapel</option>
+        ${MAPEL_LIST.map(m=>`<option value="${escapeHtml(m)}" ${filters.mapel===m?"selected":""}>${escapeHtml(m)}</option>`).join("")}
+      </select>
+    </div>
+    <div id="jurnalFileListHolder"><p class="muted">Memuat file...</p></div>
+  </div>
+
+  <div class="card"><h3 style="font-size:14px;margin-bottom:10px;">${ic("book",16)} Catatan Jurnal (Teks)</h3>${crudHtml}</div>`;
+};
+
+/* ---------- PROGRAM TAHUNAN & SEMESTER (dokumen naratif, auto-isi dari data kurikulum) ---------- */
+function docEditorPage(store, title, desc, templateFn){
+  db[store] = db[store] || {isi:""};
+  if(!db[store].isi) db[store].isi = templateFn();
+  return `
+  <div class="section-head"><div><h1>${title}</h1><div class="desc">${desc}</div></div>
+    <div class="grow"></div>
+    <button class="btn" onclick="regenerateDoc('${store}')">${ic("target",15)} Buat Ulang Otomatis</button>
+    <button class="btn" onclick="printDocGeneric('${store}','${title}')">${ic("print",15)} Cetak</button>
+    <button class="btn" onclick="exportDocWord('${store}','${title}')">${ic("doc",15)} Word</button>
+  </div>
+  <div class="card">
+    <div class="field"><label>Isi Dokumen (dapat disunting bebas)</label><textarea id="docText_${store}" style="min-height:460px;font-family:'Consolas',monospace;font-size:12.5px;">${escapeHtml(db[store].isi)}</textarea></div>
+    <button class="btn btn-primary" onclick="saveDocGeneric('${store}')">${ic("check",15)} Simpan</button>
+  </div>`;
+}
+window._docTemplateFn = {};
+function regenerateDoc(store){
+  confirmDialog("Ini akan MENGGANTI isi dokumen saat ini dengan hasil susunan otomatis terbaru berdasarkan data Sekolah, ATP, dan Kalender Pendidikan. Perubahan manual sebelumnya akan tertimpa. Lanjutkan?", ()=>{
+    db[store].isi = window._docTemplateFn[store]();
+    saveDB(); toast("Dokumen disusun ulang."); renderPage(store==="programTahunan"?"progtahunan":"progsemester");
+  });
+}
+function saveDocGeneric(store){
+  db[store].isi = document.getElementById("docText_"+store).value;
+  saveDB(); toast("Dokumen tersimpan.");
+}
+function printDocGeneric(store,title){
+  const html = "<pre style='white-space:pre-wrap;font-family:inherit;font-size:11.5px;line-height:1.55;'>"+escapeHtml(db[store].isi)+"</pre>";
+  printDocument(title.toUpperCase()+" - KELAS "+db.sekolah.kelas.toUpperCase()+" T.A. "+db.sekolah.tahunAjaran, html);
+}
+function exportDocWord(store,title){
+  const html = "<pre style='white-space:pre-wrap;font-family:Consolas,monospace;font-size:10.5pt;'>"+escapeHtml(db[store].isi)+"</pre>";
+  htmlToWordDoc(letterheadHtml()+`<div class="doc-title">${escapeHtml(title.toUpperCase())}</div>`+html, title.replace(/\s+/g,"_"), title);
+}
+
+// Hitung jumlah minggu efektif semester dari rentang tanggal Kalender
+// Pendidikan (dibatasi oleh entri "Libur Semester").
+function hitungMingguSemester(mulaiISO, akhirISO){
+  const a = new Date(mulaiISO+"T00:00:00"), b = new Date(akhirISO+"T00:00:00");
+  const hari = Math.round((b-a)/86400000);
+  return Math.max(1, Math.round(hari/7));
+}
+
+function buildProgramTahunanText(){
+  const s = db.sekolah;
+  const mingguGasal = hitungMingguSemester("2026-07-13","2026-12-18"); // s.d. penyerahan rapor gasal
+  const mingguGenap = hitungMingguSemester("2027-01-04","2027-06-18"); // s.d. penyerahan rapor genap
+  let jpTable = "No | Mata Pelajaran                              | Intrakurikuler | Kokurikuler | Total JP/Tahun | JP/Minggu\n";
+  jpTable += "---|-----------------------------------------------|----------------|-------------|-----------------|----------\n";
+  JP_STRUKTUR_KELAS1.filter(r=>r.total>0).forEach((r,i)=>{
+    jpTable += `${String(i+1).padEnd(2)} | ${r.mapel.padEnd(47)} | ${String(r.intra).padStart(6)} JP    | ${String(r.koku).padStart(5)} JP   | ${String(r.total).padStart(9)} JP   | ${String(r.jpMinggu).padStart(2)} JP\n`;
+  });
+  const atpBySem1 = db.atp.filter(a=>a.semester==="1");
+  const atpBySem2 = db.atp.filter(a=>a.semester==="2");
+  function ringkasTP(list){
+    const byMapel = {};
+    list.forEach(a=>{ (byMapel[a.mapel]=byMapel[a.mapel]||[]).push(a.tp); });
+    return Object.keys(byMapel).map(m=>` - ${m} (${byMapel[m].length} TP):\n   ${byMapel[m].map((t,i)=>`${i+1}. ${t}`).join("\n   ")}`).join("\n");
+  }
+  return `PROGRAM TAHUNAN
+================
+Satuan Pendidikan : ${s.namaSekolah}
+Kelas / Fase      : ${s.kelas} / Fase A
+Tahun Ajaran      : ${s.tahunAjaran}
+Wali Kelas        : ${(db.guru.find(g=>g.id===s.waliKelasId)||{}).nama || "[Diisi Guru]"}
+
+DASAR HUKUM
+1. Undang-Undang No. 20 Tahun 2003 tentang Sistem Pendidikan Nasional.
+2. Peraturan Pemerintah No. 57 Tahun 2021 jo. No. 4 Tahun 2022 tentang Standar Nasional Pendidikan.
+3. Permendikbudristek No. 12 Tahun 2024 tentang Kurikulum pada PAUD, Dikdas, dan Dikmen, sebagaimana diubah dengan Permendikdasmen No. 13 Tahun 2025 (pendekatan Pembelajaran Mendalam, berlaku 15 Juli 2025).
+4. Permendikdasmen No. 10 Tahun 2025 tentang Standar Kompetensi Lulusan (8 Dimensi Profil Lulusan).
+5. Keputusan Kepala BSKAP Kemendikdasmen No. 046/H/KR/2025 tentang Capaian Pembelajaran pada PAUD, Dikdas, dan Dikmen.
+6. Keputusan Kepala Dinas Pendidikan Provinsi Jawa Tengah No. 400.3/23862/2026 tentang Pedoman Penyusunan Kalender Pendidikan Tahun Ajaran 2026/2027.
+
+I. MINGGU EFEKTIF (mengacu Kalender Pendidikan Prov. Jawa Tengah T.A. 2026/2027)
+   Semester 1 (Ganjil) : 13 Juli 2026 s.d. 18 Desember 2026  (+/- ${mingguGasal} minggu, termasuk minggu penilaian & jeda)
+   Semester 2 (Genap)  : 4 Januari 2027 s.d. 18 Juni 2027   (+/- ${mingguGenap} minggu, termasuk minggu penilaian & jeda)
+   Catatan: rincian pekan efektif final agar dihitung ulang oleh satuan pendidikan menggunakan Kalender Pendidikan pada menu terkait (dikurangi hari libur, PTS/PAS/PAT, dan cadangan).
+
+II. ALOKASI WAKTU MATA PELAJARAN KELAS 1 (Struktur Kurikulum Permendikbudristek No. 12/2024 jo. Permendikdasmen No. 13/2025; asumsi 36 minggu/tahun, 1 JP = 35 menit)
+${jpTable}
+Catatan: Kokurikuler dilaksanakan dalam bentuk pembelajaran kolaboratif lintas disiplin/Gerakan 7 Kebiasaan Anak Indonesia Hebat (Pasal 16-19 Permendikdasmen No. 13/2025), bukan lagi bernama "P5". Muatan Lokal & jenis Seni menyesuaikan kebijakan satuan pendidikan/daerah.
+
+III. TUJUAN PEMBELAJARAN (TP) PER SEMESTER (diturunkan dari CP Fase A - lihat menu ATP untuk versi lengkap dan dapat disunting)
+
+SEMESTER 1 (GANJIL)
+${ringkasTP(atpBySem1) || " (Belum ada data ATP - buka menu ATP lalu klik 'Buat/Segarkan Ulang dari CP')"}
+
+SEMESTER 2 (GENAP)
+${ringkasTP(atpBySem2) || " (Belum ada data ATP - buka menu ATP lalu klik 'Buat/Segarkan Ulang dari CP')"}
+
+IV. PRINSIP PELAKSANAAN
+Pembelajaran dilaksanakan dengan pendekatan Pembelajaran Mendalam yang berkesadaran (mindful), bermakna (meaningful), dan menggembirakan (joyful), melalui pengalaman belajar Memahami - Mengaplikasi - Merefleksi, guna mewujudkan 8 Dimensi Profil Lulusan (Permendikdasmen No. 10/2025): keimanan & ketakwaan, kewargaan, penalaran kritis, kreativitas, kolaborasi, kemandirian, kesehatan, dan komunikasi.
+
+Mengetahui,                                          ${db.sekolah.desa}, ${fmtDate(todayISO())}
+Kepala Sekolah,                                       Guru Kelas ${s.kelas},
+
+
+${s.kepalaSekolah}                                    ${(db.guru.find(g=>g.id===s.waliKelasId)||{}).nama || "___________________"}
+NIP. ${s.nipKepsek}                                   NIP. ${(db.guru.find(g=>g.id===s.waliKelasId)||{}).nip || "___________________"}`;
+}
+
+function buildProgramSemesterText(){
+  const s = db.sekolah;
+  const isGanjil = (s.semester||"").includes("1");
+  const bulanList = isGanjil
+    ? [["Juli 2026","2026-07"],["Agustus 2026","2026-08"],["September 2026","2026-09"],["Oktober 2026","2026-10"],["November 2026","2026-11"],["Desember 2026","2026-12"]]
+    : [["Januari 2027","2027-01"],["Februari 2027","2027-02"],["Maret 2027","2027-03"],["April 2027","2027-04"],["Mei 2027","2027-05"],["Juni 2027","2027-06"]];
+  const semKey = isGanjil ? "1" : "2";
+  const atpSem = db.atp.filter(a=>a.semester===semKey);
+  const byMapel = {};
+  atpSem.forEach(a=>{ (byMapel[a.mapel]=byMapel[a.mapel]||[]).push(a); });
+
+  // Sebaran kegiatan penting bulan berjalan dari Kalender Pendidikan
+  const kalenderBulanIni = m => db.kalender.filter(k=>k.tanggal.startsWith(m)).map(k=>`${fmtDate(k.tanggal)}: ${k.judul}`);
+
+  let header = "No | Mata Pelajaran / TP".padEnd(58) + bulanList.map(b=>b[0].slice(0,3)).join(" | ") + "\n";
+  header += "-".repeat(58+bulanList.length*6) + "\n";
+  let body = "";
+  let no = 1;
+  Object.keys(byMapel).forEach(m=>{
+    body += `${String(no++).padEnd(2)} | ${m}\n`;
+    byMapel[m].forEach(tpRow=>{
+      const label = "   - "+tpRow.tp.slice(0,70)+(tpRow.tp.length>70?"...":"");
+      body += label.padEnd(58) + bulanList.map(()=>" .. ").join(" | ") + "\n";
+    });
+  });
+
+  let kalenderInfo = "";
+  bulanList.forEach(b=>{
+    const items = kalenderBulanIni(b[1]);
+    if(items.length) kalenderInfo += `\n${b[0]}:\n` + items.map(i=>"  - "+i).join("\n") + "\n";
+  });
+
+  return `PROGRAM SEMESTER
+================
+Satuan Pendidikan : ${s.namaSekolah}
+Kelas / Fase      : ${s.kelas} / Fase A
+Semester          : ${s.semester}
+Tahun Ajaran      : ${s.tahunAjaran}
+
+DASAR: Capaian Pembelajaran Fase A (Kepbadan BSKAP No. 046/H/KR/2025), Struktur Kurikulum (Permendikbudristek 12/2024 jo. Permendikdasmen 13/2025), dan Kalender Pendidikan Provinsi Jawa Tengah T.A. 2026/2027 (Kepdisdik Jateng No. 400.3/23862/2026).
+
+I. DISTRIBUSI TUJUAN PEMBELAJARAN PER BULAN
+(Tanda ".." pada kolom bulan agar diisi/disesuaikan guru sesuai kecepatan belajar rombel; gunakan menu ATP untuk detail lengkap tiap TP.)
+
+${header}${body || " (Belum ada data ATP untuk semester ini - buka menu ATP lalu klik 'Buat/Segarkan Ulang dari CP', lalu buat ulang dokumen ini.)"}
+
+II. AGENDA PENTING BULAN BERJALAN (dari menu Kalender Pendidikan)
+${kalenderInfo || " (Belum ada agenda tersimpan pada rentang bulan semester ini.)"}
+
+III. CATATAN
+- Asesmen formatif dilaksanakan menyatu dengan proses pembelajaran sepanjang semester.
+- Asesmen sumatif lingkup materi/tengah semester/akhir semester dijadwalkan menyesuaikan Kalender Pendidikan satuan pendidikan.
+- Kokurikuler (pembelajaran kolaboratif lintas disiplin / 7 Kebiasaan Anak Indonesia Hebat) dijadwalkan tersendiri di luar tabel intrakurikuler di atas.
+
+Mengetahui,                                          ${db.sekolah.desa}, ${fmtDate(todayISO())}
+Kepala Sekolah,                                       Guru Kelas ${s.kelas},
+
+
+${s.kepalaSekolah}                                    ${(db.guru.find(g=>g.id===s.waliKelasId)||{}).nama || "___________________"}
+NIP. ${s.nipKepsek}                                   NIP. ${(db.guru.find(g=>g.id===s.waliKelasId)||{}).nip || "___________________"}`;
+}
+
+PAGES.progtahunan = function(){
+  window._docTemplateFn.programTahunan = buildProgramTahunanText;
+  return docEditorPage("programTahunan","Program Tahunan","Disusun otomatis dari CP resmi, Struktur Kurikulum, ATP, dan Kalender Pendidikan Jateng 2026/2027. Klik \"Buat Ulang Otomatis\" kapan saja setelah data ATP/Kalender diperbarui.", buildProgramTahunanText);
+};
+PAGES.progsemester = function(){
+  window._docTemplateFn.programSemester = buildProgramSemesterText;
+  return docEditorPage("programSemester","Program Semester","Distribusi TP per bulan untuk semester berjalan (mengikuti field Semester pada Profil Sekolah), disusun otomatis dari ATP & Kalender Pendidikan.", buildProgramSemesterText);
+};
+
+/* ---------- CAPAIAN PEMBELAJARAN (CP) - referensi, hanya bisa difilter ---------- */
+PAGES.cp = function(){
+  const mapelFilter = window._cpMapel || "";
+  const currentFase = faseForClassId(activeClassId);
+  let rows = db.cp.slice();
+  if(mapelFilter) rows = rows.filter(r=>r.mapel===mapelFilter);
+  const mapels = [...new Set(db.cp.map(r=>r.mapel))];
+  const body = rows.map(r=>`<tr><td><strong>${escapeHtml(r.mapel)}</strong>${r.revisi2026?' <span class="badge badge-orange" title="Direvisi melalui Kepka BKPDM No. 020 Tahun 2026">Revisi 2026</span>':''}</td><td>${escapeHtml(r.elemen)}</td><td>${escapeHtml(r.cp)}</td></tr>`).join("");
+  return `
+  <div class="section-head"><div><h1>Capaian Pembelajaran (CP) - ${escapeHtml(faseLabel(currentFase))}</h1><div class="desc">${escapeHtml(classInfo(activeClassId).label)} otomatis menampilkan CP ${escapeHtml(faseLabel(currentFase))}. Ganti "Pilih Kelas Aktif" di bagian atas untuk melihat CP fase lain.</div></div>
+    <div class="grow"></div>
+    <button class="btn" onclick="regenerateCP()">${ic("target",15)} Segarkan Ulang dari CP Resmi</button>
+    <button class="btn" onclick="printDocument('CAPAIAN PEMBELAJARAN ${escapeHtml(faseLabel(currentFase)).replace(/'/g,"\\'").toUpperCase()}', document.getElementById(\'cpTableHolder\').innerHTML)">${ic("print",15)} Cetak</button>
+  </div>
+  <div class="card" style="background:var(--warn-soft);border-color:var(--warn);margin-bottom:14px;">
+    <div style="display:flex;gap:10px;align-items:flex-start;">
+      ${ic("info",20)}
+      <p style="margin:0;font-size:12.5px;color:var(--text);">${escapeHtml(CP_LEGAL_NOTE)}</p>
+    </div>
+  </div>
+  <div class="toolbar">
+    <select style="max-width:280px;padding:10px;border-radius:11px;border:1px solid var(--border);" onchange="window._cpMapel=this.value; renderPage('cp');">
+      <option value="">Semua Mata Pelajaran</option>
+      ${mapels.map(m=>`<option value="${escapeHtml(m)}" ${m===mapelFilter?"selected":""}>${escapeHtml(m)}</option>`).join("")}
+    </select>
+  </div>
+  <div id="cpTableHolder" class="table-wrap"><table><thead><tr><th style="width:180px;">Mata Pelajaran</th><th style="width:160px;">Elemen</th><th>Capaian Pembelajaran</th></tr></thead>
+  <tbody>${body || `<tr><td colspan="3" class="empty-state">Tidak ada data. Klik "Segarkan Ulang dari CP Resmi" untuk mengisi otomatis.</td></tr>`}</tbody></table></div>`;
+};
+function regenerateCP(){
+  const fase = faseForClassId(activeClassId);
+  confirmDialog("Ini akan MENGGANTI seluruh daftar CP "+faseLabel(fase)+" pada "+classInfo(activeClassId).label+" dengan versi resmi terbaru (Kepka BSKAP No. 046/H/KR/2025 jo. Kepka BKPDM No. 020 Tahun 2026). Lanjutkan?", ()=>{
+    const cpFase = cpSeedForFase(fase).map(e=>({...e}));
+    db.cp = cpFase;
+    saveDB(); toast("CP "+faseLabel(fase)+" disegarkan ulang."); renderPage("cp");
+  });
+}
+
+/* ---------- ATP ---------- */
+function atpFields(){
+  return [
+    {key:"mapel",label:"Mata Pelajaran",type:"select",options:MAPEL_LIST,required:true},
+    {key:"elemen",label:"Elemen/Domain"},
+    {key:"tp",label:"Tujuan Pembelajaran (TP)",type:"textarea",required:true},
+    {key:"alokasiWaktu",label:"Alokasi Waktu (JP)"},
+    {key:"semester",label:"Semester",type:"select",options:["1","2"]},
+  ];
+}
+PAGES.atp = function(){
+  const html = crudSection({
+    store:"atp", title:"Alur Tujuan Pembelajaran (ATP)",
+    desc:"TP diturunkan langsung dari CP Fase A resmi (Kepbadan BSKAP No. 046/H/KR/2025) dan JP mengikuti Struktur Kurikulum Kelas 1 (Permendikbudristek 12/2024 jo. Permendikdasmen 13/2025). Silakan sunting kalimat TP sesuai konteks kelas Bapak/Ibu.",
+    fields: atpFields(),
+    columns:[{key:"mapel",label:"Mapel"},{key:"elemen",label:"Elemen"},{key:"tp",label:"Tujuan Pembelajaran",render:v=>escapeHtml((v||"").slice(0,70))+((v||"").length>70?"...":"")},{key:"alokasiWaktu",label:"JP/mgg"},{key:"semester",label:"Smt"}],
+  });
+  return html.replace('<button class="btn btn-primary" onclick="crudAdd(\'atp\')">',
+    `<button class="btn" onclick="regenerateATP()">${ic("target",15)} Buat/Segarkan Ulang dari CP</button><button class="btn btn-primary" onclick="crudAdd('atp')">`);
+};
+function regenerateATP(){
+  confirmDialog("Ini akan MENGGANTI seluruh daftar ATP dengan hasil turunan terbaru dari CP resmi. TP yang sudah Bapak/Ibu sunting manual akan tertimpa. Lanjutkan?", ()=>{
+    db.atp = generateSeedATP(db.cp); saveDB(); toast("ATP diperbarui dari CP terbaru ("+faseLabel(faseForClassId(activeClassId))+")."); renderPage("atp");
+  });
+}
+
+/* ---------- KKTP ---------- */
+function kktpFields(){
+  return [
+    {key:"mapel",label:"Mata Pelajaran",type:"select",options:MAPEL_LIST,required:true},
+    {key:"tp",label:"Tujuan Pembelajaran Terkait",type:"textarea",required:true},
+    {key:"kriteria",label:"Kriteria Ketercapaian",type:"textarea",required:true},
+    {key:"interval",label:"Interval Nilai",type:"select",options:["Belum Berkembang (0-59)","Mulai Berkembang (60-69)","Berkembang Sesuai Harapan (70-84)","Sangat Berkembang (85-100)"]},
+  ];
+}
+PAGES.kktp = function(){
+  const html = crudSection({
+    store:"kktp", title:"Kriteria Ketercapaian Tujuan Pembelajaran (KKTP)",
+    desc:"Acuan penentuan ketercapaian TP sebagai dasar asesmen formatif & sumatif. Interval predikat mengikuti konvensi umum rapor Kurikulum Merdeka/Pembelajaran Mendalam; sesuaikan dengan kebijakan satuan pendidikan.",
+    fields: kktpFields(),
+    columns:[{key:"mapel",label:"Mapel"},{key:"kriteria",label:"Kriteria",render:v=>escapeHtml((v||"").slice(0,60))+((v||"").length>60?"...":"")},{key:"interval",label:"Interval"}],
+  });
+  return html.replace('<button class="btn btn-primary" onclick="crudAdd(\'kktp\')">',
+    `<button class="btn" onclick="regenerateKKTP()">${ic("target",15)} Buat/Segarkan Ulang dari CP</button><button class="btn btn-primary" onclick="crudAdd('kktp')">`);
+};
+function regenerateKKTP(){
+  confirmDialog("Ini akan MENGGANTI seluruh daftar KKTP dengan hasil turunan terbaru per mata pelajaran. Lanjutkan?", ()=>{
+    db.kktp = generateSeedKKTP(db.cp); saveDB(); toast("KKTP diperbarui ("+faseLabel(faseForClassId(activeClassId))+")."); renderPage("kktp");
+  });
+}
+
+/* ---------- MODUL AJAR ---------- */
+function modulAjarFields(){
+  return [
+    {key:"judul",label:"Judul / Topik Modul Ajar",required:true},
+    {key:"mapel",label:"Mata Pelajaran",type:"select",options:MAPEL_LIST,required:true},
+    {key:"tanggal",label:"Tanggal Pelaksanaan",type:"date"},
+    {key:"tp",label:"Tujuan Pembelajaran",type:"textarea",required:true},
+    {key:"profilLulusan",label:"Dimensi Profil Lulusan yang Dituju (pisahkan koma)",placeholder:"cth: Penalaran Kritis, Kolaborasi"},
+    {key:"materi",label:"Materi Esensial",type:"textarea"},
+    {key:"kegiatanAwal",label:"Kegiatan Awal (Pembuka)",type:"textarea"},
+    {key:"kegiatanMemahami",label:"Kegiatan Inti - MEMAHAMI",type:"textarea",placeholder:"Membangun pemahaman awal peserta didik terhadap konsep."},
+    {key:"kegiatanMengaplikasi",label:"Kegiatan Inti - MENGAPLIKASI",type:"textarea",placeholder:"Peserta didik menerapkan pengetahuan pada konteks nyata."},
+    {key:"kegiatanMerefleksi",label:"Kegiatan Inti - MEREFLEKSI",type:"textarea",placeholder:"Peserta didik merefleksikan proses & hasil belajar."},
+    {key:"kegiatanPenutup",label:"Kegiatan Penutup",type:"textarea"},
+    {key:"asesmen",label:"Rencana Asesmen",type:"textarea"},
+    {key:"sumberBelajar",label:"Sumber & Media Belajar",type:"textarea"},
+  ];
+}
+PAGES.modulajar = function(){
+  const rows = db.modulAjar.slice();
+  const body = rows.map((r,i)=>`<tr><td>${i+1}</td><td><strong>${escapeHtml(r.judul)}</strong></td><td>${escapeHtml(r.mapel)}</td><td>${fmtDate(r.tanggal)}</td>
+    <td><div class="row-actions">
+      <button class="btn btn-sm" onclick="viewModulAjar('${r.id}')">${ic("eye",14)} Lihat</button>
+      <button class="btn btn-sm btn-icon" onclick="crudEdit('modulAjar','${r.id}')">${ic("edit",15)}</button>
+      <button class="btn btn-sm btn-icon btn-danger" onclick="crudDelete('modulAjar','${r.id}')">${ic("trash",15)}</button>
+    </div></td></tr>`).join("");
+  CRUD_CONFIG.modulAjar = {store:"modulAjar", title:"Modul Ajar", fields:modulAjarFields(), columns:[]};
+
+  const filters = window._modulFileFilters || {kategori:"Modul Ajar", kelasId:activeClassId, mapel:"", semester:"", q:""};
+  filters.kategori = "Modul Ajar"; // panel ini khusus kategori Modul Ajar
+  window._modulFileFilters = filters;
+  window._arsipOnRefresh = ()=> renderArsipListInto("modulFileListHolder", window._modulFileFilters);
+  setTimeout(window._arsipOnRefresh, 0);
+
+  return `
+  <div class="section-head"><div><h1>Modul Ajar</h1><div class="desc">Disusun berbasis pendekatan Pembelajaran Mendalam: Memahami &rarr; Mengaplikasi &rarr; Merefleksi, selaras 8 Dimensi Profil Lulusan.</div></div>
+    <div class="grow"></div>
+    <button class="btn" style="border-color:var(--accent);color:var(--accent);" onclick="uploadArsipFile({title:'Unggah File Modul Ajar', kategori:'Modul Ajar', kelasId:activeClassId, onDone:window._arsipOnRefresh})">${ic("upload",15)} Upload Modul Ajar</button>
+    <button class="btn btn-primary" onclick="crudAdd('modulAjar')">${ic("plus",15)} Susun Modul Ajar (Teks)</button></div>
+
+  <div class="card" style="margin-bottom:16px;">
+    <h3 style="font-size:14px;margin-bottom:10px;">${ic("upload",16)} File Modul Ajar Terunggah (PDF/JPG/PNG/DOCX)</h3>
+    <div class="toolbar">
+      <div class="search-box">${ic("search",16)}<input placeholder="Cari nama file / mapel / bab..." value="${escapeHtml(filters.q)}" oninput="window._modulFileFilters.q=this.value; window._arsipOnRefresh();"></div>
+      <select style="padding:10px;border-radius:11px;border:1px solid var(--border);" onchange="window._modulFileFilters.kelasId=this.value; window._arsipOnRefresh();">
+        <option value="">Semua Kelas</option>
+        ${CLASS_LIST.map(c=>`<option value="${c.id}" ${filters.kelasId===c.id?"selected":""}>${escapeHtml(c.label)}</option>`).join("")}
+      </select>
+      <select style="padding:10px;border-radius:11px;border:1px solid var(--border);" onchange="window._modulFileFilters.mapel=this.value; window._arsipOnRefresh();">
+        <option value="">Semua Mapel</option>
+        ${MAPEL_LIST.map(m=>`<option value="${escapeHtml(m)}" ${filters.mapel===m?"selected":""}>${escapeHtml(m)}</option>`).join("")}
+      </select>
+    </div>
+    <div id="modulFileListHolder"><p class="muted">Memuat file...</p></div>
+  </div>
+
+  <div class="card">
+    <h3 style="font-size:14px;margin-bottom:10px;">${ic("doc",16)} Modul Ajar Tersusun (Teks Terstruktur)</h3>
+    <div class="table-wrap"><table><thead><tr><th>No</th><th>Judul</th><th>Mapel</th><th>Tanggal</th><th style="text-align:right">Aksi</th></tr></thead>
+    <tbody>${body || `<tr><td colspan="5" class="empty-state">Belum ada modul ajar tersimpan.</td></tr>`}</tbody></table></div>
+  </div>`;
+};
+function viewModulAjar(id){
+  const m = db.modulAjar.find(x=>x.id===id); if(!m) return;
+  const bodyHtml = `<table><tbody>
+    <tr><td style="width:170px;"><strong>Mata Pelajaran</strong></td><td>: ${escapeHtml(m.mapel)}</td></tr>
+    <tr><td><strong>Kelas / Semester</strong></td><td>: ${escapeHtml(db.sekolah.kelas)} / ${escapeHtml(db.sekolah.semester)}</td></tr>
+    <tr><td><strong>Tanggal</strong></td><td>: ${fmtDate(m.tanggal)}</td></tr>
+    <tr><td><strong>Tujuan Pembelajaran</strong></td><td>: ${escapeHtml(m.tp)}</td></tr>
+    <tr><td><strong>Dimensi Profil Lulusan</strong></td><td>: ${escapeHtml(m.profilLulusan)}</td></tr>
+    <tr><td><strong>Materi Esensial</strong></td><td>: ${escapeHtml(m.materi)}</td></tr>
+  </tbody></table>
+  <div class="divider"></div>
+  <h4>Kegiatan Awal</h4><p>${escapeHtml(m.kegiatanAwal)||'-'}</p>
+  <h4>Kegiatan Inti - Memahami</h4><p>${escapeHtml(m.kegiatanMemahami)||'-'}</p>
+  <h4>Kegiatan Inti - Mengaplikasi</h4><p>${escapeHtml(m.kegiatanMengaplikasi)||'-'}</p>
+  <h4>Kegiatan Inti - Merefleksi</h4><p>${escapeHtml(m.kegiatanMerefleksi)||'-'}</p>
+  <h4>Kegiatan Penutup</h4><p>${escapeHtml(m.kegiatanPenutup)||'-'}</p>
+  <h4>Asesmen</h4><p>${escapeHtml(m.asesmen)||'-'}</p>
+  <h4>Sumber &amp; Media Belajar</h4><p>${escapeHtml(m.sumberBelajar)||'-'}</p>`;
+  openModal({title:m.judul, bodyHtml,
+    footHtml:`<button class="btn" onclick="closeModal()">Tutup</button>
+      <button class="btn" onclick="exportModulWord('${m.id}')">${ic("doc",15)} Word</button>
+      <button class="btn btn-primary" onclick="printModulAjar('${m.id}')">${ic("print",15)} Cetak</button>`});
+}
+function modulAjarDocHtml(m){
+  return `<table><tbody>
+    <tr><td style="width:170px;"><strong>Mata Pelajaran</strong></td><td>: ${escapeHtml(m.mapel)}</td></tr>
+    <tr><td><strong>Kelas / Semester</strong></td><td>: ${escapeHtml(db.sekolah.kelas)} / ${escapeHtml(db.sekolah.semester)}</td></tr>
+    <tr><td><strong>Tanggal</strong></td><td>: ${fmtDate(m.tanggal)}</td></tr>
+    <tr><td><strong>Tujuan Pembelajaran</strong></td><td>: ${escapeHtml(m.tp)}</td></tr>
+    <tr><td><strong>Dimensi Profil Lulusan</strong></td><td>: ${escapeHtml(m.profilLulusan)}</td></tr>
+    <tr><td><strong>Materi Esensial</strong></td><td>: ${escapeHtml(m.materi)}</td></tr>
+  </tbody></table><br>
+  <p><strong>Kegiatan Awal:</strong> ${escapeHtml(m.kegiatanAwal)||'-'}</p>
+  <p><strong>Kegiatan Inti - Memahami:</strong> ${escapeHtml(m.kegiatanMemahami)||'-'}</p>
+  <p><strong>Kegiatan Inti - Mengaplikasi:</strong> ${escapeHtml(m.kegiatanMengaplikasi)||'-'}</p>
+  <p><strong>Kegiatan Inti - Merefleksi:</strong> ${escapeHtml(m.kegiatanMerefleksi)||'-'}</p>
+  <p><strong>Kegiatan Penutup:</strong> ${escapeHtml(m.kegiatanPenutup)||'-'}</p>
+  <p><strong>Asesmen:</strong> ${escapeHtml(m.asesmen)||'-'}</p>
+  <p><strong>Sumber &amp; Media Belajar:</strong> ${escapeHtml(m.sumberBelajar)||'-'}</p>`;
+}
+function printModulAjar(id){ const m=db.modulAjar.find(x=>x.id===id); printDocument("MODUL AJAR: "+m.judul.toUpperCase(), modulAjarDocHtml(m)); }
+function exportModulWord(id){ const m=db.modulAjar.find(x=>x.id===id); htmlToWordDoc(letterheadHtml()+`<div class="doc-title">MODUL AJAR: ${escapeHtml(m.judul.toUpperCase())}</div>`+modulAjarDocHtml(m), "Modul_Ajar_"+m.judul.replace(/\s+/g,"_"), m.judul); }
+
+/* ---------- ASESMEN (Diagnostik / Formatif / Sumatif) ---------- */
+function asesmenFields(jenis){
+  const base = [
+    {key:"siswaId",label:"Nama Siswa",type:"select",options:siswaOpts(),required:true},
+    {key:"mapel",label:"Mata Pelajaran",type:"select",options:MAPEL_LIST,required:true},
+    {key:"tanggal",label:"Tanggal",type:"date",required:true},
+  ];
+  if(jenis==="diag"){
+    return base.concat([{key:"catatan",label:"Hasil Asesmen Diagnostik (kondisi awal, gaya belajar, dsb.)",type:"textarea",required:true}]);
+  }
+  return base.concat([
+    {key:"nilai",label:"Nilai (0-100)",type:"number",required:true},
+    {key:"lingkupMateri",label:"Lingkup Materi / Bab (opsional)"},
+    {key:"semester",label:"Semester (opsional)",type:"select",options:[{value:"1",label:"Semester 1"},{value:"2",label:"Semester 2"}]},
+    {key:"catatan",label:"Catatan/Umpan Balik",type:"textarea"},
+  ]);
+}
+function asesmenPage(store, title, desc, jenis){
+  const rows = db[store].slice();
+  const siswaMap = Object.fromEntries(db.siswa.map(s=>[s.id,s.nama]));
+  const q = (window["_q_"+store]||"").toLowerCase();
+  const data = q ? rows.filter(r=>(siswaMap[r.siswaId]||"").toLowerCase().includes(q) || (r.mapel||"").toLowerCase().includes(q)) : rows;
+  const body = data.map((r,i)=>`<tr><td>${i+1}</td><td><strong>${escapeHtml(siswaMap[r.siswaId]||"?")}</strong></td><td>${escapeHtml(r.mapel)}</td><td>${fmtDate(r.tanggal)}</td>
+    <td>${jenis==="diag"? escapeHtml((r.catatan||"").slice(0,50))+((r.catatan||"").length>50?"...":"") : `<span class="badge ${r.nilai>=70?'badge-green':'badge-orange'}">${escapeHtml(r.nilai)}</span>`}</td>
+    <td><div class="row-actions">
+      <button class="btn btn-sm btn-icon" onclick="editAsesmen('${store}','${r.id}','${jenis}')">${ic("edit",15)}</button>
+      <button class="btn btn-sm btn-icon btn-danger" onclick="crudDelete('${store}','${r.id}')">${ic("trash",15)}</button>
+    </div></td></tr>`).join("");
+  CRUD_CONFIG[store] = {store, title, fields:asesmenFields(jenis), columns:[]};
+  return `
+  <div class="section-head"><div><h1>${title}</h1><div class="desc">${desc}</div></div>
+    <div class="grow"></div>
+    <button class="btn" onclick="exportCSV('${store}', ${store}RowsForExport(), [{key:'nama',label:'Nama'},{key:'mapel',label:'Mapel'},{key:'tanggal',label:'Tanggal'},{key:'${jenis==='diag'?'catatan':'nilai'}',label:'${jenis==='diag'?'Catatan':'Nilai'}'}], '${store}')">${ic("download",15)} CSV</button>
+    <button class="btn btn-primary" onclick="addAsesmen('${store}','${jenis}')">${ic("plus",15)} Tambah</button></div>
+  <div class="toolbar"><div class="search-box">${ic("search",16)}<input placeholder="Cari nama siswa / mapel..." oninput="window['_q_${store}']=this.value; renderPage('${store==="asesmenDiagnostik"?"asesdiag":store==="asesmenFormatif"?"asesform":"asessum"}');"></div></div>
+  <div class="table-wrap"><table><thead><tr><th>No</th><th>Siswa</th><th>Mapel</th><th>Tanggal</th><th>${jenis==="diag"?"Catatan":"Nilai"}</th><th style="text-align:right">Aksi</th></tr></thead>
+  <tbody>${body || `<tr><td colspan="6" class="empty-state">Belum ada data.</td></tr>`}</tbody></table></div>`;
+}
+function asesmenDiagnostikRowsForExport(){ return exportRowsWithName("asesmenDiagnostik"); }
+function asesmenFormatifRowsForExport(){ return exportRowsWithName("asesmenFormatif"); }
+function asesmenSumatifRowsForExport(){ return exportRowsWithName("asesmenSumatif"); }
+function exportRowsWithName(store){
+  const siswaMap = Object.fromEntries(db.siswa.map(s=>[s.id,s.nama]));
+  return db[store].map(r=>({...r, nama:siswaMap[r.siswaId]||"?"}));
+}
+function addAsesmen(store,jenis){
+  openModal({title:"Tambah Data", bodyHtml: asesmenFields(jenis).map(f=>fieldHtml(f,"")).join(""),
+    footHtml:`<button class="btn" onclick="closeModal()">Batal</button><button class="btn btn-primary" id="saveAsesBtn">${ic("check",15)} Simpan</button>`});
+  document.getElementById("saveAsesBtn").onclick=()=>{
+    const data = readForm(asesmenFields(jenis));
+    if(!data.siswaId||!data.mapel){ toast("Lengkapi data terlebih dahulu."); return; }
+    data.id = uid(store); db[store].push(data); saveDB(); closeModal(); toast("Tersimpan.");
+    renderPage(store==="asesmenDiagnostik"?"asesdiag":store==="asesmenFormatif"?"asesform":"asessum");
+  };
+}
+function editAsesmen(store,id,jenis){
+  const row = db[store].find(r=>r.id===id); if(!row) return;
+  openModal({title:"Ubah Data", bodyHtml: asesmenFields(jenis).map(f=>fieldHtml(f,row[f.key])).join(""),
+    footHtml:`<button class="btn" onclick="closeModal()">Batal</button><button class="btn btn-primary" id="saveAsesBtn">${ic("check",15)} Simpan</button>`});
+  document.getElementById("saveAsesBtn").onclick=()=>{
+    Object.assign(row, readForm(asesmenFields(jenis))); saveDB(); closeModal(); toast("Perubahan disimpan.");
+    renderPage(store==="asesmenDiagnostik"?"asesdiag":store==="asesmenFormatif"?"asesform":"asessum");
+  };
+}
+/* ============================================================
+   INPUT NILAI MASSAL (BULK) -- menulis ke store data yang SAMA
+   dengan Asesmen Formatif/Sumatif (db.asesmenFormatif / db.asesmenSumatif)
+   sehingga seluruh data tetap konsisten dan bisa dibuka/diedit satu-
+   per-satu lewat menu Asesmen Formatif/Sumatif seperti biasa.
+   ============================================================ */
+function inputNilaiJenisStore(jenis){ return jenis==="Sumatif" ? "asesmenSumatif" : "asesmenFormatif"; }
+function inputNilaiDraftKey(ctx){
+  return "tpsd2026_draftnilai_"+[activeClassId, ctx.mapel, ctx.jenis, ctx.bab, ctx.semester].map(s=>String(s||"").replace(/[^a-zA-Z0-9]/g,"_")).join("__");
+}
+function inputNilaiGetCtx(){
+  const ctx = window._inputNilaiCtx || {mapel:MAPEL_LIST[0], jenis:"Formatif", bab:"Umum", semester:"1"};
+  window._inputNilaiCtx = ctx;
+  return ctx;
+}
+function inputNilaiExistingMap(ctx){
+  const store = inputNilaiJenisStore(ctx.jenis);
+  const map = {};
+  (db[store]||[]).forEach(r=>{
+    if(r.mapel!==ctx.mapel) return;
+    if(String(r.lingkupMateri||"")!==String(ctx.bab||"")) return;
+    if(String(r.semester||"")!==String(ctx.semester||"")) return;
+    map[r.siswaId] = r;
+  });
+  return map;
+}
+function inputNilaiLoadDraft(ctx){
+  try{ return JSON.parse(localStorage.getItem(inputNilaiDraftKey(ctx))||"{}"); }catch(e){ return {}; }
+}
+function inputNilaiSaveDraft(ctx, draftObj){
+  try{ localStorage.setItem(inputNilaiDraftKey(ctx), JSON.stringify(draftObj)); }catch(e){}
+}
+function inputNilaiClearDraft(ctx){
+  try{ localStorage.removeItem(inputNilaiDraftKey(ctx)); }catch(e){}
+}
+PAGES.inputnilai = function(){
+  const ctx = inputNilaiGetCtx();
+  setTimeout(()=>inputNilaiRenderTable(), 0);
+  return `
+  <div class="section-head"><div><h1>Input Nilai Massal</h1><div class="desc">${escapeHtml(classInfo(activeClassId).label)} &middot; Pilih Mapel, Jenis Penilaian, Lingkup Materi/Bab, dan Semester, lalu isi nilai seluruh siswa langsung dari daftar di bawah. Data tersimpan ke tempat yang sama dengan menu Asesmen Formatif/Sumatif.</div></div></div>
+  <div class="card" style="margin-bottom:16px;">
+    <div class="form-grid">
+      <div class="field"><label>Mata Pelajaran</label><select id="niMapel" onchange="inputNilaiUpdateCtxAndRender()">
+        ${MAPEL_LIST.map(m=>`<option value="${escapeHtml(m)}" ${m===ctx.mapel?"selected":""}>${escapeHtml(m)}</option>`).join("")}
+      </select></div>
+      <div class="field"><label>Jenis Penilaian</label><select id="niJenis" onchange="inputNilaiUpdateCtxAndRender()">
+        <option value="Formatif" ${ctx.jenis==="Formatif"?"selected":""}>Asesmen Formatif</option>
+        <option value="Sumatif" ${ctx.jenis==="Sumatif"?"selected":""}>Asesmen Sumatif</option>
+      </select></div>
+      <div class="field"><label>Lingkup Materi / Bab</label><input type="text" id="niBab" value="${escapeHtml(ctx.bab)}" placeholder="cth: Bab 3 - Pecahan" onchange="inputNilaiUpdateCtxAndRender()"></div>
+      <div class="field"><label>Semester</label><select id="niSemester" onchange="inputNilaiUpdateCtxAndRender()">
+        <option value="1" ${ctx.semester==="1"?"selected":""}>Semester 1</option>
+        <option value="2" ${ctx.semester==="2"?"selected":""}>Semester 2</option>
+      </select></div>
+    </div>
+  </div>
+  <div id="niStatsHolder"></div>
+  <div class="card" style="margin-bottom:16px;">
+    <div class="toolbar" style="margin-bottom:0;">
+      <button class="btn btn-primary" onclick="inputNilaiSimpanSemua()">${ic("check",15)} Simpan Semua</button>
+      <button class="btn" onclick="inputNilaiIsiSemua()">${ic("edit",15)} Isi Semua</button>
+      <button class="btn" onclick="inputNilaiCopyPrevious()">${ic("layers",15)} Copy Nilai dari Penilaian Sebelumnya</button>
+      <div class="grow"></div>
+      <span class="hint" id="niAutosaveLabel">Draf tersimpan otomatis di perangkat ini.</span>
+    </div>
+  </div>
+  <div id="niTableHolder"><p class="muted">Memuat daftar siswa...</p></div>`;
+};
+function inputNilaiUpdateCtxAndRender(){
+  const ctx = inputNilaiGetCtx();
+  ctx.mapel = document.getElementById("niMapel").value;
+  ctx.jenis = document.getElementById("niJenis").value;
+  ctx.bab = document.getElementById("niBab").value || "Umum";
+  ctx.semester = document.getElementById("niSemester").value;
+  inputNilaiRenderTable();
+}
+function inputNilaiComputeRowValue(ctx, siswaId, existingMap, draft){
+  if(Object.prototype.hasOwnProperty.call(draft, siswaId)) return draft[siswaId];
+  if(existingMap[siswaId]) return existingMap[siswaId].nilai;
+  return "";
+}
+function inputNilaiRenderTable(){
+  const ctx = inputNilaiGetCtx();
+  const holder = document.getElementById("niTableHolder");
+  if(!holder) return;
+  const existingMap = inputNilaiExistingMap(ctx);
+  const draft = inputNilaiLoadDraft(ctx);
+  const siswaList = siswaSortedAlpha();
+  const rows = siswaList.map((s,i)=>{
+    const val = inputNilaiComputeRowValue(ctx, s.id, existingMap, draft);
+    const filled = val!=="" && val!=null;
+    return `<tr id="niRow_${s.id}" class="${filled?'ni-row-filled':''}">
+      <td>${i+1}</td>
+      <td><strong>${escapeHtml(s.nama)}</strong></td>
+      <td><input type="number" min="0" max="100" step="1" class="ni-input" id="niInput_${s.id}" data-siswaid="${s.id}" data-index="${i}"
+        value="${escapeHtml(val)}" placeholder="0-100"
+        oninput="inputNilaiOnInput('${s.id}', this)"
+        onkeydown="inputNilaiHandleKeydown(event, ${i})"></td>
+    </tr>`;
+  }).join("");
+  holder.innerHTML = `<div class="table-wrap"><table><thead><tr><th style="width:50px;">No</th><th>Nama Siswa</th><th style="width:140px;">Nilai (0-100)</th></tr></thead>
+    <tbody>${rows || `<tr><td colspan="3" class="empty-state">Belum ada data siswa.</td></tr>`}</tbody></table></div>`;
+  inputNilaiRenderStats();
+}
+function inputNilaiOnInput(siswaId, inputEl){
+  const ctx = inputNilaiGetCtx();
+  let val = inputEl.value;
+  if(val!==""){
+    let num = Number(val);
+    if(isNaN(num)) num = 0;
+    if(num<0) num = 0;
+    if(num>100) num = 100;
+    if(String(num)!==val) inputEl.value = num;
+    val = num;
+  }
+  const draft = inputNilaiLoadDraft(ctx);
+  if(val==="") delete draft[siswaId]; else draft[siswaId] = val;
+  inputNilaiSaveDraft(ctx, draft);
+  const row = document.getElementById("niRow_"+siswaId);
+  if(row) row.classList.toggle("ni-row-filled", val!=="" && val!=null);
+  inputNilaiRenderStats();
+}
+function inputNilaiHandleKeydown(e, index){
+  if(e.key==="Enter"){
+    e.preventDefault();
+    const next = document.querySelector(`.ni-input[data-index="${index+1}"]`);
+    if(next) next.focus();
+  }
+}
+function inputNilaiRenderStats(){
+  const ctx = inputNilaiGetCtx();
+  const statsHolder = document.getElementById("niStatsHolder");
+  if(!statsHolder) return;
+  const inputs = document.querySelectorAll(".ni-input");
+  const values = [];
+  inputs.forEach(inp=>{ if(inp.value!=="") values.push(Number(inp.value)); });
+  const total = inputs.length;
+  const terisi = values.length;
+  const belum = total - terisi;
+  const tertinggi = values.length ? Math.max(...values) : 0;
+  const terendah = values.length ? Math.min(...values) : 0;
+  const rata = values.length ? (values.reduce((a,b)=>a+b,0)/values.length).toFixed(1) : "0.0";
+  statsHolder.innerHTML = `<div class="grid grid-4" style="margin-bottom:16px;">
+    <div class="card stat-card"><div class="num">${total}</div><div class="lbl">Jumlah Siswa</div></div>
+    <div class="card stat-card"><div class="num" style="color:var(--accent);">${terisi}</div><div class="lbl">Sudah Diisi</div></div>
+    <div class="card stat-card"><div class="num" style="color:var(--warn);">${belum}</div><div class="lbl">Belum Diisi</div></div>
+    <div class="card stat-card"><div class="num">${rata}</div><div class="lbl">Rata-rata (Tertinggi ${tertinggi} / Terendah ${terendah})</div></div>
+  </div>`;
+}
+function inputNilaiIsiSemua(){
+  const val = prompt("Isi nilai untuk SELURUH siswa pada daftar ini (0-100):", "80");
+  if(val===null) return;
+  let num = Number(val);
+  if(isNaN(num) || num<0 || num>100){ toast("Nilai harus berupa angka 0-100."); return; }
+  document.querySelectorAll(".ni-input").forEach(inp=>{
+    inp.value = num;
+    inputNilaiOnInput(inp.dataset.siswaid, inp);
+  });
+  toast("Seluruh nilai diisi "+num+". Jangan lupa klik \"Simpan Semua\".");
+}
+function inputNilaiCopyPrevious(){
+  const ctx = inputNilaiGetCtx();
+  const store = inputNilaiJenisStore(ctx.jenis);
+  const candidates = (db[store]||[]).filter(r=>r.mapel===ctx.mapel && !(String(r.lingkupMateri||"")===String(ctx.bab||"") && String(r.semester||"")===String(ctx.semester||"")));
+  if(!candidates.length){ toast("Belum ada data penilaian sebelumnya untuk mapel ini."); return; }
+  const combos = {};
+  candidates.forEach(r=>{
+    const key = (r.lingkupMateri||"Umum")+"__"+(r.semester||"-");
+    if(!combos[key]) combos[key] = {label:(r.lingkupMateri||"Umum")+" (Semester "+(r.semester||"-")+")", tanggal:r.tanggal, entries:[]};
+    combos[key].entries.push(r);
+    if(r.tanggal > combos[key].tanggal) combos[key].tanggal = r.tanggal;
+  });
+  const comboList = Object.values(combos).sort((a,b)=>String(b.tanggal).localeCompare(String(a.tanggal)));
+  const optionsHtml = comboList.map((c,i)=>`<option value="${i}">${escapeHtml(c.label)} - terakhir ${fmtDate(c.tanggal)}</option>`).join("");
+  openModal({
+    title:"Copy Nilai dari Penilaian Sebelumnya",
+    bodyHtml:`<div class="field"><label>Pilih penilaian sumber</label><select id="niCopySrc">${optionsHtml}</select></div>
+      <p class="hint">Nilai akan disalin ke kolom yang MASIH KOSONG saja. Nilai yang sudah diisi tidak akan tertimpa.</p>`,
+    footHtml:`<button class="btn" onclick="closeModal()">Batal</button><button class="btn btn-primary" id="niCopyBtn">${ic("check",15)} Salin</button>`
+  });
+  document.getElementById("niCopyBtn").onclick = ()=>{
+    const idx = Number(document.getElementById("niCopySrc").value);
+    const chosen = comboList[idx];
+    let count = 0;
+    chosen.entries.forEach(r=>{
+      const inp = document.getElementById("niInput_"+r.siswaId);
+      if(inp && inp.value===""){ inp.value = r.nilai; inputNilaiOnInput(r.siswaId, inp); count++; }
+    });
+    closeModal();
+    toast(count+" nilai disalin ke kolom yang masih kosong. Jangan lupa klik \"Simpan Semua\".");
+  };
+}
+function inputNilaiSimpanSemua(){
+  const ctx = inputNilaiGetCtx();
+  const store = inputNilaiJenisStore(ctx.jenis);
+  const existingMap = inputNilaiExistingMap(ctx);
+  const inputs = document.querySelectorAll(".ni-input");
+  let tersimpan = 0;
+  inputs.forEach(inp=>{
+    const siswaId = inp.dataset.siswaid;
+    if(inp.value===""){
+      // Jika sebelumnya ada data namun sekarang dikosongkan, biarkan data lama (tidak menghapus otomatis demi keamanan data).
+      return;
+    }
+    let nilai = Number(inp.value);
+    if(isNaN(nilai)) return;
+    if(nilai<0) nilai=0; if(nilai>100) nilai=100;
+    if(existingMap[siswaId]){
+      existingMap[siswaId].nilai = nilai;
+      existingMap[siswaId].tanggal = existingMap[siswaId].tanggal || todayISO();
+    } else {
+      db[store].push({
+        id: uid(store), siswaId, mapel: ctx.mapel, tanggal: todayISO(),
+        nilai, lingkupMateri: ctx.bab, semester: ctx.semester, catatan: "",
+      });
+    }
+    tersimpan++;
+  });
+  saveDB();
+  inputNilaiClearDraft(ctx);
+  toast(tersimpan+" nilai berhasil disimpan ke "+(ctx.jenis==="Sumatif"?"Asesmen Sumatif":"Asesmen Formatif")+".");
+  inputNilaiRenderTable();
+}
+
+PAGES.asesdiag = ()=>asesmenPage("asesmenDiagnostik","Asesmen Diagnostik","Pemetaan kondisi awal, kesiapan, dan gaya belajar peserta didik sebelum pembelajaran.", "diag");
+PAGES.asesform = ()=>asesmenPage("asesmenFormatif","Asesmen Formatif","Penilaian proses untuk memberi umpan balik selama pembelajaran berlangsung.", "num");
+PAGES.asessum  = ()=>asesmenPage("asesmenSumatif","Asesmen Sumatif","Penilaian pada akhir lingkup materi/semester untuk mengetahui capaian belajar.", "num");
+
+/* ---------- REKAP NILAI ---------- */
+PAGES.rekapnilai = function(){
+  const mapelSel = window._rekapMapel || MAPEL_LIST[0];
+  const jenisSel = window._rekapJenis || "asesmenSumatif";
+  const rows = db[jenisSel].filter(r=>r.mapel===mapelSel);
+  const bySiswa = {};
+  rows.forEach(r=>{ if(!bySiswa[r.siswaId]) bySiswa[r.siswaId]=[]; bySiswa[r.siswaId].push(Number(r.nilai)||0); });
+  const table = siswaSortedAlpha().map(s=>{
+    const arr = bySiswa[s.id]||[];
+    const avg = arr.length? (arr.reduce((a,b)=>a+b,0)/arr.length) : null;
+    let predikat = "-";
+    if(avg!=null){ predikat = avg>=85?"Sangat Berkembang":avg>=70?"Berkembang Sesuai Harapan":avg>=60?"Mulai Berkembang":"Belum Berkembang"; }
+    return {nama:s.nama, jumlah:arr.length, rata:avg==null?"-":avg.toFixed(1), predikat};
+  });
+  const body = table.map((r,i)=>`<tr><td>${i+1}</td><td><strong>${escapeHtml(r.nama)}</strong></td><td>${r.jumlah}</td><td>${r.rata}</td>
+    <td><span class="badge ${r.predikat==='Sangat Berkembang'?'badge-green':r.predikat==='Berkembang Sesuai Harapan'?'badge-blue':r.predikat==='Mulai Berkembang'?'badge-orange':'badge-red'}">${r.predikat}</span></td></tr>`).join("");
+  return `
+  <div class="section-head"><div><h1>Rekap Nilai</h1><div class="desc">Rata-rata nilai per siswa berdasarkan mata pelajaran & jenis asesmen terpilih.</div></div>
+    <div class="grow"></div>
+    <button class="btn" onclick="exportRekapExcel()">${ic("bar",15)} Excel</button>
+    <button class="btn" onclick="printRekap()">${ic("print",15)} Cetak</button></div>
+  <div class="toolbar">
+    <select style="padding:10px;border-radius:11px;border:1px solid var(--border);" onchange="window._rekapJenis=this.value; renderPage('rekapnilai');">
+      <option value="asesmenFormatif" ${jenisSel==='asesmenFormatif'?'selected':''}>Asesmen Formatif</option>
+      <option value="asesmenSumatif" ${jenisSel==='asesmenSumatif'?'selected':''}>Asesmen Sumatif</option>
+    </select>
+    <select style="padding:10px;border-radius:11px;border:1px solid var(--border);" onchange="window._rekapMapel=this.value; renderPage('rekapnilai');">
+      ${MAPEL_LIST.map(m=>`<option value="${escapeHtml(m)}" ${m===mapelSel?"selected":""}>${escapeHtml(m)}</option>`).join("")}
+    </select>
+  </div>
+  <div id="rekapTableHolder" class="table-wrap"><table><thead><tr><th>No</th><th>Nama Siswa</th><th>Jumlah Data</th><th>Rata-rata</th><th>Predikat</th></tr></thead>
+  <tbody>${body}</tbody></table></div>`;
+};
+function exportRekapExcel(){ htmlToExcelXls(document.getElementById("rekapTableHolder").innerHTML, "Rekap_Nilai_"+(window._rekapMapel||"").replace(/\s+/g,"_"), "Rekap Nilai"); }
+function printRekap(){ printDocument("REKAP NILAI - "+ (window._rekapMapel||"").toUpperCase(), document.getElementById("rekapTableHolder").innerHTML); }
+
+/* ---------- DESKRIPSI RAPOR ---------- */
+function generateRaporDraft(siswaId){
+  const s = db.siswa.find(x=>x.id===siswaId);
+  const rows = db.asesmenSumatif.filter(r=>r.siswaId===siswaId);
+  const byMapel = {};
+  rows.forEach(r=>{ if(!byMapel[r.mapel]) byMapel[r.mapel]=[]; byMapel[r.mapel].push(Number(r.nilai)||0); });
+  let text = `${s.nama} `;
+  const parts = Object.keys(byMapel).map(m=>{
+    const arr = byMapel[m]; const avg = arr.reduce((a,b)=>a+b,0)/arr.length;
+    const level = avg>=85?"sangat baik":avg>=70?"baik dan sesuai harapan":avg>=60?"mulai berkembang":"masih perlu bimbingan lebih lanjut";
+    return `menunjukkan capaian yang ${level} pada mata pelajaran ${m}`;
+  });
+  if(parts.length===0){
+    text += "belum memiliki data asesmen sumatif yang cukup untuk disusun menjadi deskripsi rapor. Silakan lengkapi data pada menu Asesmen Sumatif terlebih dahulu.";
+  } else {
+    text += parts.join("; ") + ". Ananda menunjukkan perkembangan yang baik pada dimensi profil lulusan sesuai pengamatan guru selama proses pembelajaran mendalam (berkesadaran, bermakna, dan menggembirakan). Diharapkan Ananda terus semangat belajar dan berlatih di rumah bersama orang tua.";
+  }
+  return text;
+}
+PAGES.rapor = function(){
+  const rows = siswaSortedAlpha().map(s=>{
+    const text = db.raporDeskripsi[s.id] || "";
+    return `<div class="card" style="margin-bottom:14px;">
+      <h3>${escapeHtml(s.nama)}</h3>
+      <div class="field"><textarea id="rapor_${s.id}" placeholder="Klik 'Buat Draf Otomatis' atau tulis manual...">${escapeHtml(text)}</textarea></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-sm" onclick="draftRapor('${s.id}')">${ic("star",14)} Buat Draf Otomatis</button>
+        <button class="btn btn-sm btn-primary" onclick="saveRapor('${s.id}')">${ic("check",14)} Simpan</button>
+        <button class="btn btn-sm" onclick="printRaporSiswa('${s.id}')">${ic("print",14)} Cetak</button>
+      </div></div>`;
+  }).join("");
+  return `<div class="section-head"><div><h1>Deskripsi Rapor</h1><div class="desc">Narasi capaian belajar per siswa. Draf otomatis dihitung dari data Asesmen Sumatif, dapat Bapak/Ibu Guru edit bebas.</div></div></div>${rows}`;
+};
+function draftRapor(id){ document.getElementById("rapor_"+id).value = generateRaporDraft(id); }
+function saveRapor(id){ db.raporDeskripsi[id] = document.getElementById("rapor_"+id).value; saveDB(); toast("Deskripsi rapor tersimpan."); }
+function printRaporSiswa(id){
+  const s = db.siswa.find(x=>x.id===id);
+  const text = db.raporDeskripsi[id] || generateRaporDraft(id);
+  printDocument("DESKRIPSI RAPOR - "+s.nama.toUpperCase(), `<p><strong>Nama:</strong> ${escapeHtml(s.nama)} &nbsp; <strong>NIS:</strong> ${escapeHtml(s.nis||'-')} &nbsp; <strong>Kelas:</strong> ${escapeHtml(db.sekolah.kelas)}</p><div class="divider"></div><p style="line-height:1.8;">${escapeHtml(text)}</p>`);
+}
+
+/* ---------- KEHADIRAN ---------- */
+PAGES.kehadiran = function(){
+  const tgl = window._kehadiranTgl || todayISO();
+  db.kehadiran[tgl] = db.kehadiran[tgl] || {};
+  const rows = siswaSortedAlpha().map(s=>{
+    const st = db.kehadiran[tgl][s.id] || "H";
+    const opts = [["H","Hadir","badge-green"],["S","Sakit","badge-orange"],["I","Izin","badge-blue"],["A","Alpa","badge-red"]];
+    return `<tr><td><strong>${escapeHtml(s.nama)}</strong></td><td>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+      ${opts.map(o=>`<button class="btn btn-sm ${st===o[0]?'btn-primary':''}" onclick="setKehadiran('${tgl}','${s.id}','${o[0]}')">${o[1]}</button>`).join("")}
+      </div></td></tr>`;
+  }).join("");
+  // Rekap bulanan sederhana
+  const bulan = tgl.slice(0,7);
+  const rekap = siswaSortedAlpha().map(s=>{
+    let h=0,sk=0,iz=0,al=0;
+    Object.keys(db.kehadiran).forEach(d=>{
+      if(d.startsWith(bulan)){
+        const st = db.kehadiran[d][s.id];
+        if(st==="H") h++; else if(st==="S") sk++; else if(st==="I") iz++; else if(st==="A") al++;
+      }
+    });
+    return {nama:s.nama,h,sk,iz,al};
+  });
+  return `
+  <div class="section-head"><div><h1>Kehadiran Siswa</h1><div class="desc">Tandai kehadiran harian, lalu lihat rekap bulanan di bawah.</div></div>
+    <div class="grow"></div>
+    <button class="btn" onclick="printKehadiran()">${ic("print",15)} Cetak Rekap Bulan Ini</button></div>
+  <div class="card" style="margin-bottom:16px;">
+    <div class="field" style="max-width:220px;"><label>Tanggal</label><input type="date" value="${tgl}" onchange="window._kehadiranTgl=this.value; renderPage('kehadiran');"></div>
+    <div class="table-wrap"><table><thead><tr><th>Nama Siswa</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div>
+  </div>
+  <div class="card">
+    <h3>Rekap Bulan ${bulan}</h3>
+    <div id="rekapAbsenHolder" class="table-wrap"><table><thead><tr><th>Nama</th><th>Hadir</th><th>Sakit</th><th>Izin</th><th>Alpa</th></tr></thead>
+    <tbody>${rekap.map(r=>`<tr><td>${escapeHtml(r.nama)}</td><td>${r.h}</td><td>${r.sk}</td><td>${r.iz}</td><td>${r.al}</td></tr>`).join("")}</tbody></table></div>
+  </div>`;
+};
+/* setKehadiran & printKehadiran kini didefinisikan di modul BATCH 2 (mendukung pilihan bulan & export Word/Excel resmi) */
+
+/* ---------- CATATAN PERKEMBANGAN ---------- */
+PAGES.perkembangan = function(){
+  return crudSection({
+    store:"perkembangan", title:"Catatan Perkembangan / Buku Bimbingan",
+    desc:"Catatan perkembangan sikap, sosial-emosional, dan akademik peserta didik dari waktu ke waktu.",
+    fields:[
+      {key:"siswaId",label:"Nama Siswa",type:"select",options:siswaOpts(),required:true},
+      {key:"tanggal",label:"Tanggal",type:"date",required:true},
+      {key:"kategori",label:"Kategori",type:"select",options:["Akademik","Sosial-Emosional","Sikap/Perilaku","Kesehatan","Bakat/Minat"]},
+      {key:"catatan",label:"Catatan Perkembangan",type:"textarea",required:true},
+      {key:"tindakLanjut",label:"Tindak Lanjut",type:"textarea"},
+    ],
+    columns:[
+      {key:"siswaId",label:"Siswa",render:v=>escapeHtml((db.siswa.find(s=>s.id===v)||{}).nama||"?")},
+      {key:"tanggal",label:"Tanggal",render:v=>fmtDate(v)},
+      {key:"kategori",label:"Kategori"},
+      {key:"catatan",label:"Catatan",render:v=>escapeHtml((v||"").slice(0,50))+((v||"").length>50?"...":"")},
+    ],
+    searchKeys:["catatan","kategori"]
+  });
+};
+
+/* ---------- HOME VISIT ---------- */
+PAGES.homevisit = function(){
+  return crudSection({
+    store:"homevisit", title:"Home Visit (Kunjungan Rumah)",
+    desc:"Dokumentasi kunjungan rumah untuk tindak lanjut pembinaan peserta didik.",
+    fields:[
+      {key:"siswaId",label:"Nama Siswa",type:"select",options:siswaOpts(),required:true},
+      {key:"tanggal",label:"Tanggal Kunjungan",type:"date",required:true},
+      {key:"tujuan",label:"Tujuan Kunjungan",type:"textarea",required:true},
+      {key:"hasil",label:"Hasil Kunjungan",type:"textarea"},
+      {key:"tindakLanjut",label:"Rencana Tindak Lanjut",type:"textarea"},
+    ],
+    columns:[
+      {key:"siswaId",label:"Siswa",render:v=>escapeHtml((db.siswa.find(s=>s.id===v)||{}).nama||"?")},
+      {key:"tanggal",label:"Tanggal",render:v=>fmtDate(v)},
+      {key:"tujuan",label:"Tujuan",render:v=>escapeHtml((v||"").slice(0,50))+((v||"").length>50?"...":"")},
+    ],
+    searchKeys:["tujuan","hasil"]
+  });
+};
+
+/* ---------- SUPERVISI & REFLEKSI GURU ---------- */
+PAGES.supervisi = function(){
+  const tab = window._supTab || "supervisi";
+  let inner;
+  if(tab==="supervisi"){
+    inner = crudSection({
+      store:"supervisi", title:"Catatan Supervisi / Kepala Sekolah",
+      desc:"Catatan hasil supervisi kelas dan pembinaan dari Kepala Sekolah / Pengawas.",
+      fields:[
+        {key:"tanggal",label:"Tanggal",type:"date",required:true},
+        {key:"supervisor",label:"Nama Supervisor",required:true},
+        {key:"catatan",label:"Catatan/Temuan",type:"textarea",required:true},
+        {key:"tindakLanjut",label:"Rencana Tindak Lanjut",type:"textarea"},
+      ],
+      columns:[{key:"tanggal",label:"Tanggal",render:v=>fmtDate(v)},{key:"supervisor",label:"Supervisor"},{key:"catatan",label:"Catatan",render:v=>escapeHtml((v||"").slice(0,50))+((v||"").length>50?"...":"")}],
+    });
+  } else {
+    inner = crudSection({
+      store:"refleksi", title:"Refleksi Guru",
+      desc:"Refleksi mandiri guru atas praktik mengajar sebagai bagian pengembangan profesional berkelanjutan.",
+      fields:[
+        {key:"tanggal",label:"Tanggal",type:"date",required:true},
+        {key:"catatan",label:"Refleksi (apa yang berhasil, kendala, rencana perbaikan)",type:"textarea",required:true},
+      ],
+      columns:[{key:"tanggal",label:"Tanggal",render:v=>fmtDate(v)},{key:"catatan",label:"Refleksi",render:v=>escapeHtml((v||"").slice(0,80))+((v||"").length>80?"...":"")}],
+    });
+  }
+  return `<div class="pill-toggle" style="max-width:320px;margin-bottom:14px;">
+    <button class="${tab==='supervisi'?'active':''}" onclick="window._supTab='supervisi';renderPage('supervisi');">Supervisi</button>
+    <button class="${tab==='refleksi'?'active':''}" onclick="window._supTab='refleksi';renderPage('supervisi');">Refleksi Guru</button>
+  </div>${inner}`;
+};
+
+/* ---------- INVENTARIS KELAS ---------- */
+PAGES.inventaris = function(){
+  return crudSection({
+    store:"inventaris", title:"Inventaris Kelas",
+    desc:"Daftar sarana & prasarana yang tersedia di dalam kelas.",
+    fields:[
+      {key:"nama",label:"Nama Barang",required:true}, {key:"jumlah",label:"Jumlah",type:"number"},
+      {key:"kondisi",label:"Kondisi",type:"select",options:["Baik","Rusak Ringan","Rusak Berat"]},
+      {key:"keterangan",label:"Keterangan",type:"textarea"},
+    ],
+    columns:[{key:"nama",label:"Nama Barang"},{key:"jumlah",label:"Jumlah"},{key:"kondisi",label:"Kondisi",render:v=>`<span class="badge ${v==='Baik'?'badge-green':v==='Rusak Ringan'?'badge-orange':'badge-red'}">${escapeHtml(v)}</span>`},{key:"keterangan",label:"Keterangan"}],
+  });
+};
+
+/* ---------- BUKU TAMU ---------- */
+PAGES.bukutamu = function(){
+  return crudSection({
+    store:"bukutamu", title:"Buku Tamu Kelas",
+    desc:"Catatan kunjungan tamu ke kelas/sekolah (mengikuti format Buku Tamu Kelas: hari/tanggal, nama, jabatan, maksud & tujuan, TTD).",
+    fields:[
+      {key:"tanggal",label:"Hari/Tanggal",type:"date",required:true}, {key:"nama",label:"Nama Tamu",required:true},
+      {key:"jabatan",label:"Jabatan/Instansi"}, {key:"keperluan",label:"Maksud dan Tujuan",type:"textarea"},
+      {key:"ttd",label:"Keterangan Tanda Tangan"},
+    ],
+    columns:[{key:"tanggal",label:"Tanggal",render:v=>fmtDate(v)},{key:"nama",label:"Nama"},{key:"jabatan",label:"Jabatan/Instansi"},{key:"keperluan",label:"Maksud dan Tujuan"}],
+  });
+};
+
+/* ---------- BUKU MUTASI SISWA ---------- */
+PAGES.mutasi = function(){
+  const html = crudSection({
+    store:"mutasi", title:"Buku Mutasi Siswa",
+    desc:"Riwayat siswa masuk (peserta didik baru/pindahan) dan keluar (mutasi keluar/putus sekolah/dll.) beserta alasan dan tanggalnya. Sebagian besar entri terisi otomatis dari menu Data Siswa (\"Siswa Masuk\" &amp; ikon Siswa Keluar), namun dapat juga ditambah/diubah manual di sini.",
+    fields:[
+      {key:"tanggal",label:"Tanggal",type:"date",required:true},
+      {key:"namaSiswa",label:"Nama Siswa",required:true},
+      {key:"jenis",label:"Jenis Mutasi",type:"select",options:["Masuk - Peserta Didik Baru","Masuk - Pindahan / Mutasi Masuk","Keluar - Pindah Sekolah (Mutasi Keluar)","Keluar - Putus Sekolah","Keluar - Meninggal Dunia","Keluar - Lainnya"]},
+      {key:"alasanKeluar",label:"Alasan Keluar (khusus jenis Keluar)"},
+      {key:"asalTujuan",label:"Sekolah Asal / Sekolah Tujuan"},
+      {key:"keterangan",label:"Keterangan",type:"textarea"},
+    ],
+    columns:[
+      {key:"tanggal",label:"Tanggal",render:v=>fmtDate(v)},
+      {key:"namaSiswa",label:"Nama Siswa"},
+      {key:"jenis",label:"Jenis",render:v=>`<span class="badge ${String(v||"").startsWith("Masuk")?"badge-green":"badge-red"}">${escapeHtml(v||"-")}</span>`},
+      {key:"asalTujuan",label:"Sekolah Asal/Tujuan"},
+      {key:"keterangan",label:"Keterangan",render:v=>escapeHtml((v||"").slice(0,40))+((v||"").length>40?"...":"")},
+    ],
+  });
+  return `<div class="card" style="background:var(--primary-soft);border-color:var(--primary);margin-bottom:14px;">
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+      ${ic("info",18)}
+      <p style="margin:0;font-size:12px;flex:1;min-width:200px;">Untuk memproses siswa baru/pindahan atau siswa keluar secara langsung dari roster kelas (otomatis tercatat di sini), gunakan menu <strong>Data Siswa</strong>.</p>
+      <button class="btn btn-sm" onclick="navigate('siswa')">${ic("student",14)} Ke Data Siswa</button>
+    </div>
+  </div>${html}`;
+};
+
+/* ---------- ARSIP DOKUMEN ---------- */
+PAGES.arsip = function(){
+  const filters = window._arsipFilters || {kategori:"", kelasId:"", mapel:"", semester:"", q:""};
+  window._arsipFilters = filters;
+  window._arsipOnRefresh = ()=> renderArsipListInto("arsipListHolder", window._arsipFilters);
+  setTimeout(window._arsipOnRefresh, 0);
+
+  const legacyHtml = crudSection({
+    store:"arsip", title:"Catatan Arsip Lama (Tanpa File)",
+    desc:"Entri arsip berbasis catatan teks dari versi aplikasi sebelumnya (tanpa berkas asli). Tetap dipertahankan agar data lama tidak hilang -- gunakan panel \"Unggah Dokumen\" di atas untuk arsip baru yang menyertakan berkas aslinya.",
+    fields:[
+      {key:"tanggal",label:"Tanggal",type:"date"},
+      {key:"judul",label:"Judul Dokumen",required:true},
+      {key:"kategori",label:"Kategori",type:"select",options:["Administrasi","Dokumentasi Kegiatan","Surat Menyurat","Catatan Kepala Sekolah","Lainnya"]},
+      {key:"lokasi",label:"Lokasi Berkas / Keterangan",type:"textarea"},
+    ],
+    columns:[{key:"tanggal",label:"Tanggal",render:v=>fmtDate(v)},{key:"judul",label:"Judul"},{key:"kategori",label:"Kategori"},{key:"lokasi",label:"Lokasi/Keterangan"}],
+  });
+
+  return `
+  <div class="section-head"><div><h1>Arsip Dokumen</h1><div class="desc">Pusat penyimpanan file guru (Modul Ajar, Jurnal Mengajar, ATP, CP, RPP, Administrasi Guru, dan dokumen lain), tersimpan 100% offline di perangkat ini melalui IndexedDB.</div></div>
+    <div class="grow"></div>
+    <button class="btn btn-primary" onclick="uploadArsipFile({onDone:window._arsipOnRefresh})">${ic("upload",15)} Unggah Dokumen</button>
+  </div>
+  <div class="toolbar">
+    <div class="search-box">${ic("search",16)}<input placeholder="Cari nama file / mapel / bab / isi OCR..." value="${escapeHtml(filters.q)}" oninput="window._arsipFilters.q=this.value; window._arsipOnRefresh();"></div>
+    <select style="padding:10px;border-radius:11px;border:1px solid var(--border);" onchange="window._arsipFilters.kategori=this.value; window._arsipOnRefresh();">
+      <option value="">Semua Kategori</option>
+      ${ARSIP_KATEGORI.map(k=>`<option value="${escapeHtml(k)}" ${filters.kategori===k?"selected":""}>${escapeHtml(k)}</option>`).join("")}
+    </select>
+    <select style="padding:10px;border-radius:11px;border:1px solid var(--border);" onchange="window._arsipFilters.kelasId=this.value; window._arsipOnRefresh();">
+      <option value="">Semua Kelas</option>
+      ${CLASS_LIST.map(c=>`<option value="${c.id}" ${filters.kelasId===c.id?"selected":""}>${escapeHtml(c.label)}</option>`).join("")}
+    </select>
+    <select style="padding:10px;border-radius:11px;border:1px solid var(--border);" onchange="window._arsipFilters.mapel=this.value; window._arsipOnRefresh();">
+      <option value="">Semua Mapel</option>
+      ${MAPEL_LIST.map(m=>`<option value="${escapeHtml(m)}" ${filters.mapel===m?"selected":""}>${escapeHtml(m)}</option>`).join("")}
+    </select>
+    <select style="padding:10px;border-radius:11px;border:1px solid var(--border);" onchange="window._arsipFilters.semester=this.value; window._arsipOnRefresh();">
+      <option value="">Semua Semester</option>
+      <option value="1" ${filters.semester==="1"?"selected":""}>Semester 1</option>
+      <option value="2" ${filters.semester==="2"?"selected":""}>Semester 2</option>
+    </select>
+  </div>
+  <div id="arsipListHolder"><p class="muted">Memuat arsip...</p></div>
+  <div class="divider" style="margin:24px 0;"></div>
+  ${legacyHtml}`;
+};
+
+
