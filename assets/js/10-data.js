@@ -82,6 +82,27 @@ const SEED_JADWAL_KELAS1 = {
   ],
   "Sabtu": [],
 };
+/* Normalisasi singkatan mapel lama (seed awal) ke nama baku MAPEL_LIST / teks bebas.
+   Dijalankan idempoten saat boot agar jadwal yang sudah tersimpan tampil benar
+   di editor (dulu "PABP" dll. tidak cocok dengan opsi dropdown sehingga terbaca kosong). */
+const JADWAL_MAPEL_NORMALISASI = {
+  "PABP":"Pendidikan Agama Islam dan Budi Pekerti",
+  "KO. PABP":"Pendidikan Agama Islam dan Budi Pekerti",
+  "PEND. PANCASILA":"Pendidikan Pancasila",
+  "B. INDONESIA":"Bahasa Indonesia",
+  "MATEMATIKA":"Matematika",
+  "B. JAWA":"Muatan Lokal",
+  "SENI RUPA":"Seni Rupa",
+  "KO. PJOK":"PJOK",
+  "KOKURIKULER":"Kokurikuler",
+  "UPACARA":"Upacara",
+};
+function normalisasiMapelJadwal(nama){
+  if(nama==null) return nama;
+  const key = String(nama).trim().toUpperCase().replace(/\s+/g," ");
+  if(!key) return nama;
+  return JADWAL_MAPEL_NORMALISASI[key] || String(nama).trim();
+}
 const SEED_SEKOLAH = {
   namaSekolah: "SEKOLAH DASAR NEGERI 1 GERDUREN",
   npsn: "[Belum tersedia]",
@@ -105,29 +126,23 @@ const SEED_SEKOLAH = {
 };
 
 // ============================================================
-// CAPAIAN PEMBELAJARAN (CP) - MULTI-FASE (A/B/C), REVISI 2026
+// CAPAIAN PEMBELAJARAN (CP) - MULTI-FASE (A/B/C)
 // ------------------------------------------------------------
-// Dasar hukum:
-// 1. Keputusan Kepala BSKAP Kemendikdasmen No. 046/H/KR/2025 tentang
-//    Capaian Pembelajaran pada PAUD, Jenjang Pendidikan Dasar, dan
-//    Jenjang Pendidikan Menengah (CP seluruh mata pelajaran, berlaku
-//    sejak ditetapkan tahun 2025).
-// 2. Keputusan Kepala Badan Kebijakan Pendidikan Dasar dan Menengah
-//    (BKPDM) No. 020 Tahun 2026 tentang Perubahan atas Kepka BSKAP
-//    No. 046/H/KR/2025, ditetapkan dan berlaku sejak 11 Juni 2026.
-//    Perubahan ini KHUSUS mengubah Lampiran II & Lampiran V, yaitu
-//    Capaian Pembelajaran mata pelajaran Pendidikan Agama dan Budi
-//    Pekerti (seluruh agama) serta Pendidikan Khusus Pendidikan
-//    Agama dan Budi Pekerti, pada seluruh fase (A-F). CP mata
-//    pelajaran lain TIDAK berubah dan tetap mengacu pada Kepka BSKAP
-//    No. 046/H/KR/2025. Satuan pendidikan agar meninjau ulang ATP,
-//    modul ajar, dan asesmen mapel Pendidikan Agama & Budi Pekerti
-//    agar selaras dengan CP hasil revisi 2026 ini.
+// Dasar hukum yang terverifikasi:
+// Keputusan Kepala BSKAP Kemendikdasmen No. 046/H/KR/2025 tentang
+// Capaian Pembelajaran pada PAUD, Jenjang Pendidikan Dasar, dan
+// Jenjang Pendidikan Menengah (ditetapkan 16 Juli 2025), yang
+// memutakhirkan CP dan menggantikan Kep. Kepala BSKAP No. 032/H/KR/2024.
+// CATATAN KEJUJURAN (11 Okt 2026): referensi "Kepka BKPDM No. 020
+// Tahun 2026" yang sempat tercantum di sini telah DIHAPUS karena
+// tidak terverifikasi dari naskah primer. Bila ada revisi CP yang
+// lebih baru, verifikasi dahulu dari dokumen resmi Kemendikdasmen
+// sebelum dijadikan acuan.
 // Pembagian fase SD: Fase A = Kelas 1-2, Fase B = Kelas 3-4,
 // Fase C = Kelas 5-6. Setiap kelas otomatis memakai CP sesuai
 // fasenya lewat fungsi faseForClassId() / cpSeedForFase() di bawah.
 // ============================================================
-const CP_LEGAL_NOTE = "CP mata pelajaran Pendidikan Agama dan Budi Pekerti pada halaman ini mengikuti Keputusan Kepala BKPDM No. 020 Tahun 2026 (perubahan atas Kepka BSKAP No. 046/H/KR/2025, berlaku sejak 11 Juni 2026, khusus Lampiran II & V). CP mata pelajaran lainnya tetap mengacu Kepka BSKAP No. 046/H/KR/2025 dan tidak mengalami perubahan pada revisi 2026 ini.";
+const CP_LEGAL_NOTE = "CP pada halaman ini mengacu pada Keputusan Kepala BSKAP Kemendikdasmen No. 046/H/KR/2025 (ditetapkan 16 Juli 2025). Bila terdapat regulasi CP yang lebih baru, verifikasi dari naskah resmi Kemendikdasmen sebelum dijadikan acuan.";
 
 function faseForClassId(classId){
   const c = classInfo(classId);
