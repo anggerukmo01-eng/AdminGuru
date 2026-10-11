@@ -334,7 +334,7 @@ PAGES.pengaturan = function(){
   <div class="card" style="margin-top:16px;">
     <h3>${ic("info",16)} Tentang Aplikasi &amp; Batasan Jujur</h3>
     <p class="hint" style="font-size:12.5px;line-height:1.7;">
-      Teacher Planner SD 2026 berjalan 100% offline dari satu file HTML, tanpa server maupun instalasi. Beberapa catatan penting:<br><br>
+      Administrasi Guru berjalan 100% offline, tanpa server maupun instalasi. Beberapa catatan penting:<br><br>
       &bull; <strong>Multi-Kelas:</strong> pemilih "Kelas Aktif" di bagian atas aplikasi menentukan seluruh data yang ditampilkan (siswa, kehadiran, nilai, jurnal, jadwal, dsb). Data setiap kelas disimpan terpisah dan tidak pernah tercampur. Data guru/tendik, profil sekolah, dan kalender pendidikan bersifat sekolah (dipakai bersama semua kelas), sedangkan Wali Kelas diatur per kelas.<br>
       &bull; <strong>Kelas 2-6 dimulai kosong:</strong> hanya Kelas 1 yang memiliki data siswa/guru dari dokumen resmi yang diunggah. Kelas 2-6 sengaja tidak diisi data karangan -- silakan tambah/impor data siswa sendiri lewat menu Data Siswa pada tiap kelas.<br>
       &bull; <strong>Capaian Pembelajaran (CP/ATP/KKTP):</strong> versi bawaan aplikasi hanya berisi kutipan resmi Fase A khusus Kelas 1. Untuk Kelas 2-6, isi CP/ATP/KKTP perlu ditambahkan sendiri lewat menu masing-masing karena dokumen sumber Fase B/C/D/E/F belum tersedia di aplikasi ini.<br>
