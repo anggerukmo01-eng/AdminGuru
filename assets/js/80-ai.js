@@ -27,12 +27,21 @@ function defaultAiSettings(){
     streaming:true,
     timeoutSec:60,
     retry:2,
-    systemPrompt:"Anda adalah asisten AI ahli Kurikulum Merdeka dan Pembelajaran Mendalam (Deep Learning) untuk guru Sekolah Dasar di Indonesia. Anda menyusun dokumen administrasi pembelajaran yang formal, akurat, terstruktur, sesuai regulasi Kemendikdasmen terbaru (Permendikbudristek No. 12/2024 jo. Permendikdasmen No. 13/2025, Permendikdasmen No. 10/2025 tentang SKL, Kepbadan BSKAP No. 046/H/KR/2025 jo. Kepka BKPDM No. 020/2026 tentang Capaian Pembelajaran), serta menerapkan prinsip Pembelajaran Mendalam: berkesadaran (mindful), bermakna (meaningful), dan menggembirakan (joyful). SELALU tulis jawaban HANYA dalam Bahasa Indonesia formal dan HANYA dalam format HTML valid (gunakan tag h2,h3,h4,p,ul,ol,li,table,thead,tbody,tr,td,th,strong,em). JANGAN gunakan markdown (**, #, |). JANGAN menyertakan tag html/head/body, cukup potongan HTML dokumen. JANGAN menambahkan komentar, catatan, atau kalimat pembuka/penutup di luar isi dokumen."
+    systemPrompt:"Anda adalah asisten AI ahli Kurikulum Merdeka dan Pembelajaran Mendalam untuk guru Sekolah Dasar di Indonesia. Tugas Anda: menyusun dokumen administrasi pembelajaran yang formal, akurat, terstruktur, dan siap pakai.\n\nSTANDAR WAJIB:\n1. Regulasi acuan (jangan mengarang nomor/isi regulasi): Permendikbudristek No. 21/2022 (Standar Penilaian), Panduan Pembelajaran dan Asesmen Edisi Revisi 2025, Kep. Kepala BSKAP No. 046/H/KR/2025 (Capaian Pembelajaran), Permendikbudristek No. 12/2024 jo. Permendikdasmen No. 13/2025 (kurikulum). Gunakan CP/TP yang diberikan guru; jangan mengubah maknanya, hanya rapikan bahasanya.\n2. Prinsip asesmen: asesmen formatif untuk umpan balik dan bahan deskripsi capaian (tidak menentukan nilai rapor); nilai rapor hanya diolah dari asesmen sumatif; KKTP sebagai acuan ketercapaian tiap TP.\n3. Kaidah penulisan soal: sesuai indikator/TP; tepat satu kunci jawaban; pengecoh homogen, logis, dan berfungsi; pokok soal jelas dan tegas; tidak memberi petunjuk ke jawaban benar; hindari pernyataan negatif ganda; panjang opsi relatif sama; tanpa opsi 'semua benar/salah'; opsi angka diurutkan kecil ke besar; soal tidak bergantung pada jawaban soal lain; bahasa Indonesia komunikatif sesuai jenjang; tanpa bahasa daerah/tabu.\n4. Fase A (kelas 1-2): bahasa sederhana dan konkret, kontekstual dengan dunia anak, sertakan deskripsi ilustrasi [Ilustrasi: ...] pada soal yang terbantu gambar, sebaran level kognitif dominan C1-C3 dengan HOTS (C4-C6) proporsional.\n5. Pembelajaran Mendalam: kegiatan menerapkan prinsip berkesadaran (mindful), bermakna (meaningful), dan menggembirakan (joyful); kembangkan 8 dimensi Profil Lulusan (keimanan & ketakwaan, kewargaan, penalaran kritis, kreativitas, kolaborasi, kemandirian, kesehatan, komunikasi).\n\nFORMAT OUTPUT: SELALU Bahasa Indonesia formal. HANYA HTML valid (tag h2,h3,h4,p,ul,ol,li,table,thead,tbody,tr,td,th,strong,em). JANGAN gunakan markdown (**, #, |). JANGAN sertakan tag html/head/body, cukup potongan HTML dokumen. JANGAN menambahkan kalimat pembuka/penutup, komentar, atau catatan di luar isi dokumen."
   };
 }
 function loadAiSettings(){
-  try{ const raw = localStorage.getItem(AI_SET_KEY); if(raw) return Object.assign(defaultAiSettings(), JSON.parse(raw)); }catch(e){}
-  return defaultAiSettings();
+  let s = null;
+  try{ const raw = localStorage.getItem(AI_SET_KEY); if(raw) s = Object.assign(defaultAiSettings(), JSON.parse(raw)); }catch(e){}
+  if(!s) s = defaultAiSettings();
+  // Migrasi aman: ganti system prompt bawaan lama (mengandung referensi regulasi
+  // yang tidak terverifikasi, "020/2026") dengan versi baru. Prompt kustom
+  // pengguna (tanpa penanda itu) tidak diubah.
+  if(s.systemPrompt && s.systemPrompt.indexOf("020/2026")>=0){
+    s.systemPrompt = defaultAiSettings().systemPrompt;
+    try{ localStorage.setItem(AI_SET_KEY, JSON.stringify(s)); }catch(e){}
+  }
+  return s;
 }
 function saveAiSettings(){ localStorage.setItem(AI_SET_KEY, JSON.stringify(aiSettings)); }
 let aiSettings = loadAiSettings();
@@ -235,31 +244,58 @@ function aiSaveSettingsFromForm(){
   toast("Pengaturan AI tersimpan.");
 }
 
-/* ---------- 4. PAGE: AI DASHBOARD ---------- */
+/* ---------- 4. PAGE: PUSAT AI GURU (hub alur kerja) ---------- */
+const AI_WORKFLOWS = [
+  {judul:"Perencanaan Pembelajaran", icon:"clipboard", desc:"Siapkan perangkat sebelum mengajar — terhubung dengan data CP/TP aplikasi.", items:[
+    {id:"aiModul", label:"Modul Ajar", desc:"Modul Ajar lengkap siap pakai"},
+    {id:"aiTP", label:"TP", desc:"Tujuan Pembelajaran dari CP"},
+    {id:"aiATP", label:"ATP", desc:"Alur TP per semester"},
+    {id:"aiLKPD", label:"LKPD", desc:"Lembar kerja peserta didik"},
+  ]},
+  {judul:"Penilaian & Tindak Lanjut", icon:"target", desc:"Soal, rubrik, dan tindak lanjut hasil belajar.", items:[
+    {id:"aiBankSoal", label:"Bank Soal", desc:"UH / STS / SAS + kisi, kunci, skor"},
+    {id:"aiAsesForm", label:"Asesmen Formatif", desc:"Kuis & instrumen umpan balik"},
+    {id:"aiRubrik", label:"Rubrik Penilaian", desc:"Rubrik sikap, unjuk kerja, produk"},
+    {id:"aiPengRem", label:"Pengayaan & Remedial", desc:"RTL dari hasil Analisis Nilai"},
+  ]},
+  {judul:"Administrasi Harian & Wali Kelas", icon:"clock", desc:"Jurnal mengajar dan surat menyurat.", items:[
+    {id:"aiJurnal", label:"Jurnal Mengajar", desc:"Jurnal harian dari rencana minggu ini"},
+    {id:"aiSuratOrtu", label:"Surat Orang Tua", desc:"Undangan, pemberitahuan, pemanggilan"},
+  ]},
+];
 PAGES.aiDashboard = function(){
   const hist = loadAiHistory();
-  const totalGen = hist.length;
   const totalDoc = (db.aiDocs||[]).length;
-  const totalPromptTok = hist.reduce((a,h)=>a+(h.usage&&h.usage.prompt_tokens||0),0);
-  const totalCompTok = hist.reduce((a,h)=>a+(h.usage&&h.usage.completion_tokens||0),0);
-  const estCost = aiEstimateCost(totalPromptTok, totalCompTok);
+  const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0,0,0,0);
+  const genMonth = hist.filter(h=>{ try{ return new Date(h.createdAt)>=monthStart; }catch(e){ return false; } }).length;
   const last = hist[0];
+  const apiOk = !!(aiSettings.apiKey && String(aiSettings.apiKey).trim());
+  const wfHtml = AI_WORKFLOWS.map(w=>`
+    <div class="card" style="margin-bottom:16px;">
+      <h3 style="font-size:14px;margin-bottom:4px;">${ic(w.icon,16)} ${w.judul}</h3>
+      <p class="hint" style="margin:0 0 10px;">${w.desc}</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px;">
+        ${w.items.map(it=>`
+          <button class="btn" style="justify-content:flex-start;height:auto;padding:12px 14px;text-align:left;" onclick="navigate('${it.id}')">
+            <span><strong>${it.label}</strong><br><span class="hint" style="font-weight:400;">${it.desc}</span></span>
+          </button>`).join("")}
+      </div>
+    </div>`).join("");
   return `
-  <div class="ai-stat-row">
-    <div class="card stat-card"><div class="icon" style="background:var(--primary-soft);color:var(--primary);">${ic("star",20)}</div><div class="num">${totalGen}</div><div class="lbl">Jumlah Generate</div></div>
-    <div class="card stat-card"><div class="icon" style="background:var(--accent-soft);color:var(--accent);">${ic("clipboard",20)}</div><div class="num">${totalDoc}</div><div class="lbl">Dokumen Tersimpan</div></div>
-    <div class="card stat-card"><div class="icon" style="background:var(--warn-soft);color:var(--warn);">${ic("layers",20)}</div><div class="num">${(totalPromptTok+totalCompTok).toLocaleString("id-ID")}</div><div class="lbl">Estimasi Token</div></div>
-    <div class="card stat-card"><div class="icon" style="background:var(--danger-soft);color:var(--danger);">${ic("box",20)}</div><div class="num">$${estCost.toFixed(3)}</div><div class="lbl">Estimasi Biaya (kasar)</div></div>
+  <div class="section-head"><div><h1>Pusat AI Guru</h1><div class="desc">Asisten AI untuk mempercepat administrasi guru kelas. Hasil generate selalu wajib ditinjau guru sebelum dipakai.</div></div></div>
+  ${apiOk?"":`<div class="card" style="margin-bottom:16px;border-left:4px solid var(--warn);"><strong>API Key belum diisi.</strong> <span class="hint">Generator membutuhkan API Key OpenRouter agar bisa berjalan.</span> <button class="btn btn-sm btn-primary" onclick="navigate('aiSettings')">Buka AI Settings</button></div>`}
+  <div class="stat-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px;">
+    <div class="stat-card"><div class="stat-num">${totalDoc}</div><div class="stat-label">Dokumen Tersimpan</div></div>
+    <div class="stat-card"><div class="stat-num">${genMonth}</div><div class="stat-label">Generate Bulan Ini</div></div>
+    <div class="stat-card"><div class="stat-num" style="font-size:15px;line-height:1.5;">${escapeHtml(String(aiSettings.model||"-").split("/").pop())}</div><div class="stat-label">Model Aktif</div></div>
   </div>
-  <div class="card" style="margin-bottom:16px;">
-    <h3>Model AI Aktif</h3>
-    <p><span class="badge badge-blue">${escapeHtml(aiSettings.model)}</span> &nbsp; <span class="hint">Ubah di menu AI Settings.</span></p>
-  </div>
+  ${wfHtml}
   <div class="card">
-    <h3>Generate Terakhir</h3>
+    <h3 style="font-size:14px;margin-bottom:10px;">${ic("archive",16)} Generate Terakhir</h3>
     ${last ? `<div class="ai-hist-item"><div><strong>${escapeHtml(last.title)}</strong><div class="meta">${escapeHtml(last.type)} &middot; ${new Date(last.createdAt).toLocaleString("id-ID")}</div></div>
-      <button class="btn btn-sm" onclick="aiViewHistory('${last.id}')">${ic("book",14)} Lihat</button></div>`
-      : `<p class="hint">Belum ada riwayat generate. Buka salah satu menu AI: Modul Ajar / ATP / LKPD untuk mulai.</p>`}
+      <button class="btn btn-sm" onclick="aiViewHistory('${last.id}')">${ic("book",14)} Lihat</button></div>
+      <div style="margin-top:8px;"><button class="btn btn-sm" onclick="navigate('aiHistory')">Lihat Semua Riwayat</button></div>`
+      : `<p class="hint">Belum ada riwayat generate. Mulai dari salah satu generator di atas.</p>`}
   </div>`;
 };
 
@@ -311,6 +347,11 @@ function aiDuplicateAsNewDoc(id){
 }
 
 /* ---------- 6. HELPER: FORM ELEMENTS UNTUK GENERATOR ---------- */
+function aiSemDefault(){ return String(db.sekolah.semester||"1").trim().charAt(0)==="2" ? "2" : "1"; }
+function aiSemesterSelect(id){
+  const d = aiSemDefault();
+  return `<select id="${id}"><option value="1" ${d==="1"?"selected":""}>Semester 1 (Ganjil)</option><option value="2" ${d==="2"?"selected":""}>Semester 2 (Genap)</option></select>`;
+}
 function aiKelasSelect(id, selected){
   selected = selected || activeClassId;
   return `<select id="${id}">${CLASS_LIST.map(c=>`<option value="${c.id}" ${c.id===selected?"selected":""}>${c.label} (Fase ${faseForClassId(c.id)})</option>`).join("")}</select>`;
@@ -343,6 +384,15 @@ function aiCheckGrid(name, options, checkedDefault){
 }
 function aiGetChecked(name){
   return Array.from(document.querySelectorAll(`input[name="${name}"]:checked`)).map(el=>el.value);
+}
+function aiSetChecked(name, values){
+  document.querySelectorAll(`input[name="${name}"]`).forEach(el=>{ el.checked = values.includes(el.value); });
+}
+/* Preset cepat: dropdown yang mengisi seluruh form generator dalam 1 klik. */
+function aiPresetSelectHtml(id, label, options, onChangeFn){
+  return `<div class="field"><label>${label}</label><select id="${id}" onchange="${onChangeFn}(this.value)">
+    <option value="">— Pilih preset (opsional, isian manual tetap bisa) —</option>
+    ${options.map(o=>`<option value="${o.value}">${o.label}</option>`).join("")}</select></div>`;
 }
 
 /* ---------- 7. LOADING / RESULT PANEL ---------- */
@@ -471,8 +521,13 @@ PAGES.aiModul = function(){
       </details>
       <div class="grid grid-2">
         <div class="field"><label>Kelas</label>${aiKelasSelect("am_kelas", kelasId)}</div>
-        <div class="field"><label>Semester</label><select id="am_semester"><option value="1">Semester 1 (Ganjil)</option><option value="2">Semester 2 (Genap)</option></select></div>
+        <div class="field"><label>Semester</label>${aiSemesterSelect("am_semester")}</div>
       </div>
+      ${aiPresetSelectHtml("am_preset","⚡ Preset Cepat",[
+        {value:"faseA",label:"Fase A Reguler — Discovery Learning + permainan edukatif"},
+        {value:"diferensiasi",label:"Berdiferensiasi Penuh — PjBL + konten/proses/produk"},
+        {value:"ringkas",label:"Ringkas & Fokus — CTL + ceramah, tanya jawab, praktik"}
+      ],"aiApplyPresetModul")}
       <div class="field"><label>Mata Pelajaran</label>${aiMapelSelect("am_mapel", MAPEL_LIST[0])}
         <div class="hint" style="margin-top:4px;"><button class="btn btn-sm" type="button" onclick="aiRefreshElemen('am_kelas','am_mapel','am_elemenHolder');aiRefreshTp('am_kelas','am_mapel','am_tpHolder')">${ic("check",13)} Muat Elemen/CP</button></div></div>
       <div class="field"><label>Elemen / Capaian Pembelajaran</label><div id="am_elemenHolder">${aiElemenSelect("am_elemenHolder_sel", kelasId, MAPEL_LIST[0])}</div></div>
@@ -561,6 +616,21 @@ Tulis dengan bahasa formal, kontekstual untuk siswa SD Indonesia, dan siap pakai
   _aiLastDoc = {title};
   aiRunGenerate("am_result", {type:"Modul Ajar", title, userPrompt: prompt});
 }
+/* Preset cepat Modul Ajar: mengisi model, metode, diferensiasi, dan jenis asesmen. */
+function aiApplyPresetModul(key){
+  if(!key) return;
+  const P = {
+    faseA:        {model:"Discovery Learning", metode:["Permainan Edukatif","Demonstrasi","Tanya Jawab"], diferensiasi:"Diferensiasi Proses", asesmen:["Formatif","Sumatif"]},
+    diferensiasi: {model:"Project Based Learning (PjBL)", metode:["Diskusi","Praktik/Eksperimen","Presentasi","Permainan Edukatif"], diferensiasi:"Konten, Proses, dan Produk", asesmen:["Diagnostik","Formatif","Sumatif"]},
+    ringkas:      {model:"Contextual Teaching and Learning", metode:["Ceramah","Tanya Jawab","Praktik/Eksperimen"], diferensiasi:"Tidak ada diferensiasi khusus", asesmen:["Formatif"]},
+  }[key];
+  if(!P) return;
+  document.getElementById("am_model").value = P.model;
+  aiSetChecked("am_metode", P.metode);
+  document.getElementById("am_diferensiasi").value = P.diferensiasi;
+  aiSetChecked("am_asesmen", P.asesmen);
+  toast("Preset diterapkan — tinggal isi Materi & TP, lalu Generate.");
+}
 
 /* ---------- 10. GENERATOR: ATP ---------- */
 PAGES.aiATP = function(){
@@ -570,7 +640,7 @@ PAGES.aiATP = function(){
       <h3>${ic("book",18)} AI Generator: Alur Tujuan Pembelajaran (ATP)</h3>
       <div class="field"><label>Kelas</label>${aiKelasSelect("aa_kelas", kelasId)}</div>
       <div class="field"><label>Mata Pelajaran</label>${aiMapelSelect("aa_mapel", MAPEL_LIST[0])}</div>
-      <div class="field"><label>Semester</label><select id="aa_semester"><option>1 (Ganjil)</option><option>2 (Genap)</option></select></div>
+      <div class="field"><label>Semester</label>${aiSemesterSelect("aa_semester")}</div>
       <button class="btn btn-primary" style="width:100%;" onclick="generateAiATP()">${ic("star",16)} Generate ATP</button>
     </div>
     <div id="aa_result"></div>
@@ -613,8 +683,13 @@ PAGES.aiLKPD = function(){
       </details>
       <div class="grid grid-2">
         <div class="field"><label>Kelas</label>${aiKelasSelect("al_kelas", kelasId)}</div>
-        <div class="field"><label>Semester</label><select id="al_semester"><option value="1">Semester 1 (Ganjil)</option><option value="2">Semester 2 (Genap)</option></select></div>
+        <div class="field"><label>Semester</label>${aiSemesterSelect("al_semester")}</div>
       </div>
+      ${aiPresetSelectHtml("al_preset","⚡ Preset Cepat",[
+        {value:"eksperimen",label:"Praktik/Eksperimen Kelompok — saintifik, kelompok kecil"},
+        {value:"mandiri",label:"Latihan Mandiri — kontekstual, individu"},
+        {value:"proyek",label:"Proyek Kelompok — berbasis proyek, kelompok kecil"}
+      ],"aiApplyPresetLKPD")}
       <div class="field"><label>Mata Pelajaran</label>${aiMapelSelect("al_mapel", MAPEL_LIST[0])}
         <div class="hint" style="margin-top:4px;"><button class="btn btn-sm" type="button" onclick="aiRefreshElemen('al_kelas','al_mapel','al_elemenHolder');aiRefreshTp('al_kelas','al_mapel','al_tpHolder')">${ic("check",13)} Muat Elemen/CP</button></div></div>
       <div class="field"><label>Elemen / CP acuan</label><div id="al_elemenHolder">${aiElemenSelect("al_elemenHolder_sel", kelasId, MAPEL_LIST[0])}</div></div>
@@ -691,6 +766,19 @@ Susun LKPD lengkap sekarang berdasarkan seluruh komponen di atas.`;
 
   const title = "LKPD - "+mapel+" - "+cls.label+" - "+materi;
   aiRunGenerate("al_result", {type:"LKPD", title, userPrompt: prompt});
+}
+/* Preset cepat LKPD: mengisi model aktivitas & pendekatan. */
+function aiApplyPresetLKPD(key){
+  if(!key) return;
+  const P = {
+    eksperimen: {aktivitas:"Kelompok Kecil (3-4 siswa)", pendekatan:"Saintifik"},
+    mandiri:    {aktivitas:"Individu", pendekatan:"Kontekstual"},
+    proyek:     {aktivitas:"Kelompok Kecil (3-4 siswa)", pendekatan:"Berbasis Proyek"},
+  }[key];
+  if(!P) return;
+  document.getElementById("al_aktivitas").value = P.aktivitas;
+  document.getElementById("al_pendekatan").value = P.pendekatan;
+  toast("Preset diterapkan — tinggal isi Materi & TP, lalu Generate.");
 }
 
 
@@ -1089,7 +1177,7 @@ PAGES.aiTP = function(){
         <div class="hint" style="margin-top:4px;"><button class="btn btn-sm" type="button" onclick="aiRefreshElemen('at_kelas','at_mapel','at_elemenHolder')">${ic("check",13)} Muat Elemen/CP</button></div></div>
       <div class="field"><label>Elemen / CP acuan</label><div id="at_elemenHolder">${aiElemenSelect("at_elemenHolder_sel", kelasId, MAPEL_LIST[0])}</div></div>
       <div class="field"><label>Jumlah TP yang diinginkan</label><input type="number" id="at_jumlah" value="4" min="2" max="10"></div>
-      <div class="field"><label>Semester</label><select id="at_semester"><option value="1">1 (Ganjil)</option><option value="2">2 (Genap)</option></select></div>
+      <div class="field"><label>Semester</label>${aiSemesterSelect("at_semester")}</div>
       <button class="btn btn-primary" style="width:100%;" onclick="generateAiTP()">${ic("star",16)} Generate TP</button>
     </div>
     <div id="at_result"></div>
@@ -1129,6 +1217,7 @@ PAGES.aiJurnal = function(){
       <div class="field"><label>Materi</label><input type="text" id="aj_materi" placeholder="mis. Penjumlahan sampai 20"></div>
       <div class="field"><label>Jam Pelajaran</label><input type="text" id="aj_jam" placeholder="mis. 07.30 - 08.40"></div>
       <div class="field"><label>Catatan Pelaksanaan (opsional)</label><textarea id="aj_catatan" placeholder="mis. kendala, siswa tidak hadir, penyesuaian kegiatan, dsb."></textarea></div>
+      <button class="btn" style="width:100%;margin-bottom:8px;" onclick="aiJurnalAmbilRencana()">${ic("calendar",15)} Ambil Materi & TP dari Rencana Minggu Ini</button>
       <button class="btn btn-primary" style="width:100%;" onclick="generateAiJurnal()">${ic("star",16)} Generate Jurnal Mengajar</button>
     </div>
     <div id="aj_result"></div>
@@ -1164,8 +1253,24 @@ Susun dengan format HTML terstruktur berisi: (1) Tabel identitas jurnal, (2) Keg
   const title = "Jurnal Mengajar - "+mapel+" - "+fmtDate(tanggal);
   aiRunGenerate("aj_result", {type:"Jurnal Mengajar", title, userPrompt: prompt});
 }
+/* Ambil Materi & TP otomatis dari Rencana Pembelajaran Kelas 1 (44-rencana.js),
+   berdasarkan mapel + minggu berjalan dari tanggal yang dipilih. */
+function aiJurnalAmbilRencana(){
+  const mapel = document.getElementById("aj_mapel").value;
+  const tgl = document.getElementById("aj_tanggal").value || todayISO();
+  const d = new Date(tgl+"T00:00:00");
+  if(isNaN(d.getTime())){ toast("Tanggal tidak valid."); return; }
+  const monday = new Date(d); monday.setDate(d.getDate() - ((d.getDay()+6)%7));
+  const iso = monday.getFullYear()+"-"+String(monday.getMonth()+1).padStart(2,"0")+"-"+String(monday.getDate()).padStart(2,"0");
+  const list = (typeof RENCANA_PBL!=="undefined") ? RENCANA_PBL : [];
+  const it = list.find(r=>r.m===mapel && r.t===iso);
+  if(!it){ toast("Tidak ada Rencana Pembelajaran untuk mapel ini pada minggu "+iso+"."); return; }
+  document.getElementById("aj_materi").value = it.mat;
+  document.getElementById("aj_tpManual").value = it.tp;
+  toast("Materi & TP diambil dari Rencana Minggu "+it.w+" ("+it.tl+").");
+}
 
-/* ---- D3-D5. GENERATOR ASESMEN (Diagnostik / Formatif / Sumatif) ---- */
+/* ---- D3. GENERATOR ASESMEN FORMATIF ---- */
 const AI_BENTUK_SOAL = ["Pilihan Ganda","Pilihan Ganda Kompleks","Isian Singkat","Uraian/Esai","Menjodohkan","Unjuk Kerja/Praktik","Observasi/Ceklis"];
 const AI_LEVEL_KOGNITIF = ["C1 - Mengingat","C2 - Memahami","C3 - Mengaplikasikan","C4 - Menganalisis","C5 - Mengevaluasi","C6 - Mencipta (HOTS)"];
 
@@ -1193,32 +1298,17 @@ function aiAsesmenPromptCommon(prefix, jenis){
   return {kelasId, mapel, tp, materi, jumlah, bentuk, level, cls};
 }
 
-PAGES.aiAsesDiag = function(){
-  const kelasId = activeClassId;
-  return `<div class="ai-layout"><div class="card">
-    <h3>${ic("target",18)} AI Generator: Asesmen Diagnostik</h3>
-    <p class="hint" style="margin-bottom:10px;">Untuk memetakan kesiapan/gaya belajar/kondisi awal siswa sebelum pembelajaran.</p>
-    ${aiAsesmenFormBlock("ad", kelasId)}
-    <div class="field"><label>Jenis Diagnostik</label><select id="ad_jenis"><option>Kognitif (kemampuan awal materi)</option><option>Non-Kognitif (kondisi psikososial/minat/gaya belajar)</option><option>Gabungan Kognitif dan Non-Kognitif</option></select></div>
-    <button class="btn btn-primary" style="width:100%;" onclick="generateAiAsesDiag()">${ic("star",16)} Generate Asesmen Diagnostik</button>
-  </div><div id="ad_result"></div></div>`;
-};
-function generateAiAsesDiag(){
-  const c = aiAsesmenPromptCommon("ad","diagnostik");
-  const jenisDiag = document.getElementById("ad_jenis").value;
-  const prompt = `Susun INSTRUMEN ASESMEN DIAGNOSTIK ${jenisDiag.toUpperCase()} untuk mata pelajaran ${c.mapel}, kelas ${c.cls.label} (Fase ${faseForClassId(c.kelasId)}), materi "${c.materi}", TP acuan: "${c.tp}".
-Buat ${c.jumlah} pertanyaan/pernyataan asesmen diagnostik${c.bentuk.length?" dalam bentuk: "+c.bentuk.join(", "):""}, sesuai untuk anak usia SD, bahasa sederhana dan komunikatif.
-Sertakan: (1) Tujuan asesmen diagnostik ini, (2) Daftar pertanyaan/instrumen (tabel: No | Pertanyaan/Pernyataan | Aspek yang diukur), (3) Pedoman interpretasi hasil (kategori: Siap/Perlu Pendampingan/Belum Siap, atau kategori non-kognitif yang relevan) beserta tindak lanjut pembelajaran untuk masing-masing kategori.`;
-  const title = "Asesmen Diagnostik - "+c.mapel+" - "+c.cls.label+" - "+c.materi;
-  aiRunGenerate("ad_result", {type:"Asesmen Diagnostik", title, userPrompt: prompt});
-}
-
 PAGES.aiAsesForm = function(){
   const kelasId = activeClassId;
   return `<div class="ai-layout"><div class="card">
     <h3>${ic("target",18)} AI Generator: Asesmen Formatif</h3>
     <p class="hint" style="margin-bottom:10px;">Instrumen umpan balik selama proses pembelajaran berlangsung.</p>
     ${aiAsesmenFormBlock("af", kelasId)}
+    ${aiPresetSelectHtml("af_preset","⚡ Preset Cepat",[
+      {value:"kuis",label:"Kuis Kilat — 3 soal pilihan ganda (C1–C2)"},
+      {value:"latihan",label:"Latihan Pemahaman — 5 soal PG + isian (C2–C3)"},
+      {value:"unjukkerja",label:"Unjuk Kerja/Praktik — 2 item observasi"}
+    ],"aiApplyPresetAsesForm")}
     <button class="btn btn-primary" style="width:100%;" onclick="generateAiAsesForm()">${ic("star",16)} Generate Asesmen Formatif</button>
   </div><div id="af_result"></div></div>`;
 };
@@ -1230,69 +1320,22 @@ Sertakan: (1) Kisi-kisi singkat (tabel: No | Indikator Soal | Bentuk | Level), (
   const title = "Asesmen Formatif - "+c.mapel+" - "+c.cls.label+" - "+c.materi;
   aiRunGenerate("af_result", {type:"Asesmen Formatif", title, userPrompt: prompt});
 }
-
-PAGES.aiAsesSum = function(){
-  const kelasId = activeClassId;
-  return `<div class="ai-layout"><div class="card">
-    <h3>${ic("target",18)} AI Generator: Asesmen Sumatif</h3>
-    <p class="hint" style="margin-bottom:10px;">Instrumen penilaian akhir lingkup materi/semester (ulangan harian, PTS, PAS, dsb).</p>
-    ${aiAsesmenFormBlock("as", kelasId)}
-    <div class="field"><label>Cakupan</label><select id="as_cakupan"><option>Ulangan Harian (1 materi)</option><option>Penilaian Tengah Semester (PTS)</option><option>Penilaian Akhir Semester (PAS)</option></select></div>
-    <button class="btn btn-primary" style="width:100%;" onclick="generateAiAsesSum()">${ic("star",16)} Generate Asesmen Sumatif</button>
-  </div><div id="as_result"></div></div>`;
-};
-function generateAiAsesSum(){
-  const c = aiAsesmenPromptCommon("as","sumatif");
-  const cakupan = document.getElementById("as_cakupan").value;
-  const prompt = `Susun NASKAH SOAL ASESMEN SUMATIF (${cakupan}) untuk mata pelajaran ${c.mapel}, kelas ${c.cls.label} (Fase ${faseForClassId(c.kelasId)}), materi "${c.materi}", TP acuan: "${c.tp}".
-Buat ${c.jumlah} soal${c.bentuk.length?" dalam bentuk: "+c.bentuk.join(", "):" dalam bentuk campuran yang sesuai jenjang SD"}${c.level.length?", pada level kognitif: "+c.level.join(", "):""}.
-Sertakan secara lengkap: (1) Kisi-kisi soal (tabel: No | Indikator Soal | Bentuk Soal | Level Kognitif | Nomor Soal), (2) Naskah soal lengkap bernomor rapi siap cetak, (3) Kunci jawaban lengkap, (4) Pedoman penskoran/rubrik penilaian per nomor beserta bobot skor menuju nilai 0-100.`;
-  const title = "Asesmen Sumatif - "+c.mapel+" - "+c.cls.label+" - "+c.materi;
-  aiRunGenerate("as_result", {type:"Asesmen Sumatif", title, userPrompt: prompt});
+/* Preset cepat Asesmen Formatif: mengisi jumlah, bentuk, dan level kognitif. */
+function aiApplyPresetAsesForm(key){
+  if(!key) return;
+  const P = {
+    kuis:       {jumlah:3, bentuk:["Pilihan Ganda"], level:["C1 - Mengingat","C2 - Memahami"]},
+    latihan:    {jumlah:5, bentuk:["Pilihan Ganda","Isian Singkat"], level:["C2 - Memahami","C3 - Mengaplikasikan"]},
+    unjukkerja: {jumlah:2, bentuk:["Unjuk Kerja/Praktik"], level:[]},
+  }[key];
+  if(!P) return;
+  document.getElementById("af_jumlah").value = P.jumlah;
+  aiSetChecked("af_bentuk", P.bentuk);
+  aiSetChecked("af_level", P.level);
+  toast("Preset diterapkan — tinggal isi Materi & TP, lalu Generate.");
 }
 
-/* ============================================================
-   BATCH 3 — AI GENERATOR TAMBAHAN:
-   Kisi-kisi, Rubrik Penilaian, Bank Soal, Lembar Observasi,
-   Pengayaan & Remedial, Refleksi (Guru & Peserta Didik),
-   Surat untuk Orang Tua, Catatan Wali Kelas
-   ============================================================ */
-
-/* ---------- E1. AI: KISI-KISI SOAL ---------- */
-PAGES.aiKisi = function(){
-  const kelasId = activeClassId;
-  return `<div class="ai-layout"><div class="card">
-    <h3>${ic("target",18)} AI Generator: Kisi-kisi Soal</h3>
-    <div class="field"><label>Kelas</label>${aiKelasSelect("ak_kelas", kelasId)}</div>
-    <div class="field"><label>Mata Pelajaran</label>${aiMapelSelect("ak_mapel", MAPEL_LIST[0])}
-      <div class="hint" style="margin-top:4px;"><button class="btn btn-sm" type="button" onclick="aiRefreshTp('ak_kelas','ak_mapel','ak_tpHolder')">${ic("check",13)} Muat TP dari ATP</button></div></div>
-    <div class="field"><label>Tujuan Pembelajaran (TP) yang diujikan</label><div id="ak_tpHolder">${aiTpSelect("ak_tpHolder_sel", kelasId, MAPEL_LIST[0])}</div></div>
-    <div class="field"><label>Cakupan</label><select id="ak_cakupan"><option>Ulangan Harian</option><option>Penilaian Tengah Semester (PTS)</option><option>Penilaian Akhir Semester (PAS)</option></select></div>
-    <div class="field"><label>Jumlah Soal</label><input type="number" id="ak_jumlah" value="10" min="5" max="50"></div>
-    <div class="field"><label>Bentuk Soal</label>${aiCheckGrid("ak_bentuk", AI_BENTUK_SOAL, false)}</div>
-    <div class="field"><label>Level Kognitif</label>${aiCheckGrid("ak_level", AI_LEVEL_KOGNITIF, false)}</div>
-    <button class="btn btn-primary" style="width:100%;" onclick="generateAiKisi()">${ic("star",16)} Generate Kisi-kisi</button>
-  </div><div id="ak_result"></div></div>`;
-};
-function generateAiKisi(){
-  const kelasId = document.getElementById("ak_kelas").value;
-  const mapel = document.getElementById("ak_mapel").value;
-  const atpList = aiAtpListForKelasMapel(kelasId, mapel);
-  const tpIdx = document.getElementById("ak_tpHolder_sel") ? document.getElementById("ak_tpHolder_sel").value : "";
-  const tp = atpList[tpIdx] ? atpList[tpIdx].tp : "(seluruh TP semester berjalan pada mapel ini)";
-  const cakupan = document.getElementById("ak_cakupan").value;
-  const jumlah = document.getElementById("ak_jumlah").value || 10;
-  const bentuk = aiGetChecked("ak_bentuk");
-  const level = aiGetChecked("ak_level");
-  const cls = classInfo(kelasId);
-  const prompt = `Susun KISI-KISI SOAL resmi untuk ${cakupan}, mata pelajaran ${mapel}, kelas ${cls.label} (Fase ${faseForClassId(kelasId)}), berdasarkan Tujuan Pembelajaran: "${tp}".
-Buat ${jumlah} baris kisi-kisi${bentuk.length?" dengan bentuk soal: "+bentuk.join(", "):""}${level.length?", tersebar pada level kognitif: "+level.join(", "):", tersebar proporsional dari level mudah hingga HOTS"}.
-Keluarkan sebagai TABEL HTML dengan kolom: No | Tujuan Pembelajaran/Indikator Soal | Materi | Bentuk Soal | Level Kognitif | Nomor Soal. Sertakan judul dokumen resmi (nama satuan pendidikan, mapel, kelas, cakupan, tahun pelajaran) sebelum tabel.`;
-  const title = "Kisi-kisi Soal - "+mapel+" - "+cls.label+" - "+cakupan;
-  aiRunGenerate("ak_result", {type:"Kisi-kisi", title, userPrompt: prompt});
-}
-
-/* ---------- E2. AI: RUBRIK PENILAIAN ---------- */
+/* ---------- E1. AI: RUBRIK PENILAIAN ---------- */
 const AI_JENIS_RUBRIK = ["Sikap (Profil Lulusan)","Pengetahuan (Tes Tertulis)","Keterampilan (Unjuk Kerja/Praktik)","Produk/Karya","Proyek","Presentasi"];
 PAGES.aiRubrik = function(){
   const kelasId = activeClassId;
@@ -1306,6 +1349,11 @@ PAGES.aiRubrik = function(){
     <div class="field"><label>Jenis Rubrik</label><select id="ar_jenis">${AI_JENIS_RUBRIK.map(j=>`<option>${j}</option>`).join("")}</select></div>
     <div class="field"><label>Kriteria yang dinilai (checklist, tambahkan sesuai kebutuhan di hasil AI)</label>${aiCheckGrid("ar_kriteria", ["Ketepatan konsep/isi","Kejelasan penyampaian","Kreativitas","Kerja sama","Kemandirian","Ketepatan waktu","Kerapian hasil kerja"], false)}</div>
     <div class="field"><label>Skala Penilaian</label><select id="ar_skala"><option>1-4 (Belum Berkembang / Mulai Berkembang / Berkembang Sesuai Harapan / Sangat Berkembang)</option><option>1-4 (Angka sederhana)</option><option>0-100</option></select></div>
+    ${aiPresetSelectHtml("ar_preset","⚡ Preset Cepat",[
+      {value:"unjukkerja",label:"Rubrik Unjuk Kerja/Praktik"},
+      {value:"sikap",label:"Rubrik Sikap / Profil Lulusan"},
+      {value:"produk",label:"Rubrik Produk/Karya"}
+    ],"aiApplyPresetRubrik")}
     <button class="btn btn-primary" style="width:100%;" onclick="generateAiRubrik()">${ic("star",16)} Generate Rubrik</button>
   </div><div id="ar_result"></div></div>`;
 };
@@ -1327,8 +1375,23 @@ Keluarkan sebagai TABEL HTML dengan kolom: Kriteria | Deskriptor Level Tertinggi
   const title = "Rubrik Penilaian - "+jenis+" - "+mapel+" - "+cls.label;
   aiRunGenerate("ar_result", {type:"Rubrik Penilaian", title, userPrompt: prompt});
 }
+/* Preset cepat Rubrik: mengisi jenis rubrik, kriteria, dan skala sekaligus. */
+function aiApplyPresetRubrik(key){
+  if(!key) return;
+  const SKALA4 = "1-4 (Belum Berkembang / Mulai Berkembang / Berkembang Sesuai Harapan / Sangat Berkembang)";
+  const P = {
+    unjukkerja: {jenis:"Keterampilan (Unjuk Kerja/Praktik)", kriteria:["Ketepatan konsep/isi","Kemandirian","Ketepatan waktu"], skala:SKALA4},
+    sikap:      {jenis:"Sikap (Profil Lulusan)", kriteria:["Kerja sama","Kemandirian","Ketepatan waktu"], skala:SKALA4},
+    produk:     {jenis:"Produk/Karya", kriteria:["Kreativitas","Kerapian hasil kerja","Ketepatan konsep/isi"], skala:SKALA4},
+  }[key];
+  if(!P) return;
+  document.getElementById("ar_jenis").value = P.jenis;
+  aiSetChecked("ar_kriteria", P.kriteria);
+  document.getElementById("ar_skala").value = P.skala;
+  toast("Preset diterapkan — tinggal isi TP/tugas, lalu Generate.");
+}
 
-/* ---------- E3. AI: BANK SOAL (PG + Isian + Uraian + HOTS, satu generator fleksibel) ---------- */
+/* ---------- E2. AI: BANK SOAL (PG + Isian + Uraian + HOTS, satu generator fleksibel) ---------- */
 PAGES.aiBankSoal = function(){
   const kelasId = activeClassId;
   return `<div class="ai-layout"><div class="card">
@@ -1348,8 +1411,14 @@ PAGES.aiBankSoal = function(){
     </details>
     <div class="grid grid-2">
       <div class="field"><label>Kelas</label>${aiKelasSelect("ab_kelas", kelasId)}</div>
-      <div class="field"><label>Semester</label><select id="ab_semester"><option value="1">Semester 1 (Ganjil)</option><option value="2">Semester 2 (Genap)</option></select></div>
+      <div class="field"><label>Semester</label>${aiSemesterSelect("ab_semester")}</div>
     </div>
+    ${aiPresetSelectHtml("ab_preset","⚡ Preset Cepat",[
+      {value:"uh",label:"Ulangan Harian Lingkup Materi (PG 10 · Isian 5 · Uraian 2)"},
+      {value:"sts",label:"Sumatif Tengah Semester / STS (PG 15 · Isian 5 · Uraian 3)"},
+      {value:"sas",label:"Sumatif Akhir Semester / SAS (PG 20 · Isian 5 · Uraian 5)"},
+      {value:"pr",label:"Latihan / PR Harian (PG 5 · Isian 3 · Uraian 2)"}
+    ],"aiApplyPresetBankSoal")}
     <div class="field"><label>Jenis Penilaian</label><select id="ab_jenis">
       <option value="Ulangan Harian">Ulangan Harian (akhir bab/lingkup materi)</option>
       <option value="PR">PR / Tugas Rumah</option>
@@ -1446,36 +1515,29 @@ Tulis siap cetak. Bahasa formal namun ramah anak SD Indonesia.`;
   const title = jenis+" - "+mapel+" - "+cls.label+" - Smt "+semester+" - "+materi;
   aiRunGenerate("ab_result", {type:"Bank Soal", title, userPrompt: prompt});
 }
-
-/* ---------- E4. AI: LEMBAR OBSERVASI ---------- */
-PAGES.aiObservasi = function(){
-  const kelasId = activeClassId;
-  return `<div class="ai-layout"><div class="card">
-    <h3>${ic("eye",18)} AI Generator: Lembar Observasi</h3>
-    <div class="field"><label>Kelas</label>${aiKelasSelect("ao_kelas", kelasId)}</div>
-    <div class="field"><label>Objek Observasi</label><select id="ao_objek"><option>Sikap/Dimensi Profil Lulusan</option><option>Keterampilan Praktik/Unjuk Kerja</option><option>Partisipasi & Keaktifan dalam Pembelajaran</option><option>Kondisi Kesiapan Belajar (Awal Pembelajaran)</option></select></div>
-    <div class="field"><label>Mata Pelajaran/Konteks</label>${aiMapelSelect("ao_mapel", MAPEL_LIST[0])}</div>
-    <div class="field"><label>Kegiatan/Materi</label><input type="text" id="ao_materi" placeholder="mis. Diskusi kelompok tentang gotong royong"></div>
-    <div class="field"><label>Dimensi/Aspek yang diamati</label>${aiCheckGrid("ao_dimensi", AI_DIMENSI, false)}</div>
-    <button class="btn btn-primary" style="width:100%;" onclick="generateAiObservasi()">${ic("star",16)} Generate Lembar Observasi</button>
-  </div><div id="ao_result"></div></div>`;
-};
-function generateAiObservasi(){
-  const kelasId = document.getElementById("ao_kelas").value;
-  const objek = document.getElementById("ao_objek").value;
-  const mapel = document.getElementById("ao_mapel").value;
-  const materi = document.getElementById("ao_materi").value.trim() || "-";
-  const dimensi = aiGetChecked("ao_dimensi");
-  const cls = classInfo(kelasId);
-  const daftarSiswa = siswaSortedAlpha().map(s=>s.nama);
-  const prompt = `Susun LEMBAR OBSERVASI untuk mengamati "${objek}" pada mata pelajaran/konteks ${mapel}, kelas ${cls.label} (Fase ${faseForClassId(kelasId)}), kegiatan/materi: "${materi}".
-Aspek yang diamati: ${dimensi.length?dimensi.join(", "):"tentukan 3-4 aspek observasi yang paling relevan dengan konteks di atas"}.
-Keluarkan sebagai: (1) Petunjuk pengisian singkat untuk guru, (2) TABEL observasi dengan baris nama siswa berikut ini: ${daftarSiswa.join(", ")}; kolom-kolom berupa setiap aspek yang diamati dengan skala centang (1=Belum Terlihat, 2=Mulai Terlihat, 3=Berkembang, 4=Membudaya) dan satu kolom Catatan, (3) Pedoman singkat interpretasi skor rata-rata kelas.`;
-  const title = "Lembar Observasi - "+objek+" - "+cls.label;
-  aiRunGenerate("ao_result", {type:"Lembar Observasi", title, userPrompt: prompt});
+/* Preset cepat Bank Soal: mengisi jenis, komposisi, level, ilustrasi, kisi & kunci. */
+function aiApplyPresetBankSoal(key){
+  if(!key) return;
+  const sem = document.getElementById("ab_semester").value;
+  const P = {
+    uh:  {jenis:"Ulangan Harian", pg:10, isian:5, uraian:2, hots:"campuran", ilus:"otomatis", kisi:true,  kunci:true},
+    sts: {jenis: sem==="2"?"STS 2":"STS 1", pg:15, isian:5, uraian:3, hots:"campuran", ilus:"otomatis", kisi:true, kunci:true},
+    sas: {jenis: sem==="2"?"SAS 2":"SAS 1", pg:20, isian:5, uraian:5, hots:"campuran", ilus:"otomatis", kisi:true, kunci:true},
+    pr:  {jenis:"PR", pg:5, isian:3, uraian:2, hots:"l1", ilus:"otomatis", kisi:false, kunci:true},
+  }[key];
+  if(!P) return;
+  document.getElementById("ab_jenis").value = P.jenis;
+  document.getElementById("ab_jmlPG").value = P.pg;
+  document.getElementById("ab_jmlIsian").value = P.isian;
+  document.getElementById("ab_jmlUraian").value = P.uraian;
+  document.getElementById("ab_hots").value = P.hots;
+  document.getElementById("ab_ilustrasi").value = P.ilus;
+  document.getElementById("ab_kisi").checked = P.kisi;
+  document.getElementById("ab_kunci").checked = P.kunci;
+  toast("Preset diterapkan — tinggal isi Materi & TP, lalu Generate.");
 }
 
-/* ---------- E5. AI: PENGAYAAN & REMEDIAL ---------- */
+/* ---------- E3. AI: PENGAYAAN & REMEDIAL ---------- */
 PAGES.aiPengRem = function(){
   const kelasId = activeClassId;
   return `<div class="ai-layout"><div class="card">
@@ -1487,6 +1549,7 @@ PAGES.aiPengRem = function(){
     <div class="field"><label>Materi</label><input type="text" id="ap_materi" placeholder="mis. Pecahan Sederhana"></div>
     <div class="field"><label>Jenis Kegiatan</label><select id="ap_jenis"><option value="keduanya">Pengayaan dan Remedial (keduanya)</option><option value="pengayaan">Pengayaan saja (siswa sudah tuntas)</option><option value="remedial">Remedial saja (siswa belum tuntas)</option></select></div>
     <div class="field"><label>Kesulitan yang dialami siswa (untuk Remedial, opsional)</label><textarea id="ap_kesulitan" placeholder="mis. masih keliru membandingkan pecahan berpenyebut beda"></textarea></div>
+    <button class="btn" style="width:100%;margin-bottom:8px;" onclick="aiPengRemAmbilAnalisis()">${ic("bar",15)} Ambil dari Analisis Nilai</button>
     <button class="btn btn-primary" style="width:100%;" onclick="generateAiPengRem()">${ic("star",16)} Generate Pengayaan & Remedial</button>
   </div><div id="ap_result"></div></div>`;
 };
@@ -1508,35 +1571,25 @@ Tulis dalam format HTML terstruktur, siap digunakan langsung oleh guru tanpa rev
   const title = "Pengayaan & Remedial - "+mapel+" - "+cls.label+" - "+materi;
   aiRunGenerate("ap_result", {type:"Pengayaan & Remedial", title, userPrompt: prompt});
 }
-
-/* ---------- E6. AI: REFLEKSI (GURU & PESERTA DIDIK) ---------- */
-PAGES.aiRefleksi = function(){
-  const kelasId = activeClassId;
-  return `<div class="ai-layout"><div class="card">
-    <h3>${ic("star",18)} AI Generator: Refleksi Pembelajaran</h3>
-    <div class="field"><label>Kelas</label>${aiKelasSelect("are_kelas", kelasId)}</div>
-    <div class="field"><label>Mata Pelajaran</label>${aiMapelSelect("are_mapel", MAPEL_LIST[0])}</div>
-    <div class="field"><label>Materi/Kegiatan yang direfleksikan</label><input type="text" id="are_materi" placeholder="mis. Percobaan sederhana tentang perubahan wujud benda"></div>
-    <div class="field"><label>Untuk Siapa</label><select id="are_untuk"><option value="keduanya">Refleksi Guru dan Peserta Didik (keduanya)</option><option value="guru">Refleksi Guru saja</option><option value="siswa">Refleksi Peserta Didik saja</option></select></div>
-    <button class="btn btn-primary" style="width:100%;" onclick="generateAiRefleksi()">${ic("star",16)} Generate Refleksi</button>
-  </div><div id="are_result"></div></div>`;
-};
-function generateAiRefleksi(){
-  const kelasId = document.getElementById("are_kelas").value;
-  const mapel = document.getElementById("are_mapel").value;
-  const materi = document.getElementById("are_materi").value.trim() || "-";
-  const untuk = document.getElementById("are_untuk").value;
-  const cls = classInfo(kelasId);
-  let bagian = "";
-  if(untuk!=="siswa") bagian += `\nBagian REFLEKSI GURU: susun daftar pertanyaan reflektif untuk guru (ketercapaian TP, efektivitas metode/media, kendala, rencana perbaikan pertemuan berikutnya) beserta ruang isian singkat.`;
-  if(untuk!=="guru") bagian += `\nBagian REFLEKSI PESERTA DIDIK: susun lembar refleksi sederhana dan menyenangkan untuk peserta didik SD (bahasa sesuai usia, boleh berbentuk emoji/skala bintang/pertanyaan pendek), menanyakan pemahaman, perasaan selama belajar, dan bagian yang masih sulit.`;
-  const prompt = `Susun LEMBAR REFLEKSI PEMBELAJARAN untuk mata pelajaran ${mapel}, kelas ${cls.label} (Fase ${faseForClassId(kelasId)}), materi/kegiatan: "${materi}", sesuai prinsip Pembelajaran Mendalam (tahap Merefleksi).${bagian}
-Format HTML rapi, siap cetak/dibagikan.`;
-  const title = "Refleksi Pembelajaran - "+mapel+" - "+cls.label+" - "+materi;
-  aiRunGenerate("are_result", {type:"Refleksi", title, userPrompt: prompt});
+/* Ambil materi terlemah + konteks kesulitan otomatis dari menu Analisis Nilai
+   (45-analisis.js), berdasarkan mapel terpilih & semester aktif. */
+function aiPengRemAmbilAnalisis(){
+  const mapel = document.getElementById("ap_mapel").value;
+  const semSel = aiSemDefault();
+  if(typeof analisisCompute!=="function"){ toast("Modul Analisis Nilai belum tersedia."); return; }
+  const comp = analisisCompute(mapel, semSel);
+  if(!comp.rows.length){ toast("Belum ada nilai sumatif untuk "+mapel+" semester "+semSel+". Isi dulu via Input Nilai Massal."); return; }
+  if(!comp.lmLemah){ toast("Belum ada data lingkup materi yang bisa dianalisis."); return; }
+  document.getElementById("ap_materi").value = comp.lmLemah.lm;
+  document.getElementById("ap_kesulitan").value =
+    "Rata-rata kelas pada materi \""+comp.lmLemah.lm+"\" = "+(Math.round(comp.lmLemah.avg*10)/10)+
+    " (terendah). "+comp.remedial.length+" siswa belum tuntas (ambang "+comp.ambang+"): "+
+    (comp.remedial.map(x=>x.s.nama).join(", ")||"-")+".";
+  document.getElementById("ap_jenis").value = "keduanya";
+  toast("Diambil dari Analisis Nilai: "+mapel+" (semester "+semSel+").");
 }
 
-/* ---------- E7. AI: SURAT UNTUK ORANG TUA ---------- */
+/* ---------- E4. AI: SURAT UNTUK ORANG TUA ---------- */
 const AI_JENIS_SURAT_ORTU = ["Undangan Pertemuan Orang Tua","Pemberitahuan Kegiatan Sekolah","Pemanggilan Orang Tua (Konsultasi)","Apresiasi Perkembangan Anak","Peringatan Ketidakhadiran/Kedisiplinan","Izin Kegiatan di Luar Sekolah (Study Tour dsb.)"];
 PAGES.aiSuratOrtu = function(){
   const kelasId = activeClassId;
@@ -1576,37 +1629,3 @@ Format surat resmi sekolah lengkap: nomor surat (boleh placeholder ".../..../${n
   const title = "Surat "+jenis+(namaSiswa?" - "+namaSiswa:" - "+cls.label);
   aiRunGenerate("aso_result", {type:"Surat Orang Tua", title, userPrompt: prompt});
 }
-
-/* ---------- E8. AI: CATATAN WALI KELAS ---------- */
-const AI_KATEGORI_CATATAN = ["Akademik","Sikap/Perilaku","Kehadiran","Kesehatan","Sosial/Pertemanan","Bakat & Minat"];
-PAGES.aiCatatanWali = function(){
-  return `<div class="ai-layout"><div class="card">
-    <h3>${ic("edit",18)} AI Generator: Catatan Wali Kelas</h3>
-    <div class="field"><label>Nama Siswa</label><select id="acw_siswa">${siswaOpts().map(o=>`<option value="${o.value}">${escapeHtml(o.label)}</option>`).join("")}</select></div>
-    <div class="field"><label>Tanggal</label><input type="date" id="acw_tanggal" value="${todayISO()}"></div>
-    <div class="field"><label>Kategori</label><select id="acw_kategori">${AI_KATEGORI_CATATAN.map(k=>`<option>${k}</option>`).join("")}</select></div>
-    <div class="field"><label>Kejadian/Hal yang diamati</label><textarea id="acw_kejadian" placeholder="mis. tiga hari terakhir sering terlambat masuk kelas" required></textarea></div>
-    <div class="field"><label>Tindak Lanjut yang sudah/akan dilakukan (opsional)</label><textarea id="acw_tindakLanjut" placeholder="mis. sudah dikomunikasikan dengan orang tua via telepon"></textarea></div>
-    <button class="btn btn-primary" style="width:100%;" onclick="generateAiCatatanWali()">${ic("star",16)} Generate Catatan</button>
-  </div><div id="acw_result"></div></div>`;
-};
-function generateAiCatatanWali(){
-  const siswaId = document.getElementById("acw_siswa").value;
-  const nama = siswaName(siswaId);
-  const tanggal = document.getElementById("acw_tanggal").value;
-  const kategori = document.getElementById("acw_kategori").value;
-  const kejadian = document.getElementById("acw_kejadian").value.trim();
-  const tindakLanjut = document.getElementById("acw_tindakLanjut").value.trim();
-  if(!kejadian){ toast("Mohon isi kejadian/hal yang diamati terlebih dahulu."); return; }
-  const prompt = `Susun satu entri CATATAN WALI KELAS resmi (buku catatan perkembangan siswa) dengan data:
-- Nama Siswa: ${nama}
-- Tanggal: ${fmtDate(tanggal)}
-- Kategori: ${kategori}
-- Kejadian/hal yang diamati (catatan asli guru, JANGAN diubah maknanya, hanya dirapikan bahasanya): "${kejadian}"
-- Tindak lanjut yang sudah/akan dilakukan: ${tindakLanjut || "belum ada, mohon sarankan tindak lanjut yang tepat"}
-
-Tulis sebagai catatan formal namun manusiawi (bukan kaku seperti laporan), berisi: (1) uraian singkat kejadian/observasi, (2) analisis singkat dari sudut pandang wali kelas, (3) rekomendasi tindak lanjut konkret (melibatkan siswa/orang tua/guru mapel bila relevan). Panjang cukup 1 paragraf padat, format HTML sederhana (p saja, tanpa heading berlebihan).`;
-  const title = "Catatan Wali Kelas - "+nama+" - "+fmtDate(tanggal);
-  aiRunGenerate("acw_result", {type:"Catatan Wali Kelas", title, userPrompt: prompt});
-}
-
