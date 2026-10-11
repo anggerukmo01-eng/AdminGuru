@@ -147,6 +147,7 @@ const NAV = [
  ]},
  {group:"Sistem", items:[
    {id:"backup", label:"Backup & Sinkron Data", icon:"backup"},
+   {id:"dapodik", label:"Sinkron Dapodik", icon:"refresh"},
    {id:"pengaturan", label:"Pengaturan", icon:"settings"},
  ]},
 ];
