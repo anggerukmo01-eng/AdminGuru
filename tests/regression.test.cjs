@@ -15,8 +15,10 @@ function aiContext(stored={}){
 }
 test('All application scripts parse, and script paths exist in load order',()=>{
   const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
-  const scripts=[...html.matchAll(/<script(?:\s[^>]*?)?src="(assets\/js\/[^\"]+)"/g)].map(m=>m[1]);
+  const scripts=[...html.matchAll(/<script(?:\s[^>]*?)?src="(assets\/js\/[^\"]+)"/g)].map(m=>m[1].split('?')[0]);
   assert(scripts.length>=18);
+  const versions=[...html.matchAll(/(?:src|href)="assets\/[^"]+\?v=([^"]+)"/g)].map(m=>m[1]);
+  assert(versions.length>=scripts.length);assert.equal(new Set(versions).size,1);
   scripts.forEach(file=>new vm.Script(fs.readFileSync(path.join(root,file),'utf8'),{filename:file}));
   assert(scripts.indexOf('assets/js/25-safety.js')<scripts.indexOf('assets/js/80-ai.js'));
   assert(scripts.indexOf('assets/js/cp-data.js')<scripts.indexOf('assets/js/81-ai-curriculum.js'));
