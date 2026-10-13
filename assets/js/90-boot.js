@@ -12,7 +12,8 @@ function boot(){
   applyTheme();
   buildSidebar();
   showLockScreen();
-  navigate("dashboard");
+  const requested=new URLSearchParams(location.search).get('page');
+  navigate(NAV.some(g=>g.items.some(i=>i.id===requested))?requested:'dashboard');
   if(cloudConfigured()){ cloudCheckSession().then(()=>{ if(cloudUser && currentPage==="dashboard") renderPage("dashboard"); }); }
   if(typeof cloudHandleRecoveryLink==="function") cloudHandleRecoveryLink();
   window.addEventListener("resize", ()=>{ if(window.innerWidth>960) toggleSidebar(false); });

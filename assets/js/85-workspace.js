@@ -22,6 +22,7 @@ function syncWorkspaceUi(){
 }
 
 function openMenuSearch(){
+  if(document.getElementById('bookReader')) return;
   if(!document.getElementById("app").classList.contains("ready")) return;
   openModal({title:"Temukan fitur",bodyHtml:`<div class="command-search">${ic("search",22)}<input type="search" id="commandQuery" aria-label="Cari fitur AdminGuru" placeholder="Contoh: nilai, rapor, CP, jurnal..." autocomplete="off" oninput="renderMenuResults(this.value)"></div><div id="commandResults" class="command-results"></div><p class="hint command-help">↑ ↓ Pilih &nbsp; Enter Buka &nbsp; Esc Tutup</p>`,onMount:()=>{
     renderMenuResults("");
@@ -45,7 +46,7 @@ function renderMenuResults(query){
   const q=String(query||"").toLocaleLowerCase("id").trim();
   const items=NAV.flatMap(group=>group.items.map(item=>({...item,group:group.group}))).filter(item=>PAGES[item.id]);
   const matches=items.filter(item=>(item.label+" "+item.group).toLocaleLowerCase("id").includes(q));
-  const visible=q ? matches : ["dashboard","siswa","kehadiran","inputnilai","agenda","aiDashboard","cpReferensi","backup"].map(id=>items.find(item=>item.id===id)).filter(Boolean);
+  const visible=q ? matches : ["dashboard","siswa","kehadiran","inputnilai","agenda","aiDashboard","perpustakaan","cpReferensi","backup"].map(id=>items.find(item=>item.id===id)).filter(Boolean);
   document.getElementById("commandResults").innerHTML=visible.length ? visible.map((item,i)=>`<button class="command-result${i===0?" selected":""}" onclick="closeModal();navigate('${item.id}')"><span class="command-icon">${ic(item.icon,19)}</span><span><strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(item.group)}</small></span><span class="command-arrow" aria-hidden="true">↗</span></button>`).join("") : `<div class="empty-state"><p>Tidak ada fitur yang cocok. Coba kata lain.</p></div>`;
 }
 

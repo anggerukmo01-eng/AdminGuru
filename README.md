@@ -21,6 +21,44 @@ cloud memerlukan internet. PIN merupakan pengunci antarmuka, bukan enkripsi data
 - Prompt V3, opsi PG kelas 1 a–c / kelas 2 ke atas a–d, prompt kustom,
   serta kunci penyimpanan lama dipertahankan.
 
+## Perpustakaan digital
+
+Menu **Perpustakaan Buku** memuat katalog Kurikulum Merdeka dari
+[SIBI Kemendikdasmen](https://buku.kemendikdasmen.go.id/katalog/buku-kurikulum-merdeka).
+Salinan metadata tanggal 13 Oktober 2026 berisi 642 buku PDF, termasuk
+174 buku SD/MI. Buku tetap dibaca dari server sumber; PDF tidak disalin ke
+repositori. Tombol **Perbarui katalog** mengambil metadata terbaru dari API
+yang dipakai situs resmi. Salinan katalog tetap dapat dicari saat API gagal.
+
+- Sampul, filter jenjang/kelas/mapel/jenis, pencarian judul/penulis/ISBN,
+  pagination, favorit, lanjut baca, dan rak catatan.
+- Pembaca PDF.js 5.6.205 dimuat hanya saat buku dibuka. Satu halaman dirender
+  setiap kali, dengan pembatasan sekitar enam juta piksel untuk penggunaan memori.
+- Zoom, sesuai layar, layar penuh, kertas/sepia/gelap, nomor halaman PDF,
+  serta daftar isi interaktif jika PDF menyediakannya.
+- Pensil dengan jari/mouse/stylus, stabilo, catatan teks pada titik halaman,
+  warna/ketebalan, hapus, urungkan/ulangi, dan penanda halaman.
+- Goresan menggunakan koordinat proporsional sehingga mengikuti zoom/ukuran
+  layar. Catatan terkait fingerprint PDF; versi baru tidak menimpa versi lama.
+- Teks catatan yang belum kosong disimpan saat berpindah halaman atau menutup
+  pembaca. Tombol Batal membuang draf teks yang belum disimpan.
+
+Catatan dan progres disimpan di IndexedDB `adminguru_library_v1`; favorit dan
+preferensi pembaca memakai kunci `adminguru_library_*` / `adminguru_reader_*`.
+Data ini tidak dikirim ke SIBI dan terpisah dari database kelas serta backup
+cloud lama. Gunakan **Cadangkan catatan** / **Pulihkan catatan** untuk memindah
+catatan dan favorit antarperangkat. Cadangan JSON tidak memuat berkas PDF.
+Catatan versi lama ikut dalam cadangan dan tetap tersimpan saat PDF berubah.
+
+**Simpan PDF di perangkat** mengurangi unduhan ulang. PDF tersimpan bisa dibaca
+saat sumbernya gagal jika aplikasi dan mesin PDF sudah tersedia. Membuka
+GitHub Pages dan memuat mesin PDF pertama kali masih memerlukan internet;
+fitur ini bukan instalasi PWA offline penuh. PDF lokal dapat ditambahkan
+tanpa unggah dengan batas 100 MB per berkas. Untuk memulihkan catatan PDF lokal
+di perangkat baru, tambahkan PDF yang sama, lalu pulihkan JSON catatannya.
+Ruang penyimpanan mengikuti batas browser; jika penyimpanan gagal, pembaca
+menampilkan status gagal dan menyediakan cadangan JSON.
+
 ## Struktur
 
 | Berkas | Fungsi |
@@ -43,6 +81,10 @@ cloud memerlukan internet. PIN merupakan pengunci antarmuka, bukan enkripsi data
 | `assets/js/cp-data.js` | Dataset CP dari lampiran handoff |
 | `assets/js/81-ai-curriculum.js` | Referensi CP, Analisis CP–TP, Telaah CP–ATP |
 | `assets/js/85-workspace.js` | Pencarian fitur, form aksesibel, navigasi ponsel |
+| `assets/css/library.css` | Rak buku dan ruang baca responsif |
+| `assets/data/library/` | Manifest dan salinan metadata katalog SIBI |
+| `assets/js/86-library.js` | Katalog, filter, rak pribadi, penyimpanan, cadangan |
+| `assets/js/87-book-reader.js` | PDF.js, halaman, coretan, catatan dan penanda |
 | `assets/js/90-boot.js` | Inisialisasi terakhir |
 
 Urutan skrip pada `index.html` harus dipertahankan: `82-ai-tools.js` mengikuti
@@ -61,10 +103,13 @@ npx playwright install chromium
 npm run test:browser
 ```
 
-Tes unit mencakup fase CP, prompt V3, tanggal lokal, kehadiran, serta
-streaming/timeout/error AI. Tes browser memakai server lokal dan memblokir
-endpoint eksternal: seluruh menu, prompt 16 generator lama, pemilih CP, CRUD,
-keyboard, serta layout desktop/ponsel/tablet. Layanan AI berbayar, Dropbox dan
+Tes unit mencakup fase CP, prompt V3, tanggal lokal, kehadiran,
+streaming/timeout/error AI, metadata katalog dan validasi cadangan catatan.
+Tes browser memakai server lokal dan fixture endpoint eksternal: seluruh
+79 menu, prompt 16 generator lama, pemilih CP, CRUD, keyboard, serta layout
+desktop/ponsel/tablet. Pembaca memakai mesin/worker PDF.js nyata dan PDF dua
+halaman untuk menguji goresan, zoom, pemulihan, cache PDF, pergantian versi,
+PDF lokal, serta pemisahan data sekolah. Layanan AI berbayar, Dropbox dan
 Supabase dengan akun nyata, serta hasil ekspor di aplikasi Office perlu diuji
 terpisah oleh pemilik akun. CI berjalan pada pull request dan main.
 

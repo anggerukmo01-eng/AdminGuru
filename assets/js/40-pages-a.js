@@ -72,7 +72,7 @@ PAGES.dashboard = function(){
     <div class="hero-copy"><span class="hero-eyebrow">RUANG KERJA ANDA <span class="hero-dot"></span> ${escapeHtml(cls.label)} · Fase ${faseForClassId(activeClassId)}</span>
       <h1>Selamat datang${teacher?', '+escapeHtml(teacher.nama.split(',')[0]):''}!<br><span>Siap menginspirasi hari ini?</span></h1>
       <p>Administrasi tertata, lebih banyak waktu untuk murid.</p>
-      <div class="hero-actions"><button class="btn hero-btn" onclick="navigate('kehadiran')">${ic('attendance',18)} Isi kehadiran</button><button class="btn hero-btn-secondary" onclick="navigate('aiModul')">${ic('star',18)} Buat modul AI</button></div>
+      <div class="hero-actions"><button class="btn hero-btn" onclick="navigate('kehadiran')">${ic('attendance',18)} Isi kehadiran</button><button class="btn hero-btn-secondary" onclick="navigate('aiModul')">${ic('star',18)} Buat modul AI</button><button class="btn hero-btn-secondary" onclick="navigate('perpustakaan')">${ic('book',18)} Perpustakaan</button></div>
     </div>${workspaceHeroArt()}
     <div class="hero-date">${ic('calendar',15)} ${escapeHtml(dateLabel)}</div>
   </section>
