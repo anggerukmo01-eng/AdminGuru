@@ -28,18 +28,23 @@ function defaultAiSettings(){
     autoWord:true,
     timeoutSec:120,
     retry:2,
-    systemPrompt:"Anda adalah asisten AI ahli Kurikulum Merdeka dan Pembelajaran Mendalam untuk guru Sekolah Dasar di Indonesia. Tugas Anda: menyusun dokumen administrasi pembelajaran yang formal, akurat, terstruktur, dan siap pakai.\n\nSTANDAR WAJIB:\n1. Regulasi acuan (jangan mengarang nomor/isi regulasi): Permendikbudristek No. 21/2022 (Standar Penilaian), Panduan Pembelajaran dan Asesmen Edisi Revisi 2025, Kep. Kepala BSKAP No. 046/H/KR/2025 (Capaian Pembelajaran), Permendikbudristek No. 12/2024 jo. Permendikdasmen No. 13/2025 (kurikulum). Gunakan CP/TP yang diberikan guru; jangan mengubah maknanya, hanya rapikan bahasanya.\n2. Prinsip asesmen: asesmen formatif untuk umpan balik dan bahan deskripsi capaian (tidak menentukan nilai rapor); nilai rapor hanya diolah dari asesmen sumatif; KKTP sebagai acuan ketercapaian tiap TP.\n3. Kaidah penulisan soal: sesuai indikator/TP; tepat satu kunci jawaban; pengecoh homogen, logis, dan berfungsi; pokok soal jelas dan tegas; tidak memberi petunjuk ke jawaban benar; hindari pernyataan negatif ganda; panjang opsi relatif sama; tanpa opsi 'semua benar/salah'; opsi angka diurutkan kecil ke besar; soal tidak bergantung pada jawaban soal lain; bahasa Indonesia komunikatif sesuai jenjang; tanpa bahasa daerah/tabu.\n4. Fase A (kelas 1-2): bahasa sederhana dan konkret, kontekstual dengan dunia anak, sertakan deskripsi ilustrasi [Ilustrasi: ...] pada soal yang terbantu gambar, sebaran level kognitif dominan C1-C3 dengan HOTS (C4-C6) proporsional.\n5. Pembelajaran Mendalam: kegiatan menerapkan prinsip berkesadaran (mindful), bermakna (meaningful), dan menggembirakan (joyful); kembangkan 8 dimensi Profil Lulusan (keimanan dan ketakwaan, kewargaan, penalaran kritis, kreativitas, kolaborasi, kemandirian, kesehatan, komunikasi).\n\nKELENGKAPAN HASIL (WAJIB):\n6. Selesaikan SEMUA bagian yang diminta dalam satu respons — jangan memotong, jangan menulis 'bersambung', '[dilanjutkan]', atau 'dst.'.\n7. Dahulukan kelengkapan struktur: bila perlu, ringkas kalimat yang bertele-tele tetapi pertahankan semua bagian, tabel, dan butir yang diminta.\n8. Untuk naskah soal/asesmen: JANGAN membuat kop (kop ditambahkan otomatis oleh sistem); mulai dari blok identitas naskah sesuai instruksi.\n\nFORMAT OUTPUT: SELALU Bahasa Indonesia formal. HANYA HTML valid (tag h2,h3,h4,p,ul,ol,li,table,thead,tbody,tr,td,th,strong,em). JANGAN gunakan markdown (**, #, |). JANGAN sertakan tag html/head/body — cukup potongan HTML dokumen. Jangan menambahkan kalimat pembuka/penutup atau komentar di luar isi dokumen.\n\n[SP-V2]"
+    systemPrompt:"Anda adalah asisten AI ahli Kurikulum Merdeka dan Pembelajaran Mendalam untuk guru Sekolah Dasar di Indonesia. Tugas Anda: menyusun dokumen administrasi pembelajaran yang formal, akurat, terstruktur, dan siap pakai.\n\nSTANDAR WAJIB:\n1. Regulasi acuan (jangan mengarang nomor/isi regulasi): Permendikbudristek No. 21/2022 (Standar Penilaian), Panduan Pembelajaran dan Asesmen Edisi Revisi 2025, Kep. Kepala BSKAP No. 046/H/KR/2025 (Capaian Pembelajaran; khusus PAI & Budi Pekerti: Kep. Kepala BKPDM No. 020/2026), Permendikbudristek No. 12/2024 jo. Permendikdasmen No. 13/2025 (kurikulum). Gunakan CP/TP yang diberikan guru; jangan mengubah maknanya, hanya rapikan bahasanya.\n2. Prinsip asesmen: asesmen formatif untuk umpan balik dan bahan deskripsi capaian (tidak menentukan nilai rapor); nilai rapor hanya diolah dari asesmen sumatif; KKTP sebagai acuan ketercapaian tiap TP.\n3. Kaidah penulisan soal: sesuai indikator/TP; tepat satu kunci jawaban; pengecoh homogen, logis, dan berfungsi; pokok soal jelas dan tegas; tidak memberi petunjuk ke jawaban benar; hindari pernyataan negatif ganda; panjang opsi relatif sama; tanpa opsi 'semua benar/salah'; opsi angka diurutkan kecil ke besar; soal tidak bergantung pada jawaban soal lain; bahasa Indonesia komunikatif sesuai jenjang; tanpa bahasa daerah/tabu; jumlah opsi pilihan ganda: kelas 1 = 3 opsi (a, b, c), kelas 2 ke atas = 4 opsi (a, b, c, d).\n4. Fase A (kelas 1-2): bahasa sederhana dan konkret, kontekstual dengan dunia anak, sertakan deskripsi ilustrasi [Ilustrasi: ...] pada soal yang terbantu gambar, sebaran level kognitif dominan C1-C3 dengan HOTS (C4-C6) proporsional.\n5. Pembelajaran Mendalam: kegiatan menerapkan prinsip berkesadaran (mindful), bermakna (meaningful), dan menggembirakan (joyful); kembangkan 8 dimensi Profil Lulusan (keimanan dan ketakwaan, kewargaan, penalaran kritis, kreativitas, kolaborasi, kemandirian, kesehatan, komunikasi).\n\nKELENGKAPAN HASIL (WAJIB):\n6. Selesaikan SEMUA bagian yang diminta dalam satu respons — jangan memotong, jangan menulis 'bersambung', '[dilanjutkan]', atau 'dst.'.\n7. Dahulukan kelengkapan struktur: bila perlu, ringkas kalimat yang bertele-tele tetapi pertahankan semua bagian, tabel, dan butir yang diminta.\n8. Untuk naskah soal/asesmen: JANGAN membuat kop (kop ditambahkan otomatis oleh sistem); mulai dari blok identitas naskah sesuai instruksi.\n\nFORMAT OUTPUT: SELALU Bahasa Indonesia formal. HANYA HTML valid (tag h2,h3,h4,p,ul,ol,li,table,thead,tbody,tr,td,th,strong,em). JANGAN gunakan markdown (**, #, |). JANGAN sertakan tag html/head/body — cukup potongan HTML dokumen. Jangan menambahkan kalimat pembuka/penutup atau komentar di luar isi dokumen.\n\n[SP-V3]"
   };
 }
 function loadAiSettings(){
   let s = null;
   try{ const raw = localStorage.getItem(AI_SET_KEY); if(raw) s = Object.assign(defaultAiSettings(), JSON.parse(raw)); }catch(e){}
   if(!s) s = defaultAiSettings();
-  // Migrasi aman: ganti system prompt bawaan lama (mengandung referensi regulasi
-  // yang tidak terverifikasi, "020/2026") dengan versi baru. Prompt kustom
-  // pengguna (tanpa penanda itu) tidak diubah.
+  // Migrasi system prompt -> V3 (BKPDM 020/2026 + opsi PG kelas 1 = a-c):
+  // HANYA prompt bawaan (berpenanda [SP-V2] atau kalimat khas default lama)
+  // yang belum berpenanda [SP-V3] yang dimutakhirkan. Prompt kustom pengguna
+  // (tanpa penanda bawaan) tidak diubah.
+  // Catatan: migrasi lama yang menghapus prompt ber-"020/2026" DIHAPUS —
+  // Kep. Kepala BKPDM 020/2026 sudah TERVERIFIKASI ada (13 Okt 2026).
   let needSave = false;
-  if(s.systemPrompt && s.systemPrompt.indexOf("020/2026")>=0){
+  if(s.systemPrompt && s.systemPrompt.indexOf("[SP-V3]")<0
+    && (s.systemPrompt.indexOf("[SP-V2]")>=0
+        || s.systemPrompt.indexOf("JANGAN menambahkan kalimat pembuka/penutup")>=0)){
     s.systemPrompt = defaultAiSettings().systemPrompt;
     needSave = true;
   }
@@ -47,13 +52,7 @@ function loadAiSettings(){
   // modul ajar) tidak terpotong. Hanya yang masih bernilai default lama.
   if(s.maxTokens===4000){ s.maxTokens = 8000; needSave = true; }
   if(s.timeoutSec===60){ s.timeoutSec = 120; needSave = true; }
-  // Migrasi system prompt V1 -> V2: hanya bila pengguna tidak mengkustom
-  // (terdeteksi dari kalimat khas default lama & belum ada penanda V2).
-  if(s.systemPrompt && s.systemPrompt.indexOf("[SP-V2]")<0
-    && s.systemPrompt.indexOf("JANGAN menambahkan kalimat pembuka/penutup, komentar, atau catatan di luar isi dokumen")>=0){
-    s.systemPrompt = defaultAiSettings().systemPrompt;
-    needSave = true;
-  }
+  // (Migrasi V1 -> V2 lama sudah digantikan migrasi -> V3 di atas.)
   if(needSave){ try{ localStorage.setItem(AI_SET_KEY, JSON.stringify(s)); }catch(e){} }
   return s;
 }
@@ -1637,6 +1636,8 @@ function generateAiAsesForm(){
   const jenisTxt = isDiag ? "ASESMEN DIAGNOSTIK AWAL" : "INSTRUMEN ASESMEN FORMATIF";
   let n = 1;
   const sec = [];
+  // Aturan opsi PG (keputusan guru): kelas 1 = 3 opsi (a, b, c); kelas 2+ = 4 opsi.
+  const pgOpsiAf = c.cls.angka===1 ? {labelTitik:"a., b., c."} : {labelTitik:"a., b., c., d."};
   sec.push((n++)+". BLOK IDENTITAS ringkas (tengah, tebal): judul \""+jenisTxt+"\", lalu baris Mapel: "+c.mapel+" | Kelas: "+c.cls.label+" | Hari/tanggal: ............");
   sec.push((n++)+". Kisi-kisi singkat (tabel HTML: No | Indikator Soal | Bentuk | Level Kognitif).");
   sec.push((n++)+". Soal/item bernomor + kunci jawaban / kriteria jawaban benar.");
@@ -1649,7 +1650,7 @@ Durasi pengerjaan: ${durasi}.
 
 ACUAN STANDAR: Permendikbudristek No. 21/2022 tentang Standar Penilaian; Panduan Pembelajaran dan Asesmen (Edisi Revisi 2025). Instrumen ini untuk UMPAN BALIK, bukan penentu nilai rapor.
 ${AI_PANDUAN_2019_KAIDAH}
-FORMAT PENGETIKAN (siap cetak Word): akhiri soal isian dengan " …."; simbol matematika berspasi (3 x 4 = 12); opsi PG tiap baris dengan label huruf kecil (a., b., c.).
+FORMAT PENGETIKAN (siap cetak Word): akhiri soal isian dengan " …."; simbol matematika berspasi (3 x 4 = 12); opsi PG tiap baris dengan label huruf kecil (${pgOpsiAf.labelTitik}).
 KOP (baris Nama, logo, identitas sekolah, garis tebal) SUDAH ditambahkan otomatis oleh sistem — JANGAN membuat kop.
 
 STRUKTUR OUTPUT WAJIB (HTML):
@@ -1858,13 +1859,15 @@ function generateAiBankSoal(){
   const cls = classInfo(kelasId);
   const fase = faseForClassId(kelasId);
   const s = db.sekolah;
+  // Aturan opsi PG (keputusan guru): kelas 1 = 3 opsi (a, b, c); kelas 2+ = 4 opsi.
+  const pgOpsi = cls.angka===1 ? {n:3, label:"a, b, c", labelTitik:"a., b., c.", instr:"a, b, ATAU c"} : {n:4, label:"a, b, c, d", labelTitik:"a., b., c., d.", instr:"a, b, c, ATAU d"};
   const waktu = Math.max(15, Math.min(180, parseInt(document.getElementById("ab_waktu").value||"60",10)));
   const ta = ((db.sekolah&&db.sekolah.tahunAjaran)||"2026/2027").replace("/"," / ");
   const JUDUL_UJIAN = {"Ulangan Harian":"ULANGAN HARIAN","PR":"PEKERJAAN RUMAH","STS 1":"SUMATIF TENGAH SEMESTER I","STS 2":"SUMATIF TENGAH SEMESTER II","SAS 1":"SUMATIF AKHIR SEMESTER I","SAS 2":"SUMATIF AKHIR SEMESTER II"}[jenis]||jenis.toUpperCase();
   const judulNaskah = JUDUL_UJIAN+" SEKOLAH DASAR";
   if(jmlPG+jmlIsian+jmlUraian===0){ toast("Isi minimal 1 soal (PG/Isian/Uraian)."); return; }
   const bagian = [];
-  if(jmlPG>0) bagian.push(jmlPG+" soal Pilihan Ganda (4 opsi A-D)");
+  if(jmlPG>0) bagian.push(jmlPG+" soal Pilihan Ganda ("+pgOpsi.n+" opsi "+pgOpsi.label+")");
   if(jmlIsian>0) bagian.push(jmlIsian+" soal Isian Singkat");
   if(jmlUraian>0) bagian.push(jmlUraian+" soal Uraian");
   const levelTxt = hots==="campuran" ? "Gunakan sebaran level kognitif C1-C6 yang proporsional untuk jenjang SD (dominan C1-C3) dengan MINIMAL 30% soal pada level HOTS C4-C6 yang kontekstual."
@@ -1898,12 +1901,12 @@ ${ilusTxt}
 KAIDAH PENULISAN SOAL (WAJIB dipatuhi):
 [Materi] (1) Soal harus sesuai indikator/TP. (2) Pilihan jawaban homogen & logis, pengecoh berfungsi. (3) Tepat satu jawaban benar.
 [Konstruksi] (4) Pokok soal jelas & tegas. (5) Hanya memuat pernyataan yang diperlukan. (6) Tidak memberi petunjuk ke jawaban benar. (7) Hindari pernyataan negatif ganda. (8) Panjang opsi relatif sama. (9) Tanpa opsi "semua jawaban benar/salah". (10) Opsi angka diurutkan kecil→besar. (11) Soal tidak bergantung pada jawaban soal lain.
-[Bahasa] (12) Bahasa Indonesia yang baik & komunikatif, sesuai jenjang SD. (13) Tanpa bahasa daerah/tabu.
+[Bahasa] (12) Bahasa Indonesia yang baik & komunikatif, sesuai jenjang SD. (13) Tanpa bahasa daerah/tabu. (14) Jumlah opsi pilihan ganda: kelas 1 = 3 opsi (a, b, c); kelas 2 ke atas = 4 opsi (a, b, c, d).
 ${AI_PANDUAN_2019_KAIDAH}
 FORMAT PENGETIKAN NASKAH (siap cetak Word, kertas F4):
 - Akhiri pokok soal isian dengan " …." (spasi + empat titik); blank di tengah kalimat ditulis " … " (spasi + tiga titik + spasi).
 - Simbol matematika: beri spasi sebelum & sesudah operator (contoh: 3 x 4 = 12); gunakan × untuk perkalian, bukan huruf X.
-- Opsi PG: tiap opsi pada baris tersendiri dengan label huruf kecil (a., b., c., d.); nomor soal "1.", "2.", dst.
+- Opsi PG: tiap opsi pada baris tersendiri dengan label huruf kecil (${pgOpsi.labelTitik}); nomor soal "1.", "2.", dst.
 
 ACUAN STANDAR: Permendikbudristek No. 21/2022 tentang Standar Penilaian; Panduan Pembelajaran dan Asesmen (Edisi Revisi 2025); kaidah Panduan Penilaian Tertulis 2019 (Pusat Penilaian Pendidikan). Jangan mengarang regulasi.
 
@@ -1911,7 +1914,7 @@ STRUKTUR OUTPUT (HTML, gunakan heading h2/h3):
 ${pakaiKisi ? "1. KISI-KISI — TABEL HTML. Identitas: jenjang SD, mata pelajaran, kurikulum, jumlah soal. Matriks: No | TP | Materi | Indikator Soal | Level Kognitif (C1–C6) | Bentuk Soal | Nomor Soal. Syarat: mewakili isi kurikulum; tampilkan rekap distribusi level kognitif di bawah tabel.\n" : ""}2. NASKAH SOAL — format naskah ujian siap cetak. KOP (baris Nama, logo, identitas sekolah, garis tebal) SUDAH ditambahkan otomatis oleh sistem — JANGAN membuat kop. Susun persis struktur berikut:
    a. BLOK IDENTITAS (tengah, tebal): judul "${judulNaskah}", baris "TAHUN PELAJARAN ${ta}", lalu "Mapel : ${mapel}", "Kelas : ${cls.label}", "Waktu : ${waktu} menit", "Hari / tanggal : ............". Akhiri dengan paragraf pemisah <p class="soal-sep">------------------------------------------------------------</p>.
    b. "PETUNJUK UMUM :" (tebal) + daftar bernomor: (1) Tulislah namamu di sudut kanan atas! (2) Bacalah setiap soal dengan teliti! (3) Kerjakan lebih dulu soal yang kamu anggap paling mudah! (4) Periksa kembali pekerjaanmu sebelum kamu serahkan kepada Bapak atau Ibu Guru! Akhiri dengan paragraf pemisah yang sama.
-   c. Bagian per bentuk soal (hanya yang jumlahnya >0; penomoran bagian I, II, III), masing-masing diawali instruksi bagian (tebal). Contoh untuk Pilihan Ganda: "I. BERILAH TANDA SILANG (X) PADA HURUF a, b, ATAU c DI DEPAN JAWABAN YANG PALING TEPAT!" — sesuaikan huruf/jumlah opsi dengan komposisi.
+   c. Bagian per bentuk soal (hanya yang jumlahnya >0; penomoran bagian I, II, III), masing-masing diawali instruksi bagian (tebal). Contoh untuk Pilihan Ganda: "I. BERILAH TANDA SILANG (X) PADA HURUF ${pgOpsi.instr} DI DEPAN JAWABAN YANG PALING TEPAT!" — sesuaikan huruf/jumlah opsi dengan komposisi.
    d. Butir soal: PG ditulis "1. pokok soal …." dengan opsi tiap baris ("a. ..."); Isian berupa kalimat pernyataan dengan blank; Uraian dengan perintah dan batasan jawaban yang jelas. Nomor soal berurutan 1 s.d. total.
 ${pakaiKunci ? "3. KUNCI JAWABAN — daftar per nomor soal.\n4. PEDOMAN PENSKORAN — PG: skor 1 per butir benar; Isian: skor 1 per kunci tepat; Uraian: ikuti kaidah E di atas (kata kunci/rentang skor + bobot + rumus Nilai = (skor perolehan / skor maksimum) × bobot). Tampilkan cara hitung nilai akhir.\n5. TELAAH MANDIRI — tabel singkat: No. Soal | Status (Diterima/Direvisi/Ditolak) | Catatan; atau pernyataan seluruh butir memenuhi kaidah." : ""}
 Tulis siap cetak. Bahasa formal namun ramah anak SD Indonesia.
