@@ -21,13 +21,14 @@ function defaultAiSettings(){
     model:"openai/gpt-5",
     temperature:0.7,
     topP:1,
-    maxTokens:4000,
+    maxTokens:8000,
     presencePenalty:0,
     frequencyPenalty:0,
     streaming:true,
-    timeoutSec:60,
+    autoWord:true,
+    timeoutSec:120,
     retry:2,
-    systemPrompt:"Anda adalah asisten AI ahli Kurikulum Merdeka dan Pembelajaran Mendalam untuk guru Sekolah Dasar di Indonesia. Tugas Anda: menyusun dokumen administrasi pembelajaran yang formal, akurat, terstruktur, dan siap pakai.\n\nSTANDAR WAJIB:\n1. Regulasi acuan (jangan mengarang nomor/isi regulasi): Permendikbudristek No. 21/2022 (Standar Penilaian), Panduan Pembelajaran dan Asesmen Edisi Revisi 2025, Kep. Kepala BSKAP No. 046/H/KR/2025 (Capaian Pembelajaran), Permendikbudristek No. 12/2024 jo. Permendikdasmen No. 13/2025 (kurikulum). Gunakan CP/TP yang diberikan guru; jangan mengubah maknanya, hanya rapikan bahasanya.\n2. Prinsip asesmen: asesmen formatif untuk umpan balik dan bahan deskripsi capaian (tidak menentukan nilai rapor); nilai rapor hanya diolah dari asesmen sumatif; KKTP sebagai acuan ketercapaian tiap TP.\n3. Kaidah penulisan soal: sesuai indikator/TP; tepat satu kunci jawaban; pengecoh homogen, logis, dan berfungsi; pokok soal jelas dan tegas; tidak memberi petunjuk ke jawaban benar; hindari pernyataan negatif ganda; panjang opsi relatif sama; tanpa opsi 'semua benar/salah'; opsi angka diurutkan kecil ke besar; soal tidak bergantung pada jawaban soal lain; bahasa Indonesia komunikatif sesuai jenjang; tanpa bahasa daerah/tabu.\n4. Fase A (kelas 1-2): bahasa sederhana dan konkret, kontekstual dengan dunia anak, sertakan deskripsi ilustrasi [Ilustrasi: ...] pada soal yang terbantu gambar, sebaran level kognitif dominan C1-C3 dengan HOTS (C4-C6) proporsional.\n5. Pembelajaran Mendalam: kegiatan menerapkan prinsip berkesadaran (mindful), bermakna (meaningful), dan menggembirakan (joyful); kembangkan 8 dimensi Profil Lulusan (keimanan & ketakwaan, kewargaan, penalaran kritis, kreativitas, kolaborasi, kemandirian, kesehatan, komunikasi).\n\nFORMAT OUTPUT: SELALU Bahasa Indonesia formal. HANYA HTML valid (tag h2,h3,h4,p,ul,ol,li,table,thead,tbody,tr,td,th,strong,em). JANGAN gunakan markdown (**, #, |). JANGAN sertakan tag html/head/body, cukup potongan HTML dokumen. JANGAN menambahkan kalimat pembuka/penutup, komentar, atau catatan di luar isi dokumen."
+    systemPrompt:"Anda adalah asisten AI ahli Kurikulum Merdeka dan Pembelajaran Mendalam untuk guru Sekolah Dasar di Indonesia. Tugas Anda: menyusun dokumen administrasi pembelajaran yang formal, akurat, terstruktur, dan siap pakai.\n\nSTANDAR WAJIB:\n1. Regulasi acuan (jangan mengarang nomor/isi regulasi): Permendikbudristek No. 21/2022 (Standar Penilaian), Panduan Pembelajaran dan Asesmen Edisi Revisi 2025, Kep. Kepala BSKAP No. 046/H/KR/2025 (Capaian Pembelajaran), Permendikbudristek No. 12/2024 jo. Permendikdasmen No. 13/2025 (kurikulum). Gunakan CP/TP yang diberikan guru; jangan mengubah maknanya, hanya rapikan bahasanya.\n2. Prinsip asesmen: asesmen formatif untuk umpan balik dan bahan deskripsi capaian (tidak menentukan nilai rapor); nilai rapor hanya diolah dari asesmen sumatif; KKTP sebagai acuan ketercapaian tiap TP.\n3. Kaidah penulisan soal: sesuai indikator/TP; tepat satu kunci jawaban; pengecoh homogen, logis, dan berfungsi; pokok soal jelas dan tegas; tidak memberi petunjuk ke jawaban benar; hindari pernyataan negatif ganda; panjang opsi relatif sama; tanpa opsi 'semua benar/salah'; opsi angka diurutkan kecil ke besar; soal tidak bergantung pada jawaban soal lain; bahasa Indonesia komunikatif sesuai jenjang; tanpa bahasa daerah/tabu.\n4. Fase A (kelas 1-2): bahasa sederhana dan konkret, kontekstual dengan dunia anak, sertakan deskripsi ilustrasi [Ilustrasi: ...] pada soal yang terbantu gambar, sebaran level kognitif dominan C1-C3 dengan HOTS (C4-C6) proporsional.\n5. Pembelajaran Mendalam: kegiatan menerapkan prinsip berkesadaran (mindful), bermakna (meaningful), dan menggembirakan (joyful); kembangkan 8 dimensi Profil Lulusan (keimanan dan ketakwaan, kewargaan, penalaran kritis, kreativitas, kolaborasi, kemandirian, kesehatan, komunikasi).\n\nKELENGKAPAN HASIL (WAJIB):\n6. Selesaikan SEMUA bagian yang diminta dalam satu respons — jangan memotong, jangan menulis 'bersambung', '[dilanjutkan]', atau 'dst.'.\n7. Dahulukan kelengkapan struktur: bila perlu, ringkas kalimat yang bertele-tele tetapi pertahankan semua bagian, tabel, dan butir yang diminta.\n8. Untuk naskah soal/asesmen: JANGAN membuat kop (kop ditambahkan otomatis oleh sistem); mulai dari blok identitas naskah sesuai instruksi.\n\nFORMAT OUTPUT: SELALU Bahasa Indonesia formal. HANYA HTML valid (tag h2,h3,h4,p,ul,ol,li,table,thead,tbody,tr,td,th,strong,em). JANGAN gunakan markdown (**, #, |). JANGAN sertakan tag html/head/body — cukup potongan HTML dokumen. Jangan menambahkan kalimat pembuka/penutup atau komentar di luar isi dokumen.\n\n[SP-V2]"
   };
 }
 function loadAiSettings(){
@@ -37,10 +38,23 @@ function loadAiSettings(){
   // Migrasi aman: ganti system prompt bawaan lama (mengandung referensi regulasi
   // yang tidak terverifikasi, "020/2026") dengan versi baru. Prompt kustom
   // pengguna (tanpa penanda itu) tidak diubah.
+  let needSave = false;
   if(s.systemPrompt && s.systemPrompt.indexOf("020/2026")>=0){
     s.systemPrompt = defaultAiSettings().systemPrompt;
-    try{ localStorage.setItem(AI_SET_KEY, JSON.stringify(s)); }catch(e){}
+    needSave = true;
   }
+  // Migrasi Okt 2026: naikkan batas default lama agar dokumen panjang (bank soal,
+  // modul ajar) tidak terpotong. Hanya yang masih bernilai default lama.
+  if(s.maxTokens===4000){ s.maxTokens = 8000; needSave = true; }
+  if(s.timeoutSec===60){ s.timeoutSec = 120; needSave = true; }
+  // Migrasi system prompt V1 -> V2: hanya bila pengguna tidak mengkustom
+  // (terdeteksi dari kalimat khas default lama & belum ada penanda V2).
+  if(s.systemPrompt && s.systemPrompt.indexOf("[SP-V2]")<0
+    && s.systemPrompt.indexOf("JANGAN menambahkan kalimat pembuka/penutup, komentar, atau catatan di luar isi dokumen")>=0){
+    s.systemPrompt = defaultAiSettings().systemPrompt;
+    needSave = true;
+  }
+  if(needSave){ try{ localStorage.setItem(AI_SET_KEY, JSON.stringify(s)); }catch(e){} }
   return s;
 }
 function saveAiSettings(){ localStorage.setItem(AI_SET_KEY, JSON.stringify(aiSettings)); }
@@ -122,6 +136,7 @@ async function openRouterChat(messages, opts){
         const decoder = new TextDecoder("utf-8");
         let full = "";
         let buf = "";
+        let finishReason = null;
         while(true){
           const {done, value} = await reader.read();
           if(done) break;
@@ -135,18 +150,21 @@ async function openRouterChat(messages, opts){
             if(payload==="[DONE]") continue;
             try{
               const json = JSON.parse(payload);
-              const delta = json.choices && json.choices[0] && json.choices[0].delta ? json.choices[0].delta.content : "";
+              const ch0 = json.choices && json.choices[0];
+              if(ch0 && ch0.finish_reason) finishReason = ch0.finish_reason;
+              const delta = ch0 && ch0.delta ? ch0.delta.content : "";
               if(delta){ full += delta; if(opts.onDelta) opts.onDelta(full, delta); }
             }catch(e){ /* abaikan baris parsial */ }
           }
         }
-        return { text: full, usage:{prompt_tokens:aiEstimateTokens(JSON.stringify(messages)), completion_tokens:aiEstimateTokens(full)} };
+        return { text: full, finishReason, usage:{prompt_tokens:aiEstimateTokens(JSON.stringify(messages)), completion_tokens:aiEstimateTokens(full)} };
       } else {
         const json = await res.json();
         const text = json.choices && json.choices[0] && json.choices[0].message ? json.choices[0].message.content : "";
+        const finishReason = json.choices && json.choices[0] ? json.choices[0].finish_reason : null;
         const usage = json.usage || {prompt_tokens:aiEstimateTokens(JSON.stringify(messages)), completion_tokens:aiEstimateTokens(text)};
         if(opts.onDelta) opts.onDelta(text, text);
-        return { text, usage };
+        return { text, finishReason, usage };
       }
     }catch(err){
       clearTimeout(timer);
@@ -205,13 +223,17 @@ PAGES.aiSettings = function(){
         <div class="ai-range-row"><input type="range" id="ai_temperature" min="0" max="2" step="0.1" value="${s.temperature}" oninput="document.getElementById('ai_temperature_val').textContent=this.value"><span class="val" id="ai_temperature_val">${s.temperature}</span></div></div>
       <div class="field"><label>Top P (${s.topP})</label>
         <div class="ai-range-row"><input type="range" id="ai_topP" min="0" max="1" step="0.05" value="${s.topP}" oninput="document.getElementById('ai_topP_val').textContent=this.value"><span class="val" id="ai_topP_val">${s.topP}</span></div></div>
-      <div class="field"><label>Max Tokens</label><input type="number" id="ai_maxTokens" value="${s.maxTokens}" min="256" max="32000"></div>
+      <div class="field"><label>Max Tokens</label><input type="number" id="ai_maxTokens" value="${s.maxTokens}" min="256" max="32000">
+        <div class="hint">Disarankan 8000 agar dokumen panjang (bank soal, modul ajar) tidak terpotong.</div></div>
       <div class="field"><label>Presence Penalty</label><input type="number" step="0.1" id="ai_presencePenalty" value="${s.presencePenalty}" min="-2" max="2"></div>
       <div class="field"><label>Frequency Penalty</label><input type="number" step="0.1" id="ai_frequencyPenalty" value="${s.frequencyPenalty}" min="-2" max="2"></div>
-      <div class="field"><label>Timeout (detik)</label><input type="number" id="ai_timeoutSec" value="${s.timeoutSec}" min="10" max="300"></div>
+      <div class="field"><label>Timeout (detik)</label><input type="number" id="ai_timeoutSec" value="${s.timeoutSec}" min="10" max="300">
+        <div class="hint">Disarankan 120 detik untuk dokumen panjang.</div></div>
       <div class="field"><label>Retry (percobaan ulang)</label><input type="number" id="ai_retry" value="${s.retry}" min="1" max="5"></div>
       <div class="field"><label>Streaming</label>
         <select id="ai_streaming"><option value="1" ${s.streaming?"selected":""}>Aktif (ON)</option><option value="0" ${!s.streaming?"selected":""}>Nonaktif (OFF)</option></select></div>
+      <div class="field"><label>Word otomatis</label>
+        <select id="ai_autoWord"><option value="1" ${s.autoWord?"selected":""}>Aktif — unduh Word otomatis setelah generate</option><option value="0" ${!s.autoWord?"selected":""}>Nonaktif</option></select></div>
     </div>
 
     <div class="field"><label>System Prompt (Peran AI)</label>
@@ -236,6 +258,7 @@ function aiSaveSettingsFromForm(){
     presencePenalty: parseFloat(document.getElementById("ai_presencePenalty").value),
     frequencyPenalty: parseFloat(document.getElementById("ai_frequencyPenalty").value),
     streaming: document.getElementById("ai_streaming").value==="1",
+    autoWord: document.getElementById("ai_autoWord").value==="1",
     timeoutSec: parseInt(document.getElementById("ai_timeoutSec").value,10),
     retry: parseInt(document.getElementById("ai_retry").value,10),
     systemPrompt: document.getElementById("ai_systemPrompt").value
@@ -339,7 +362,7 @@ function aiViewHistory(id){
       <div class="ai-toolbar" style="margin-top:14px;">
         <button class="btn" onclick="aiExportWordAuto('${h.type}','aiViewContent','${escapeHtml(h.title).replace(/'/g,"")}')">${ic("download",15)} Export Word</button>
         <button class="btn" onclick="aiExportExcel(document.getElementById('aiViewContent').innerHTML,'${escapeHtml(h.title).replace(/'/g,"")}')">${ic("download",15)} Export Excel</button>
-        <button class="btn" onclick="aiExportPDF(document.getElementById('aiViewContent').innerHTML,'${escapeHtml(h.title).replace(/'/g,"")}')">${ic("download",15)} Export PDF</button>
+        <button class="btn" onclick="aiExportPDF(document.getElementById('aiViewContent').innerHTML,'${escapeHtml(h.title).replace(/'/g,"")}','${h.type}')">${ic("download",15)} Export PDF</button>
         <button class="btn" onclick="aiExportMarkdown(document.getElementById('aiViewContent'),'${escapeHtml(h.title).replace(/'/g,"")}')">${ic("download",15)} Export Markdown</button>
         <button class="btn" onclick="aiCopyElement('aiViewContent')">${ic("doc",15)} Salin</button>
       </div>`
@@ -481,7 +504,7 @@ function aiResultHtml(title, contentHtml, docType, saveId){
       <button class="btn btn-primary" onclick="aiSaveDoc('${docType}','${saveId}')">${ic("check",15)} Simpan Dokumen</button>
       <button class="btn" onclick="aiExportWordAuto('${docType}','${saveId}','${escapeHtml(title).replace(/'/g,"")}')">${ic("download",15)} Export Word</button>
       <button class="btn" onclick="aiExportExcel(document.getElementById('${saveId}').innerHTML,'${escapeHtml(title).replace(/'/g,"")}')">${ic("download",15)} Export Excel</button>
-      <button class="btn" onclick="aiExportPDF(document.getElementById('${saveId}').innerHTML,'${escapeHtml(title).replace(/'/g,"")}')">${ic("download",15)} Export PDF</button>
+      <button class="btn" onclick="aiExportPDF(document.getElementById('${saveId}').innerHTML,'${escapeHtml(title).replace(/'/g,"")}','${docType}')">${ic("download",15)} Export PDF</button>
       <button class="btn" onclick="aiExportMarkdown(document.getElementById('${saveId}'),'${escapeHtml(title).replace(/'/g,"")}')">${ic("download",15)} Export Markdown</button>
       <button class="btn" onclick="aiCopyElement('${saveId}')">${ic("doc",15)} Salin</button>
       <button class="btn" onclick="document.getElementById('${saveId}').contentEditable=true;document.getElementById('${saveId}').focus();toast('Mode edit aktif - klik di dalam teks untuk mengubah.')">${ic("pen",15)} Edit</button>
@@ -515,9 +538,21 @@ async function aiRunGenerate(resultElId, {type, title, systemPrompt, userPrompt}
     const res = await openRouterChat(messages, {
       onDelta: (full)=>{ holder.innerHTML = aiResultHtml(title, full, type, saveId); }
     });
-    holder.innerHTML = aiResultHtml(title, res.text, type, saveId);
+    let truncWarn = "";
+    if(res.finishReason==="length"){
+      truncWarn = `<div class="card" style="border-left:4px solid #e8590c;margin-bottom:10px;"><span class="badge badge-red">Terpotong</span> <span class="hint">Hasil AI terpotong karena mencapai batas Max Tokens. Naikkan <strong>Max Tokens</strong> di AI Settings (disarankan 8000), lalu generate ulang.</span></div>`;
+      toast("Hasil terpotong (batas token) — naikkan Max Tokens di AI Settings.");
+    }
+    holder.innerHTML = truncWarn + aiResultHtml(title, res.text, type, saveId);
     _aiLastDoc = {title};
     addAiHistory({id:uid("aihist"), type, title, content:res.text, model:aiSettings.model, usage:res.usage, createdAt:new Date().toISOString()});
+    /* Unduh Word otomatis setelah generate (bisa dimatikan di AI Settings). */
+    if(aiSettings.autoWord){
+      const wordNote = res.finishReason==="length"
+        ? `<p style="color:#c92a2a;font-weight:bold;">PERINGATAN: naskah ini terpotong karena mencapai batas Max Tokens. Naikkan Max Tokens di AI Settings lalu generate ulang.</p>` : "";
+      try{ aiExportWordAuto(type, saveId, title, wordNote); }
+      catch(e){ console.warn("Auto Word gagal:", e); }
+    }
   }catch(e){
     holder.innerHTML = `<div class="card"><p class="badge badge-red">Gagal</p><p class="hint" style="margin-top:8px;">${escapeHtml(e.message)}</p></div>`;
     toast("Gagal generate: "+e.message);
@@ -551,9 +586,25 @@ function aiExportExcel(html, title){
   document.body.appendChild(a); a.click(); a.remove();
   toast("File Excel (.xls) diunduh.");
 }
-/* Export Word KHUSUS naskah soal/asesmen: format siap cetak kertas F4
-   (standar naskah ujian Indonesia), margin 2,5 cm, Times New Roman 12,
-   spasi 1,5 — sesuai praktik pengetikan naskah soal yang baik. */
+/* Kop NASKAH SOAL persis format cetak sekolah (contoh: naskah STS SDN 1 Gerduren):
+   baris "Nama : ...." kanan atas, logo + 4 baris kop di tengah, garis tebal.
+   Nama sekolah dikosongkan menjadi "...." agar naskah bisa dipakai umum/template. */
+function kopSoalHtml(){
+  const s = (typeof db!=="undefined" && db.sekolah) ? db.sekolah : {};
+  const logoSrc = s.logoDataUrl || (typeof LOGO_SEKOLAH!=="undefined" ? LOGO_SEKOLAH : "assets/img/logo-sekolah.png");
+  const kab = (s.kabupaten||"Banyumas").toUpperCase();
+  const korwil = "KORWILCAM DINDIK "+(s.kecamatan||"Purwojati").toUpperCase();
+  return `<div style="margin-bottom:10px;">`
+    + `<div style="text-align:right;font-weight:bold;font-size:12pt;margin-bottom:4px;">Nama : ........................................................</div>`
+    + `<table style="width:100%;border-collapse:collapse;"><tr>`
+    + `<td style="width:100px;border:none;vertical-align:middle;text-align:center;"><img src="${logoSrc}" alt="Logo" style="width:82px;height:82px;object-fit:contain;"></td>`
+    + `<td style="border:none;vertical-align:middle;text-align:center;"><div style="font-weight:bold;font-size:14pt;line-height:1.45;">PEMERINTAH KABUPATEN ${escapeHtml(kab)}<br>DINAS PENDIDIKAN<br>${escapeHtml(korwil)}<br>....</div></td>`
+    + `</tr></table>`
+    + `<div style="border-top:3px solid #000;margin-top:6px;"></div></div>`;
+}
+/* Export Word KHUSUS naskah soal/asesmen: kop soal persis format cetak sekolah,
+   kertas F4, margin 2,5 cm, Times New Roman 12, spasi 1,5.
+   Blok identitas naskah dibuat oleh AI di dalam konten (bukan di sini). */
 function aiExportWordSoal(html, title){
   const doc = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
   <head><meta charset="utf-8"><title>${escapeHtml(title)}</title>
@@ -564,8 +615,10 @@ function aiExportWordSoal(html, title){
     table{border-collapse:collapse;width:100%;font-size:11pt;}
     td,th{border:1px solid #333;padding:5px;vertical-align:top;}
     p,li{line-height:1.5;}
+    .soal-ident{text-align:center;}
+    .soal-sep{text-align:center;letter-spacing:3px;margin:8px 0;}
   </style>
-  </head><body>${letterheadHtml()}<h1>${escapeHtml(title)}</h1>${html}</body></html>`;
+  </head><body>${kopSoalHtml()}${html}</body></html>`;
   const blob = new Blob(['\ufeff', doc], {type:"application/msword"});
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
@@ -573,15 +626,19 @@ function aiExportWordSoal(html, title){
   document.body.appendChild(a); a.click(); a.remove();
   toast("Naskah soal (.doc, format F4) diunduh.");
 }
-/* Dispatcher: naskah soal/asesmen memakai format khusus F4; lainnya format standar. */
-function aiExportWordAuto(docType, elId, title){
+/* Dispatcher: naskah soal/asesmen memakai format khusus F4; lainnya format standar.
+   prefixHtml opsional: disisipkan sebelum konten (mis. peringatan terpotong). */
+function aiExportWordAuto(docType, elId, title, prefixHtml){
   const el = document.getElementById(elId);
-  const html = el ? el.innerHTML : "";
+  const html = (prefixHtml||"") + (el ? el.innerHTML : "");
   if(docType==="Bank Soal" || docType==="Asesmen Formatif") aiExportWordSoal(html, title);
   else aiExportWord(html, title);
 }
-function aiExportPDF(html, title){
-  document.getElementById("printArea").innerHTML = `${letterheadHtml()}<div class="doc-title">${escapeHtml(title)}</div>${html}`;
+function aiExportPDF(html, title, docType){
+  const isSoal = (docType==="Bank Soal" || docType==="Asesmen Formatif");
+  const kop = isSoal ? kopSoalHtml() : letterheadHtml();
+  const judul = isSoal ? "" : `<div class="doc-title">${escapeHtml(title)}</div>`;
+  document.getElementById("printArea").innerHTML = `${kop}${judul}${html}`;
   window.print();
 }
 function aiHtmlToMarkdown(node){
@@ -1573,6 +1630,7 @@ function generateAiAsesForm(){
   const jenisTxt = isDiag ? "ASESMEN DIAGNOSTIK AWAL" : "INSTRUMEN ASESMEN FORMATIF";
   let n = 1;
   const sec = [];
+  sec.push((n++)+". BLOK IDENTITAS ringkas (tengah, tebal): judul \""+jenisTxt+"\", lalu baris Mapel: "+c.mapel+" | Kelas: "+c.cls.label+" | Hari/tanggal: ............");
   sec.push((n++)+". Kisi-kisi singkat (tabel HTML: No | Indikator Soal | Bentuk | Level Kognitif).");
   sec.push((n++)+". Soal/item bernomor + kunci jawaban / kriteria jawaban benar.");
   if(isDiag) sec.push((n++)+". Panduan interpretasi hasil untuk guru (memetakan: pengetahuan prasyarat, miskonsepsi umum, siswa yang sudah siap).");
@@ -1584,7 +1642,8 @@ Durasi pengerjaan: ${durasi}.
 
 ACUAN STANDAR: Permendikbudristek No. 21/2022 tentang Standar Penilaian; Panduan Pembelajaran dan Asesmen (Edisi Revisi 2025). Instrumen ini untuk UMPAN BALIK, bukan penentu nilai rapor.
 ${AI_PANDUAN_2019_KAIDAH}
-FORMAT PENGETIKAN (siap cetak Word): akhiri soal isian dengan " …."; simbol matematika berspasi (3 x 4 = 12); opsi PG tiap baris dengan label A–D tebal.
+FORMAT PENGETIKAN (siap cetak Word): akhiri soal isian dengan " …."; simbol matematika berspasi (3 x 4 = 12); opsi PG tiap baris dengan label huruf kecil (a., b., c.).
+KOP (baris Nama, logo, identitas sekolah, garis tebal) SUDAH ditambahkan otomatis oleh sistem — JANGAN membuat kop.
 
 STRUKTUR OUTPUT WAJIB (HTML):
 ${sec.join("\n")}
@@ -1709,9 +1768,10 @@ PAGES.aiBankSoal = function(){
         <br><span class="muted">Selalu tinjau ulang hasil generate sebelum digunakan — guru penanggung jawab akhir kualitas soal.</span>
       </div>
     </details>
-    <div class="grid grid-2">
+    <div class="grid grid-3">
       <div class="field"><label>Kelas</label>${aiKelasSelect("ab_kelas", kelasId)}</div>
       <div class="field"><label>Semester</label>${aiSemesterSelect("ab_semester")}</div>
+      <div class="field"><label>Waktu (menit)</label><input type="number" id="ab_waktu" value="60" min="15" max="180"><div class="hint">Untuk blok identitas naskah.</div></div>
     </div>
     ${aiPresetSelectHtml("ab_preset","⚡ Preset Cepat",[
       {value:"uh",label:"Ulangan Harian Lingkup Materi (PG 10 · Isian 5 · Uraian 2)"},
@@ -1791,6 +1851,10 @@ function generateAiBankSoal(){
   const cls = classInfo(kelasId);
   const fase = faseForClassId(kelasId);
   const s = db.sekolah;
+  const waktu = Math.max(15, Math.min(180, parseInt(document.getElementById("ab_waktu").value||"60",10)));
+  const ta = ((db.sekolah&&db.sekolah.tahunAjaran)||"2026/2027").replace("/"," / ");
+  const JUDUL_UJIAN = {"Ulangan Harian":"ULANGAN HARIAN","PR":"PEKERJAAN RUMAH","STS 1":"SUMATIF TENGAH SEMESTER I","STS 2":"SUMATIF TENGAH SEMESTER II","SAS 1":"SUMATIF AKHIR SEMESTER I","SAS 2":"SUMATIF AKHIR SEMESTER II"}[jenis]||jenis.toUpperCase();
+  const judulNaskah = JUDUL_UJIAN+" SEKOLAH DASAR";
   if(jmlPG+jmlIsian+jmlUraian===0){ toast("Isi minimal 1 soal (PG/Isian/Uraian)."); return; }
   const bagian = [];
   if(jmlPG>0) bagian.push(jmlPG+" soal Pilihan Ganda (4 opsi A-D)");
@@ -1816,6 +1880,7 @@ IDENTITAS
 - Mata Pelajaran: ${mapel}
 - Lingkup Materi: ${materi}
 - Acuan TP/Indikator: ${tp}
+- Judul Naskah: ${judulNaskah} — TAHUN PELAJARAN ${ta} — Waktu: ${waktu} menit
 - ${cakupanTxt}
 - ${konteksTxt}
 
@@ -1831,12 +1896,16 @@ ${AI_PANDUAN_2019_KAIDAH}
 FORMAT PENGETIKAN NASKAH (siap cetak Word, kertas F4):
 - Akhiri pokok soal isian dengan " …." (spasi + empat titik); blank di tengah kalimat ditulis " … " (spasi + tiga titik + spasi).
 - Simbol matematika: beri spasi sebelum & sesudah operator (contoh: 3 x 4 = 12); gunakan × untuk perkalian, bukan huruf X.
-- Opsi PG: tiap opsi pada baris tersendiri dengan label A–D tebal; nomor soal "1.", "2.", dst.
+- Opsi PG: tiap opsi pada baris tersendiri dengan label huruf kecil (a., b., c., d.); nomor soal "1.", "2.", dst.
 
 ACUAN STANDAR: Permendikbudristek No. 21/2022 tentang Standar Penilaian; Panduan Pembelajaran dan Asesmen (Edisi Revisi 2025); kaidah Panduan Penilaian Tertulis 2019 (Pusat Penilaian Pendidikan). Jangan mengarang regulasi.
 
 STRUKTUR OUTPUT (HTML, gunakan heading h2/h3):
-${pakaiKisi ? "1. KISI-KISI — TABEL HTML. Identitas: jenjang SD, mata pelajaran, kurikulum, jumlah soal. Matriks: No | TP | Materi | Indikator Soal | Level Kognitif (C1–C6) | Bentuk Soal | Nomor Soal. Syarat: mewakili isi kurikulum; tampilkan rekap distribusi level kognitif di bawah tabel.\n" : ""}2. NASKAH SOAL — susun per bagian (Bagian A: Pilihan Ganda — hanya bila >0; Bagian B: Isian Singkat; Bagian C: Uraian). Nomor soal berurutan 1 s.d. total.
+${pakaiKisi ? "1. KISI-KISI — TABEL HTML. Identitas: jenjang SD, mata pelajaran, kurikulum, jumlah soal. Matriks: No | TP | Materi | Indikator Soal | Level Kognitif (C1–C6) | Bentuk Soal | Nomor Soal. Syarat: mewakili isi kurikulum; tampilkan rekap distribusi level kognitif di bawah tabel.\n" : ""}2. NASKAH SOAL — format naskah ujian siap cetak. KOP (baris Nama, logo, identitas sekolah, garis tebal) SUDAH ditambahkan otomatis oleh sistem — JANGAN membuat kop. Susun persis struktur berikut:
+   a. BLOK IDENTITAS (tengah, tebal): judul "${judulNaskah}", baris "TAHUN PELAJARAN ${ta}", lalu "Mapel : ${mapel}", "Kelas : ${cls.label}", "Waktu : ${waktu} menit", "Hari / tanggal : ............". Akhiri dengan paragraf pemisah <p class="soal-sep">------------------------------------------------------------</p>.
+   b. "PETUNJUK UMUM :" (tebal) + daftar bernomor: (1) Tulislah namamu di sudut kanan atas! (2) Bacalah setiap soal dengan teliti! (3) Kerjakan lebih dulu soal yang kamu anggap paling mudah! (4) Periksa kembali pekerjaanmu sebelum kamu serahkan kepada Bapak atau Ibu Guru! Akhiri dengan paragraf pemisah yang sama.
+   c. Bagian per bentuk soal (hanya yang jumlahnya >0; penomoran bagian I, II, III), masing-masing diawali instruksi bagian (tebal). Contoh untuk Pilihan Ganda: "I. BERILAH TANDA SILANG (X) PADA HURUF a, b, ATAU c DI DEPAN JAWABAN YANG PALING TEPAT!" — sesuaikan huruf/jumlah opsi dengan komposisi.
+   d. Butir soal: PG ditulis "1. pokok soal …." dengan opsi tiap baris ("a. ..."); Isian berupa kalimat pernyataan dengan blank; Uraian dengan perintah dan batasan jawaban yang jelas. Nomor soal berurutan 1 s.d. total.
 ${pakaiKunci ? "3. KUNCI JAWABAN — daftar per nomor soal.\n4. PEDOMAN PENSKORAN — PG: skor 1 per butir benar; Isian: skor 1 per kunci tepat; Uraian: ikuti kaidah E di atas (kata kunci/rentang skor + bobot + rumus Nilai = (skor perolehan / skor maksimum) × bobot). Tampilkan cara hitung nilai akhir.\n5. TELAAH MANDIRI — tabel singkat: No. Soal | Status (Diterima/Direvisi/Ditolak) | Catatan; atau pernyataan seluruh butir memenuhi kaidah." : ""}
 Tulis siap cetak. Bahasa formal namun ramah anak SD Indonesia.
 
