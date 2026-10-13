@@ -250,16 +250,22 @@ const AI_WORKFLOWS = [
     {id:"aiModul", label:"Modul Ajar", desc:"Modul Ajar lengkap siap pakai", icon:"clipboard"},
     {id:"aiTP", label:"TP", desc:"Tujuan Pembelajaran dari CP", icon:"target"},
     {id:"aiATP", label:"ATP", desc:"Alur TP per semester", icon:"layers"},
+    {id:"aiProta", label:"Prota", desc:"Program Tahunan — kalender otomatis", icon:"calendar"},
+    {id:"aiPromes", label:"Promes", desc:"Program Semester — kalender otomatis", icon:"calendar"},
+    {id:"aiAlokasi", label:"Alokasi Waktu", desc:"Bagi JP per bab — total harus pas", icon:"clock"},
     {id:"aiLKPD", label:"LKPD", desc:"Lembar kerja peserta didik", icon:"edit"},
+    {id:"aiBahanAjar", label:"Bahan Ajar", desc:"Ringkasan, cerita, pengayaan", icon:"book"},
   ]},
   {judul:"Penilaian & Tindak Lanjut", icon:"target", grad:["#0ca678","#1098ad"], desc:"Soal, rubrik, dan tindak lanjut hasil belajar.", items:[
     {id:"aiBankSoal", label:"Bank Soal", desc:"UH / STS / SAS + kisi, kunci, skor", icon:"doc"},
     {id:"aiAsesForm", label:"Asesmen Formatif", desc:"Kuis & instrumen umpan balik", icon:"check2"},
     {id:"aiRubrik", label:"Rubrik Penilaian", desc:"Rubrik sikap, unjuk kerja, produk", icon:"star"},
+    {id:"aiKktp", label:"KKTP", desc:"Usulan kriteria ketuntasan TP", icon:"target"},
     {id:"aiPengRem", label:"Pengayaan & Remedial", desc:"RTL dari hasil Analisis Nilai", icon:"heart"},
   ]},
   {judul:"Administrasi Harian & Wali Kelas", icon:"clock", grad:["#e8890c","#e64980"], desc:"Jurnal mengajar dan surat menyurat.", items:[
     {id:"aiJurnal", label:"Jurnal Mengajar", desc:"Jurnal harian dari rencana minggu ini", icon:"book"},
+    {id:"aiRefleksi", label:"Refleksi Pembelajaran", desc:"Refleksi format standar", icon:"pen"},
     {id:"aiSuratOrtu", label:"Surat Orang Tua", desc:"Undangan, pemberitahuan, pemanggilan", icon:"pen"},
   ]},
 ];
@@ -331,7 +337,8 @@ function aiViewHistory(id){
     title: h.title,
     bodyHtml: `<div class="ai-result-content" id="aiViewContent">${h.content}</div>
       <div class="ai-toolbar" style="margin-top:14px;">
-        <button class="btn" onclick="aiExportWord(document.getElementById('aiViewContent').innerHTML,'${escapeHtml(h.title).replace(/'/g,"")}')">${ic("download",15)} Export Word</button>
+        <button class="btn" onclick="aiExportWordAuto('${h.type}','aiViewContent','${escapeHtml(h.title).replace(/'/g,"")}')">${ic("download",15)} Export Word</button>
+        <button class="btn" onclick="aiExportExcel(document.getElementById('aiViewContent').innerHTML,'${escapeHtml(h.title).replace(/'/g,"")}')">${ic("download",15)} Export Excel</button>
         <button class="btn" onclick="aiExportPDF(document.getElementById('aiViewContent').innerHTML,'${escapeHtml(h.title).replace(/'/g,"")}')">${ic("download",15)} Export PDF</button>
         <button class="btn" onclick="aiExportMarkdown(document.getElementById('aiViewContent'),'${escapeHtml(h.title).replace(/'/g,"")}')">${ic("download",15)} Export Markdown</button>
         <button class="btn" onclick="aiCopyElement('aiViewContent')">${ic("doc",15)} Salin</button>
@@ -376,6 +383,74 @@ function aiRefreshElemen(kelasSelId, mapelSelId, elemenHolderId){
   const mapel = document.getElementById(mapelSelId).value;
   document.getElementById(elemenHolderId).innerHTML = aiElemenSelect(elemenHolderId+"_sel", kelasId, mapel);
 }
+/* Varian checkbox untuk memilih beberapa elemen CP sekaligus (dipakai ATP). */
+function aiElemenCheckHtml(name, kelasId, mapel){
+  const list = aiCpListForKelasMapel(kelasId, mapel);
+  if(!list.length) return `<span class="hint">Tidak ada data CP untuk mapel ini — AI akan memakai CP standar fase.</span>`;
+  return aiCheckGrid(name, list.map(c=>c.elemen), true);
+}
+function aiRefreshElemenCheck(kelasSelId, mapelSelId, holderId, name){
+  const kelasId = document.getElementById(kelasSelId).value;
+  const mapel = document.getElementById(mapelSelId).value;
+  document.getElementById(holderId).innerHTML = aiElemenCheckHtml(name, kelasId, mapel);
+}
+/* Varian checkbox untuk memilih beberapa TP sekaligus (dipakai KKTP). */
+function aiTpCheckHtml(name, kelasId, mapel){
+  const list = aiAtpListForKelasMapel(kelasId, mapel);
+  if(!list.length) return `<span class="hint">Belum ada TP dari ATP — tulis manual di bawah.</span>`;
+  return `<div class="ai-checkgrid">${list.map((a,i)=>`<label><input type="checkbox" name="${name}" value="${i}" checked>${escapeHtml(a.tp.slice(0,80))}${a.tp.length>80?"...":""}</label>`).join("")}</div>`;
+}
+function aiRefreshTpCheck(kelasSelId, mapelSelId, holderId, name){
+  const kelasId = document.getElementById(kelasSelId).value;
+  const mapel = document.getElementById(mapelSelId).value;
+  document.getElementById(holderId).innerHTML = aiTpCheckHtml(name, kelasId, mapel);
+}
+/* ---------- KALENDER: minggu efektif otomatis (Fase 2: Prota/Promes) ----------
+   Aturan: pekan Senin–Jumat dihitung efektif bila memiliki >=3 hari efektif
+   (hari Senin–Jumat dikurangi Libur Nasional dari db.kalender/SEED_KALENDER). */
+function aiKalenderList(){
+  if(db.kalender && db.kalender.length) return db.kalender;
+  if(typeof SEED_KALENDER!=="undefined") return SEED_KALENDER;
+  return [];
+}
+function aiKalenderCari(){
+  const kata = Array.from(arguments).map(x=>String(x).toLowerCase());
+  return aiKalenderList().find(e=>e.judul && kata.every(k=>e.judul.toLowerCase().indexOf(k)>=0));
+}
+function aiKalenderMingguEfektif(semester){
+  const sem = String(semester);
+  const mulaiE = sem==="2" ? aiKalenderCari("hari pertama masuk","semester 2") : aiKalenderCari("hari pertama masuk","t.a.");
+  const selesaiE = aiKalenderCari("penyerahan rapor","semester "+sem);
+  const mulai = mulaiE ? mulaiE.tanggal : (sem==="2"?"2027-01-04":"2026-07-13");
+  const selesai = selesaiE ? selesaiE.tanggal : (sem==="2"?"2027-06-18":"2026-12-18");
+  const libur = {};
+  aiKalenderList().forEach(e=>{ if(e.jenis==="Libur Nasional" && e.tanggal) libur[e.tanggal]=1; });
+  const d0 = new Date(mulai+"T00:00:00"), d1 = new Date(selesai+"T00:00:00");
+  if(isNaN(d0)||isNaN(d1)||d1<d0) return {mulai, selesai, pekan:0, efektif:0, khusus:[]};
+  const d = new Date(d0);
+  while(d.getDay()!==1) d.setDate(d.getDate()-1); // mundur ke Senin
+  let pekan=0, efektif=0;
+  const iso = x=>x.getFullYear()+"-"+String(x.getMonth()+1).padStart(2,"0")+"-"+String(x.getDate()).padStart(2,"0");
+  while(d<=d1){
+    pekan++;
+    let hariEf=0;
+    for(let i=0;i<5;i++){
+      const x=new Date(d); x.setDate(d.getDate()+i);
+      if(x<d0||x>d1) continue;
+      if(!libur[iso(x)]) hariEf++;
+    }
+    if(hariEf>=3) efektif++;
+    d.setDate(d.getDate()+7);
+  }
+  const khusus = aiKalenderList().filter(e=>e.jenis==="Ujian/Asesmen").map(e=>({tanggal:e.tanggal, judul:e.judul}));
+  return {mulai, selesai, pekan, efektif, khusus};
+}
+function aiKalenderInfoHtml(semester){
+  const k = aiKalenderMingguEfektif(semester);
+  if(!k.efektif) return `<span class="hint">Kalender kosong — isi manual.</span>`;
+  const kh = k.khusus.length ? `<br>Minggu khusus terdeteksi: ${k.khusus.map(x=>escapeHtml(x.judul)+" ("+x.tanggal+")").join("; ")}` : "";
+  return `<span class="hint">Otomatis dari kalender: ${fmtDate(k.mulai)} s.d. ${fmtDate(k.selesai)} → <strong>${k.efektif} pekan efektif</strong> (dari ${k.pekan} pekan kalender).${kh}</span>`;
+}
 const AI_DIMENSI = ["Keimanan dan Ketakwaan terhadap Tuhan YME","Kewargaan","Penalaran Kritis","Kreativitas","Kolaborasi","Kemandirian","Kesehatan","Komunikasi"];
 const AI_MODEL_PEMBELAJARAN = ["Problem Based Learning (PBL)","Project Based Learning (PjBL)","Discovery Learning","Inquiry Learning","Cooperative Learning","Contextual Teaching and Learning"];
 const AI_METODE = ["Ceramah","Diskusi","Tanya Jawab","Demonstrasi","Praktik/Eksperimen","Permainan Edukatif","Bermain Peran","Presentasi"];
@@ -404,7 +479,8 @@ function aiResultHtml(title, contentHtml, docType, saveId){
   return `<div class="card ai-result-box">
     <div class="ai-toolbar">
       <button class="btn btn-primary" onclick="aiSaveDoc('${docType}','${saveId}')">${ic("check",15)} Simpan Dokumen</button>
-      <button class="btn" onclick="aiExportWord(document.getElementById('${saveId}').innerHTML,'${escapeHtml(title).replace(/'/g,"")}')">${ic("download",15)} Export Word</button>
+      <button class="btn" onclick="aiExportWordAuto('${docType}','${saveId}','${escapeHtml(title).replace(/'/g,"")}')">${ic("download",15)} Export Word</button>
+      <button class="btn" onclick="aiExportExcel(document.getElementById('${saveId}').innerHTML,'${escapeHtml(title).replace(/'/g,"")}')">${ic("download",15)} Export Excel</button>
       <button class="btn" onclick="aiExportPDF(document.getElementById('${saveId}').innerHTML,'${escapeHtml(title).replace(/'/g,"")}')">${ic("download",15)} Export PDF</button>
       <button class="btn" onclick="aiExportMarkdown(document.getElementById('${saveId}'),'${escapeHtml(title).replace(/'/g,"")}')">${ic("download",15)} Export Markdown</button>
       <button class="btn" onclick="aiCopyElement('${saveId}')">${ic("doc",15)} Salin</button>
@@ -460,6 +536,49 @@ function aiExportWord(html, title){
   a.download = (title||"dokumen").replace(/[^\w\-]+/g,"_")+".doc";
   document.body.appendChild(a); a.click(); a.remove();
   toast("File Word (.doc) diunduh.");
+}
+/* Export Excel: HTML berisi tabel dibuka langsung oleh MS Excel / LibreOffice
+   sebagai spreadsheet (.xls). Tanpa library tambahan, offline-friendly. */
+function aiExportExcel(html, title){
+  const doc = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:x='urn:schemas-microsoft-com:office:excel' xmlns='http://www.w3.org/TR/REC-html40'>
+  <head><meta charset="utf-8"><title>${escapeHtml(title)}</title>
+  <style>table{border-collapse:collapse;} td,th{border:1px solid #333;padding:5px;vertical-align:top;} body{font-family:Calibri,Arial,sans-serif;}</style>
+  </head><body><h1>${escapeHtml(title)}</h1>${html}</body></html>`;
+  const blob = new Blob(['\ufeff', doc], {type:"application/vnd.ms-excel"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = (title||"dokumen").replace(/[^\w\-]+/g,"_")+".xls";
+  document.body.appendChild(a); a.click(); a.remove();
+  toast("File Excel (.xls) diunduh.");
+}
+/* Export Word KHUSUS naskah soal/asesmen: format siap cetak kertas F4
+   (standar naskah ujian Indonesia), margin 2,5 cm, Times New Roman 12,
+   spasi 1,5 — sesuai praktik pengetikan naskah soal yang baik. */
+function aiExportWordSoal(html, title){
+  const doc = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+  <head><meta charset="utf-8"><title>${escapeHtml(title)}</title>
+  <style>
+    @page{size:21cm 33cm;margin:2.5cm;}
+    body{font-family:"Times New Roman",serif;font-size:12pt;line-height:1.5;}
+    h1{font-size:14pt;text-align:center;} h2{font-size:13pt;} h3{font-size:12pt;}
+    table{border-collapse:collapse;width:100%;font-size:11pt;}
+    td,th{border:1px solid #333;padding:5px;vertical-align:top;}
+    p,li{line-height:1.5;}
+  </style>
+  </head><body>${letterheadHtml()}<h1>${escapeHtml(title)}</h1>${html}</body></html>`;
+  const blob = new Blob(['\ufeff', doc], {type:"application/msword"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = (title||"naskah-soal").replace(/[^\w\-]+/g,"_")+".doc";
+  document.body.appendChild(a); a.click(); a.remove();
+  toast("Naskah soal (.doc, format F4) diunduh.");
+}
+/* Dispatcher: naskah soal/asesmen memakai format khusus F4; lainnya format standar. */
+function aiExportWordAuto(docType, elId, title){
+  const el = document.getElementById(elId);
+  const html = el ? el.innerHTML : "";
+  if(docType==="Bank Soal" || docType==="Asesmen Formatif") aiExportWordSoal(html, title);
+  else aiExportWord(html, title);
 }
 function aiExportPDF(html, title){
   document.getElementById("printArea").innerHTML = `${letterheadHtml()}<div class="doc-title">${escapeHtml(title)}</div>${html}`;
@@ -535,6 +654,7 @@ PAGES.aiModul = function(){
       <div class="field"><label>Tujuan Pembelajaran (TP)</label><div id="am_tpHolder">${aiTpSelect("am_tpHolder_sel", kelasId, MAPEL_LIST[0])}</div>
         <input type="text" id="am_tpManual" placeholder="atau tulis TP manual di sini..." style="margin-top:6px;"></div>
       <div class="field"><label>Lingkup Materi / Bab</label><input type="text" id="am_materi" placeholder="mis. Bab 2: Penjumlahan Bilangan 1-20"></div>
+      <div class="field"><label>Konteks Lokal (opsional)</label><input type="text" id="am_konteks" placeholder="mis. Desa pertanian dekat sawah; siswa akrab dengan pasar Gerduren"></div>
       <div class="field"><label>Alokasi Waktu</label><input type="text" id="am_alokasi" placeholder="mis. 2 x 35 menit (1 pertemuan)"></div>
       <div class="field"><label>Model Pembelajaran</label><select id="am_model">${AI_MODEL_PEMBELAJARAN.map(m=>`<option>${m}</option>`).join("")}</select></div>
       <div class="field"><label>Metode</label>${aiCheckGrid("am_metode", AI_METODE, false)}</div>
@@ -544,6 +664,14 @@ PAGES.aiModul = function(){
       <div class="field"><label>Pembelajaran Berdiferensiasi</label>
         <select id="am_diferensiasi"><option>Diferensiasi Konten</option><option>Diferensiasi Proses</option><option>Diferensiasi Produk</option><option>Konten, Proses, dan Produk</option><option>Tidak ada diferensiasi khusus</option></select></div>
       <div class="field"><label>Jenis Asesmen</label>${aiCheckGrid("am_asesmen", ["Diagnostik","Formatif","Sumatif"], true)}</div>
+      <div class="grid grid-2">
+        <div class="field"><label>Format Rumusan TP</label><select id="am_formatTp"><option value="standar">Standar — terukur</option><option value="abcd">ABCD</option></select></div>
+        <div class="field"><label>Jumlah Pertanyaan Pemantik</label><input type="number" id="am_jmlPemantik" value="3" min="2" max="5"></div>
+      </div>
+      <div class="field">
+        <label><input type="checkbox" id="am_pemahaman" checked style="width:auto;margin-right:6px;">Sertakan bagian Pemahaman Bermakna</label>
+        <label style="margin-top:6px;"><input type="checkbox" id="am_lampiran" checked style="width:auto;margin-right:6px;">Sertakan Lampiran ringkasan materi ajar</label>
+      </div>
       <button class="btn btn-primary" style="width:100%;" onclick="generateAiModul()">${ic("star",16)} Generate Modul Ajar</button>
     </div>
     <div id="am_result"></div>
@@ -570,6 +698,13 @@ function generateAiModul(){
   const dimensi = aiGetChecked("am_dimensi");
   const diferensiasi = document.getElementById("am_diferensiasi").value;
   const asesmen = aiGetChecked("am_asesmen");
+  const konteks = document.getElementById("am_konteks").value.trim();
+  const formatTp = document.getElementById("am_formatTp").value;
+  const jmlPemantik = Math.max(2, Math.min(5, parseInt(document.getElementById("am_jmlPemantik").value||"3",10)));
+  const pakaiPemahaman = document.getElementById("am_pemahaman").checked;
+  const pakaiLampiran = document.getElementById("am_lampiran").checked;
+  if(!materi || materi==="(sesuai elemen CP terpilih)" || materi.length<3){ toast("Isi dulu: Lingkup Materi / Bab."); document.getElementById("am_materi").focus(); return; }
+  if(!tpManual && !tpPilih){ toast("Isi dulu: Tujuan Pembelajaran (pilih dari ATP atau tulis manual)."); const tm=document.getElementById("am_tpManual"); if(tm) tm.focus(); return; }
   const cls = classInfo(kelasId);
   const s = db.sekolah;
   const guru = (db.guru||[]).find(g=>g.id===s.waliKelasId) || (db.guru||[])[0] || {nama:"-", nip:"-"};
@@ -588,6 +723,7 @@ IDENTITAS
 - Capaian Pembelajaran (CP): ${cpEntry.cp}
 - Tujuan Pembelajaran (TP): ${tpFinal}
 - Lingkup Materi: ${materi}
+- Konteks lokal: ${konteks||"-"}
 - Alokasi Waktu: ${alokasi}
 - Model Pembelajaran: ${model}
 - Metode: ${metode.join(", ")||"disesuaikan dengan model pembelajaran"}
@@ -597,21 +733,29 @@ IDENTITAS
 - Pembelajaran Berdiferensiasi: ${diferensiasi}
 - Jenis Asesmen: ${asesmen.join(", ")}
 
+ACUAN STANDAR WAJIB:
+1. Isi: CP sesuai Kep. Kepala BSKAP No. 046/H/KR/2025 — jangan mengubah makna CP; TP harus tertelusur dari CP.
+2. Proses: Panduan Pembelajaran dan Asesmen (Edisi Revisi 2025); kurikulum sesuai Permendikbudristek No. 12/2024 jo. Permendikdasmen No. 13/2025.
+3. Peran pendidik: Permendikdasmen No. 23/2026 tentang Standar Tenaga Kependidikan — guru sebagai perancang pembelajaran profesional.
+4. Bagian asesmen: Permendikbudristek No. 21/2022 tentang Standar Penilaian (formatif untuk umpan balik; nilai rapor hanya dari sumatif).
+5. Jangan mengarang nomor/isi regulasi. Hal yang belum pasti tandai [perlu verifikasi].
+
 STRUKTUR OUTPUT WAJIB (gunakan heading h2/h3, tabel bila perlu):
 1. Identitas Modul Ajar (tabel)
-2. Tujuan Pembelajaran (turunkan dari CP di atas, rumuskan 2-4 Tujuan Pembelajaran yang terukur)
-3. Pemahaman Bermakna
-4. Pertanyaan Pemantik
-5. Profil Pelajar/Dimensi Profil Lulusan yang dikembangkan beserta penjelasan penerapannya
-6. Sarana, Prasarana, dan Media
-7. Kegiatan Pembelajaran (Pendahuluan, Inti [menerapkan prinsip berkesadaran/mindful, bermakna/meaningful, menggembirakan/joyful], Penutup) - rinci per langkah dengan estimasi waktu
-8. Strategi Diferensiasi Pembelajaran sesuai pilihan di atas
-9. Asesmen (instrumen ringkas untuk setiap jenis asesmen yang dipilih)
-10. Refleksi Guru dan Refleksi Peserta Didik
-11. Remedial dan Pengayaan
-12. Lampiran (ringkasan materi ajar singkat)
+2. Tujuan Pembelajaran (turunkan dari CP di atas, rumuskan 2-4 Tujuan Pembelajaran yang terukur${formatTp==="abcd"?", format ABCD (identifikasi Audience, Behavior, Condition, Degree)":""})
+${pakaiPemahaman?"3. Pemahaman Bermakna\n":""}${pakaiPemahaman?"4":"3"}. Pertanyaan Pemantik (${jmlPemantik} pertanyaan kontekstual dari pengalaman sehari-hari siswa${konteks?`, kaitkan dengan konteks lokal: ${konteks}`:""}; tiap pertanyaan disertai "Catatan guru: tujuan pertanyaan ini adalah …")
+${pakaiPemahaman?"5":"4"}. Profil Pelajar/Dimensi Profil Lulusan yang dikembangkan beserta penjelasan penerapannya
+${pakaiPemahaman?"6":"5"}. Sarana, Prasarana, dan Media
+${pakaiPemahaman?"7":"6"}. Kegiatan Pembelajaran (Pendahuluan, Inti [menerapkan prinsip berkesadaran/mindful, bermakna/meaningful, menggembirakan/joyful], Penutup) - rinci per langkah dengan estimasi waktu${model.indexOf("PjBL")>=0||model.indexOf("Project Based")>=0?" — sertakan driving question dan deskripsi produk akhir proyek":""}
+${pakaiPemahaman?"8":"7"}. Strategi Diferensiasi Pembelajaran sesuai pilihan di atas (tanpa pelabelan negatif antarkelompok siswa)
+${pakaiPemahaman?"9":"8"}. Asesmen (instrumen ringkas untuk setiap jenis asesmen yang dipilih)
+${pakaiPemahaman?"10":"9"}. Refleksi Guru dan Refleksi Peserta Didik
+${pakaiPemahaman?"11":"10"}. Remedial dan Pengayaan
+${pakaiLampiran?`${pakaiPemahaman?"12":"11"}. Lampiran (ringkasan materi ajar singkat)`:""}
 
-Tulis dengan bahasa formal, kontekstual untuk siswa SD Indonesia, dan siap pakai tanpa perlu revisi guru.`;
+Tulis dengan bahasa formal, kontekstual untuk siswa SD Indonesia${konteks?`, selaraskan contoh dan analogi dengan konteks lokal tanpa mengubah akurasi konten`:""}.
+
+CATATAN: Hasil ini draf awal — guru wajib meninjau, memverifikasi akurasi konten, dan menyesuaikannya dengan kondisi nyata kelas sebelum digunakan.`;
 
   const title = "Modul Ajar - "+mapel+" - "+cls.label+" - "+materi;
   _aiLastDoc = {title};
@@ -640,8 +784,19 @@ PAGES.aiATP = function(){
     <div class="card">
       <h3>${ic("book",18)} AI Generator: Alur Tujuan Pembelajaran (ATP)</h3>
       <div class="field"><label>Kelas</label>${aiKelasSelect("aa_kelas", kelasId)}</div>
-      <div class="field"><label>Mata Pelajaran</label>${aiMapelSelect("aa_mapel", MAPEL_LIST[0])}</div>
+      <div class="field"><label>Mata Pelajaran</label>${aiMapelSelect("aa_mapel", MAPEL_LIST[0])}
+        <div class="hint" style="margin-top:4px;"><button class="btn btn-sm" type="button" onclick="aiRefreshElemenCheck('aa_kelas','aa_mapel','aa_elemenHolder','aa_elemen')">${ic("check",13)} Muat Elemen/CP</button></div></div>
       <div class="field"><label>Semester</label>${aiSemesterSelect("aa_semester")}</div>
+      <div class="field"><label>Elemen CP yang Dicakup</label><div id="aa_elemenHolder">${aiElemenCheckHtml("aa_elemen", kelasId, MAPEL_LIST[0])}</div></div>
+      <div class="grid grid-2">
+        <div class="field"><label>Jumlah JP Tersedia (Semester)</label><input type="number" id="aa_jp" value="24" min="4" max="120"><div class="hint">Dari Promes/Alokasi Waktu.</div></div>
+        <div class="field"><label>Pendekatan Urutan</label><select id="aa_pendekatan">
+          <option>Prasyarat → kompleks (disarankan)</option>
+          <option>Tematik/integratif</option>
+          <option>Mengikuti urutan buku teks</option>
+        </select></div>
+      </div>
+      <div class="field"><label>Acuan TP (opsional — bila TP sudah disusun)</label><textarea id="aa_tpAcuan" placeholder="Tempel daftar TP yang sudah ada, atau kosongkan agar AI menurunkannya dari CP"></textarea></div>
       <button class="btn btn-primary" style="width:100%;" onclick="generateAiATP()">${ic("star",16)} Generate ATP</button>
     </div>
     <div id="aa_result"></div>
@@ -653,12 +808,30 @@ function generateAiATP(){
   const semester = document.getElementById("aa_semester").value;
   const cList = aiCpListForKelasMapel(kelasId, mapel);
   const cls = classInfo(kelasId);
-  const cpText = cList.map(c=>"- "+c.elemen+": "+c.cp).join("\n");
-  const prompt = `Susun ALUR TUJUAN PEMBELAJARAN (ATP) resmi untuk mata pelajaran ${mapel} kelas ${cls.label} (Fase ${faseForClassId(kelasId)}), Semester ${semester}, berdasarkan Capaian Pembelajaran berikut:
-${cpText || "(gunakan CP standar Fase "+faseForClassId(kelasId)+" untuk mapel ini sesuai Kepbadan BSKAP No. 046/H/KR/2025)"}
+  const elemenDipilih = aiGetChecked("aa_elemen");
+  if(cList.length && !elemenDipilih.length){ toast("Pilih minimal 1 elemen CP yang dicakup."); document.getElementById("aa_elemenHolder").scrollIntoView({behavior:"smooth",block:"center"}); return; }
+  const cpPakai = cList.length ? cList.filter(c=>elemenDipilih.includes(c.elemen)) : [];
+  const jp = Math.max(4, Math.min(120, parseInt(document.getElementById("aa_jp").value||"24",10)));
+  const pendekatan = document.getElementById("aa_pendekatan").value;
+  const tpAcuan = document.getElementById("aa_tpAcuan").value.trim();
+  const cpText = cpPakai.length
+    ? cpPakai.map(c=>"- "+c.elemen+": "+c.cp).join("\n")
+    : "(gunakan CP standar Fase "+faseForClassId(kelasId)+" untuk mapel ini sesuai Kep. Kepala BSKAP No. 046/H/KR/2025)";
+  const prompt = `Susun ALUR TUJUAN PEMBELAJARAN (ATP) untuk mata pelajaran ${mapel}, kelas ${cls.label} (Fase ${faseForClassId(kelasId)}), Semester ${semester}, berdasarkan Capaian Pembelajaran berikut:
+${cpText}
+${tpAcuan?`\nAcuan TP yang sudah disusun (WAJIB dipakai, jangan membuat TP baru yang bertentangan):\n${tpAcuan}\n`:""}
+Ketentuan:
+- Jumlah pertemuan tersedia: ${jp} JP — alokasikan waktu secara realistis per TP.
+- Pendekatan urutan: ${pendekatan}.
+- Susun tujuan pembelajaran secara berurutan dan logis: kemampuan prasyarat menuju kemampuan kompleks, konkret menuju abstrak; cakup seluruh elemen CP di atas tanpa pengulangan tanpa alasan.
+- ATP adalah alur yang disusun dari CP dan konteks — bukan satu-satunya urutan resmi.
 
-Keluarkan HASIL dalam bentuk TABEL HTML dengan kolom: No | Elemen | Tujuan Pembelajaran (ATP) | Alokasi Waktu (JP) | Kata Kunci/Konten Utama.
-Susun tujuan pembelajaran secara berurutan, logis, dari kemampuan prasyarat menuju kemampuan kompleks, mencakup seluruh elemen CP di atas. Tambahkan judul dokumen di atas tabel.`;
+ACUAN STANDAR: CP sesuai Kep. Kepala BSKAP No. 046/H/KR/2025; proses sesuai Panduan Pembelajaran dan Asesmen (Edisi Revisi 2025). Jangan mengarang regulasi.
+
+Keluarkan HASIL dalam bentuk TABEL HTML dengan kolom: No | Elemen | Tujuan Pembelajaran (ATP) | Topik/Materi | Alokasi Waktu (JP) | Kata Kunci/Konten Utama | Model/Metode yang Disarankan.
+Tambahkan judul dokumen di atas tabel. Di bawah tabel tampilkan total JP terpakai (harus ≤ ${jp} JP).
+
+CATATAN: Hasil ini draf awal — guru wajib meninjau dan menyesuaikannya dengan kondisi nyata kelas sebelum digunakan.`;
   const title = "ATP - "+mapel+" - "+cls.label+" - Semester "+semester;
   aiRunGenerate("aa_result", {type:"ATP", title, userPrompt: prompt});
 }
@@ -702,6 +875,11 @@ PAGES.aiLKPD = function(){
       <div class="field"><label>Gaya Bahasa</label><select id="al_gaya"><option>Sederhana untuk siswa kelas rendah (1-3)</option><option>Standar untuk siswa kelas tinggi (4-6)</option><option>Naratif dan ceria dengan ilustrasi cerita</option></select></div>
       <div class="field"><label>Struktur LKPD yang disertakan</label>${aiCheckGrid("al_struktur", AI_LKPD_STRUKTUR, true)}</div>
       <div class="field"><label>Kriteria Kualitas</label>${aiCheckGrid("al_kualitas", AI_LKPD_KUALITAS, true)}</div>
+      <div class="grid grid-2">
+        <div class="field"><label>Jumlah Pertanyaan/Tugas</label><input type="number" id="al_jmlSoal" value="5" min="3" max="10"></div>
+        <div class="field"><label>Tingkat Kesulitan</label><select id="al_sulit"><option>Berjenjang mudah → HOTS (disarankan)</option><option>Seragam sesuai TP</option></select></div>
+      </div>
+      <div class="field"><label><input type="checkbox" id="al_tabel" checked style="width:auto;margin-right:6px;">Sertakan Tabel Pengamatan/Hasil</label></div>
       <button class="btn btn-primary" style="width:100%;" onclick="generateAiLKPD()">${ic("star",16)} Generate LKPD</button>
     </div>
     <div id="al_result"></div>
@@ -713,7 +891,7 @@ function generateAiLKPD(){
   const cList = aiCpListForKelasMapel(kelasId, mapel);
   const elIdx = document.getElementById("al_elemenHolder_sel") ? document.getElementById("al_elemenHolder_sel").value : "0";
   const cpEntry = cList[elIdx] || cList[0] || {elemen:"-", cp:"-"};
-  const materi = document.getElementById("al_materi").value.trim() || "(sesuai elemen CP terpilih)";
+  const materi = document.getElementById("al_materi").value.trim();
   const semester = document.getElementById("al_semester").value;
   const tujuanManual = document.getElementById("al_tujuan").value.trim();
   const atpList = aiAtpListForKelasMapel(kelasId, mapel);
@@ -725,6 +903,10 @@ function generateAiLKPD(){
   const gaya = document.getElementById("al_gaya").value;
   const struktur = aiGetChecked("al_struktur");
   const kualitas = aiGetChecked("al_kualitas");
+  const jmlSoal = Math.max(3, Math.min(10, parseInt(document.getElementById("al_jmlSoal").value||"5",10)));
+  const sulit = document.getElementById("al_sulit").value;
+  const pakaiTabel = document.getElementById("al_tabel").checked;
+  if(materi.length<3){ toast("Isi dulu: Materi / Topik LKPD."); document.getElementById("al_materi").focus(); return; }
   const cls = classInfo(kelasId);
   const s = db.sekolah;
 
@@ -760,8 +942,16 @@ ${gaya}. Gunakan kalimat instruksi yang jelas, positif, dan mudah diikuti langsu
 [8. FORMAT OUTPUT]
 HTML terstruktur (h2/h3/p/ol/ul/table), siap cetak, tanpa markdown, tanpa komentar tambahan di luar isi LKPD.
 
-[9. KRITERIA KUALITAS]
-Pastikan LKPD memenuhi seluruh kriteria berikut secara eksplisit di dalam kontennya: ${kualitas.join(", ")}. Sertakan Tabel Pengamatan/Hasil yang relevan dengan materi, Pertanyaan Pemandu berjenjang (mudah->HOTS), Rubrik Penilaian sederhana (skala 1-4 dengan deskriptor), serta bagian Pengayaan dan Remedial yang konkret dan dapat langsung digunakan guru.
+[9. KRITERIA KUALITAS & JUMLAH]
+Pastikan LKPD memenuhi seluruh kriteria berikut secara eksplisit di dalam kontennya: ${kualitas.join(", ")}.
+- Jumlah pertanyaan/tugas analisis: ${jmlSoal} butir; tingkat kesulitan: ${sulit}.
+${pakaiTabel?"- Sertakan Tabel Pengamatan/Hasil yang relevan dengan materi.":"- Tabel Pengamatan/Hasil tidak diperlukan untuk LKPD ini."}
+- Sertakan Rubrik Penilaian sederhana (skala 1-4 dengan deskriptor konkret yang dapat diamati), serta bagian Pengayaan dan Remedial yang konkret dan dapat langsung digunakan guru.
+
+[10. ACUAN STANDAR]
+CP sesuai Kep. Kepala BSKAP No. 046/H/KR/2025 (jangan mengubah maknanya); proses sesuai Panduan Pembelajaran dan Asesmen (Edisi Revisi 2025). Jangan mengarang regulasi.
+
+CATATAN: Hasil ini draf awal — guru wajib meninjau dan menyesuaikannya dengan kondisi nyata kelas sebelum digunakan.
 
 Susun LKPD lengkap sekarang berdasarkan seluruh komponen di atas.`;
 
@@ -1179,6 +1369,16 @@ PAGES.aiTP = function(){
       <div class="field"><label>Elemen / CP acuan</label><div id="at_elemenHolder">${aiElemenSelect("at_elemenHolder_sel", kelasId, MAPEL_LIST[0])}</div></div>
       <div class="field"><label>Jumlah TP yang diinginkan</label><input type="number" id="at_jumlah" value="4" min="2" max="10"></div>
       <div class="field"><label>Semester</label>${aiSemesterSelect("at_semester")}</div>
+      <div class="field"><label>Format Rumusan TP</label><select id="at_format">
+        <option value="standar">Standar — kompetensi + lingkup materi, terukur (disarankan)</option>
+        <option value="abcd">ABCD (Audience-Behavior-Condition-Degree)</option>
+      </select></div>
+      <div class="field"><label>Sebaran Level Kognitif</label><select id="at_level">
+        <option value="berjenjang">Berjenjang C1 → C6 (disarankan)</option>
+        <option value="c1c3">Fokus C1–C3 (untuk Fase A)</option>
+        <option value="hots">Minimal 2 TP HOTS (C4–C6)</option>
+      </select></div>
+      <div class="field"><label>Catatan Konteks Kelas (opsional)</label><textarea id="at_konteks" placeholder="mis. Banyak siswa belum lancar membaca; utamakan respons lisan & benda konkret"></textarea></div>
       <button class="btn btn-primary" style="width:100%;" onclick="generateAiTP()">${ic("star",16)} Generate TP</button>
     </div>
     <div id="at_result"></div>
@@ -1192,13 +1392,29 @@ function generateAiTP(){
   const cpEntry = cList[elIdx] || cList[0] || {elemen:"-", cp:"-"};
   const jumlah = document.getElementById("at_jumlah").value || 4;
   const semester = document.getElementById("at_semester").value;
+  const formatTp = document.getElementById("at_format").value;
+  const levelOpt = document.getElementById("at_level").value;
+  const konteks = document.getElementById("at_konteks").value.trim();
   const cls = classInfo(kelasId);
-  const prompt = `Susun DAFTAR TUJUAN PEMBELAJARAN (TP) resmi untuk mata pelajaran ${mapel}, kelas ${cls.label} (Fase ${faseForClassId(kelasId)}), Semester ${semester}, elemen "${cpEntry.elemen}", berdasarkan Capaian Pembelajaran (CP) berikut:
+  const formatTxt = formatTp==="abcd"
+    ? "format ABCD — identifikasi eksplisit Audience, Behavior, Condition, dan Degree pada tiap TP"
+    : "format standar — kompetensi + lingkup materi yang jelas dan terukur";
+  const levelTxt = levelOpt==="c1c3"
+    ? "fokus level C1–C3 (mengingat, memahami, mengaplikasikan)"
+    : levelOpt==="hots"
+    ? "berjenjang dengan minimal 2 TP pada level HOTS (C4–C6)"
+    : "berjenjang dari C1 hingga C6 (sederhana ke kompleks)";
+  const prompt = `Susun DAFTAR TUJUAN PEMBELAJARAN (TP) untuk mata pelajaran ${mapel}, kelas ${cls.label} (Fase ${faseForClassId(kelasId)}), Semester ${semester}, elemen "${cpEntry.elemen}", berdasarkan Capaian Pembelajaran (CP) berikut:
 "${cpEntry.cp}"
+${konteks?`\nKonteks kelas: ${konteks}\n`:""}
+Buat sebanyak ${jumlah} Tujuan Pembelajaran yang: diturunkan langsung dan konsisten dari CP di atas (jangan mengubah maknanya); dirumuskan dengan ${formatTxt}; disusun berjenjang dengan sebaran level kognitif ${levelTxt}; menggunakan kata kerja operasional (KKO) yang tepat.
+Untuk Fase A (kelas 1-2): prioritaskan kompetensi sesuai perkembangan dengan ruang untuk respons lisan, praktik, gambar, gerak, atau benda konkret.
 
-Buat sebanyak ${jumlah} Tujuan Pembelajaran yang: diturunkan langsung dan konsisten dari CP di atas; dirumuskan dengan kompetensi + lingkup materi yang jelas dan terukur; disusun berjenjang dari kemampuan sederhana ke kompleks; menggunakan kata kerja operasional (KKO) yang sesuai taksonomi (Memahami-Mengaplikasi-Merefleksi, prinsip Pembelajaran Mendalam).
+ACUAN STANDAR: CP sesuai Kep. Kepala BSKAP No. 046/H/KR/2025; proses sesuai Panduan Pembelajaran dan Asesmen (Edisi Revisi 2025). Jangan mengarang regulasi.
 
-Keluarkan hasil sebagai TABEL HTML dengan kolom: No | Rumusan Tujuan Pembelajaran | Lingkup Materi | Alokasi Waktu (JP, estimasi wajar). Beri judul dokumen di atas tabel yang mencantumkan mapel, kelas, elemen, dan semester.`;
+Keluarkan hasil sebagai TABEL HTML dengan kolom: No | Rumusan Tujuan Pembelajaran | Lingkup Materi | Kata Kerja Operasional | Estimasi Alokasi (JP). Beri judul dokumen di atas tabel yang mencantumkan mapel, kelas, elemen, dan semester.
+
+CATATAN: Hasil ini draf awal — guru wajib meninjau dan menyesuaikannya dengan kondisi nyata kelas sebelum digunakan.`;
   const title = "TP - "+mapel+" - "+cls.label+" - "+cpEntry.elemen;
   aiRunGenerate("at_result", {type:"TP", title, userPrompt: prompt});
 }
@@ -1218,6 +1434,14 @@ PAGES.aiJurnal = function(){
       <div class="field"><label>Materi</label><input type="text" id="aj_materi" placeholder="mis. Penjumlahan sampai 20"></div>
       <div class="field"><label>Jam Pelajaran</label><input type="text" id="aj_jam" placeholder="mis. 07.30 - 08.40"></div>
       <div class="field"><label>Catatan Pelaksanaan (opsional)</label><textarea id="aj_catatan" placeholder="mis. kendala, siswa tidak hadir, penyesuaian kegiatan, dsb."></textarea></div>
+      <div class="grid grid-2">
+        <div class="field"><label>Kesesuaian vs Rencana</label><select id="aj_sesuai">
+          <option>Sesuai rencana</option>
+          <option>Sebagian disesuaikan</option>
+          <option>Banyak penyesuaian</option>
+        </select></div>
+        <div class="field"><label>Tindak Lanjut (opsional)</label><input type="text" id="aj_tindaklanjut" placeholder="mis. Besok diulang dgn alat peraga; 3 siswa remedial"></div>
+      </div>
       <button class="btn" style="width:100%;margin-bottom:8px;" onclick="aiJurnalAmbilRencana()">${ic("calendar",15)} Ambil Materi & TP dari Rencana Minggu Ini</button>
       <button class="btn btn-primary" style="width:100%;" onclick="generateAiJurnal()">${ic("star",16)} Generate Jurnal Mengajar</button>
     </div>
@@ -1235,6 +1459,10 @@ function generateAiJurnal(){
   const materi = document.getElementById("aj_materi").value.trim() || "-";
   const jam = document.getElementById("aj_jam").value.trim() || "-";
   const catatan = document.getElementById("aj_catatan").value.trim();
+  const sesuai = document.getElementById("aj_sesuai").value;
+  const tindaklanjut = document.getElementById("aj_tindaklanjut").value.trim();
+  if(!tanggal){ toast("Isi dulu: Tanggal."); document.getElementById("aj_tanggal").focus(); return; }
+  if(materi==="-"||materi.length<3){ toast("Isi dulu: Materi."); document.getElementById("aj_materi").focus(); return; }
   const cls = classInfo(kelasId);
   const kehadiranHari = db.kehadiran[tanggal] || {};
   const totalSiswa = db.siswa.length;
@@ -1249,8 +1477,9 @@ function generateAiJurnal(){
 - Materi: ${materi}
 - Jumlah Siswa: ${totalSiswa} (Hadir: ${hadir}, Tidak Hadir: ${tidakHadir})
 - Catatan pelaksanaan dari guru (jika ada): ${catatan || "tidak ada catatan khusus"}
-
-Susun dengan format HTML terstruktur berisi: (1) Tabel identitas jurnal, (2) Kegiatan Pendahuluan, (3) Kegiatan Inti (uraikan tahap Memahami - Mengaplikasi - Merefleksi sesuai prinsip Pembelajaran Mendalam yang berkesadaran, bermakna, dan menggembirakan, relevan dengan materi di atas), (4) Kegiatan Penutup, (5) Refleksi Guru (evaluasi singkat ketercapaian TP), (6) Tindak Lanjut (rencana perbaikan/pengayaan/remedial bila perlu). Tulis dengan bahasa formal namun natural seperti catatan guru profesional, bukan template kosong.`;
+- Kesesuaian dengan rencana: ${sesuai}
+${tindaklanjut?"- Tindak lanjut yang direncanakan guru: "+tindaklanjut+"\n":""}
+Susun dengan format HTML terstruktur berisi: (1) Tabel identitas jurnal, (2) Kegiatan Pendahuluan, (3) Kegiatan Inti (uraikan tahap Memahami - Mengaplikasi - Merefleksi sesuai prinsip Pembelajaran Mendalam yang berkesadaran, bermakna, dan menggembirakan, relevan dengan materi di atas), (4) Kegiatan Penutup, (5) Refleksi Guru (evaluasi singkat ketercapaian TP; bila pelaksanaan tidak sesuai rencana, jelaskan penyesuaiannya secara faktual), (6) Tindak Lanjut (rencana perbaikan/pengayaan/remedial yang konkret${tindaklanjut?"; kembangkan dari rencana guru di atas":""}). Tulis dengan bahasa formal namun natural seperti catatan guru profesional, bukan template kosong. Bedakan fakta pelaksanaan, interpretasi, dan rencana.`;
   const title = "Jurnal Mengajar - "+mapel+" - "+fmtDate(tanggal);
   aiRunGenerate("aj_result", {type:"Jurnal Mengajar", title, userPrompt: prompt});
 }
@@ -1314,6 +1543,18 @@ PAGES.aiAsesForm = function(){
     <h3>${ic("target",18)} AI Generator: Asesmen Formatif</h3>
     <p class="hint" style="margin-bottom:10px;">Instrumen umpan balik selama proses pembelajaran berlangsung.</p>
     ${aiAsesmenFormBlock("af", kelasId)}
+    <div class="grid grid-2">
+      <div class="field"><label>Jenis Asesmen</label><select id="af_jenis">
+        <option value="formatif">Formatif — umpan balik proses (disarankan)</option>
+        <option value="diagnostik">Diagnostik awal — pengetahuan prasyarat &amp; miskonsepsi</option>
+      </select></div>
+      <div class="field"><label>Durasi Pengerjaan</label><select id="af_durasi">
+        <option>≤5 menit (exit ticket)</option>
+        <option>10–15 menit</option>
+        <option>1 JP</option>
+      </select></div>
+    </div>
+    <div class="field"><label><input type="checkbox" id="af_tindaklanjut" checked style="width:auto;margin-right:6px;">Sertakan rencana tindak lanjut (umpan balik)</label></div>
     ${aiPresetSelectHtml("af_preset","⚡ Preset Cepat",[
       {value:"kuis",label:"Kuis Kilat — 3 soal pilihan ganda (C1–C2)"},
       {value:"latihan",label:"Latihan Pemahaman — 5 soal PG + isian (C2–C3)"},
@@ -1324,11 +1565,33 @@ PAGES.aiAsesForm = function(){
 };
 function generateAiAsesForm(){
   const c = aiAsesmenPromptCommon("af","formatif");
-  const prompt = `Susun INSTRUMEN ASESMEN FORMATIF untuk mata pelajaran ${c.mapel}, kelas ${c.cls.label} (Fase ${faseForClassId(c.kelasId)}), materi "${c.materi}", TP acuan: "${c.tp}".
+  const jenis = document.getElementById("af_jenis").value;
+  const durasi = document.getElementById("af_durasi").value;
+  const pakaiTL = document.getElementById("af_tindaklanjut").checked;
+  if(!c.materi || c.materi==="-" || c.materi.trim().length<3){ toast("Isi dulu: Materi."); document.getElementById("af_materi").focus(); return; }
+  const isDiag = jenis==="diagnostik";
+  const jenisTxt = isDiag ? "ASESMEN DIAGNOSTIK AWAL" : "INSTRUMEN ASESMEN FORMATIF";
+  let n = 1;
+  const sec = [];
+  sec.push((n++)+". Kisi-kisi singkat (tabel HTML: No | Indikator Soal | Bentuk | Level Kognitif).");
+  sec.push((n++)+". Soal/item bernomor + kunci jawaban / kriteria jawaban benar.");
+  if(isDiag) sec.push((n++)+". Panduan interpretasi hasil untuk guru (memetakan: pengetahuan prasyarat, miskonsepsi umum, siswa yang sudah siap).");
+  sec.push((n++)+". Rubrik penilaian sederhana skala 1-4 dengan deskriptor konkret tiap level.");
+  if(pakaiTL) sec.push((n++)+". Rencana tindak lanjut: umpan balik untuk siswa yang belum mencapai TP.");
+  const prompt = `Susun ${jenisTxt} untuk mata pelajaran ${c.mapel}, kelas ${c.cls.label} (Fase ${faseForClassId(c.kelasId)}), materi "${c.materi}", TP acuan: "${c.tp}".
 Buat ${c.jumlah} soal/item${c.bentuk.length?" dalam bentuk: "+c.bentuk.join(", "):" dalam bentuk campuran yang sesuai"}${c.level.length?", pada level kognitif: "+c.level.join(", "):""}.
-Sertakan: (1) Kisi-kisi singkat (tabel: No | Indikator Soal | Bentuk | Level), (2) Soal lengkap bernomor beserta kunci jawaban/kriteria jawaban benar, (3) Rubrik penilaian sederhana skala 1-4 dengan deskriptor tiap level, (4) Rencana umpan balik untuk siswa yang belum mencapai TP (tindak lanjut formatif).`;
-  const title = "Asesmen Formatif - "+c.mapel+" - "+c.cls.label+" - "+c.materi;
-  aiRunGenerate("af_result", {type:"Asesmen Formatif", title, userPrompt: prompt});
+Durasi pengerjaan: ${durasi}.
+
+ACUAN STANDAR: Permendikbudristek No. 21/2022 tentang Standar Penilaian; Panduan Pembelajaran dan Asesmen (Edisi Revisi 2025). Instrumen ini untuk UMPAN BALIK, bukan penentu nilai rapor.
+${AI_PANDUAN_2019_KAIDAH}
+FORMAT PENGETIKAN (siap cetak Word): akhiri soal isian dengan " …."; simbol matematika berspasi (3 x 4 = 12); opsi PG tiap baris dengan label A–D tebal.
+
+STRUKTUR OUTPUT WAJIB (HTML):
+${sec.join("\n")}
+
+CATATAN: Hasil ini draf awal — guru wajib meninjau dan menyesuaikannya dengan kondisi nyata kelas sebelum digunakan.`;
+  const title = (isDiag?"Asesmen Diagnostik":"Asesmen Formatif")+" - "+c.mapel+" - "+c.cls.label+" - "+c.materi;
+  aiRunGenerate("af_result", {type: isDiag?"Asesmen Formatif":"Asesmen Formatif", title, userPrompt: prompt});
 }
 /* Preset cepat Asesmen Formatif: mengisi jumlah, bentuk, dan level kognitif. */
 function aiApplyPresetAsesForm(key){
@@ -1358,7 +1621,10 @@ PAGES.aiRubrik = function(){
     <div class="field"><label>Nama Tugas/Aktivitas (opsional)</label><input type="text" id="ar_tugas" placeholder="mis. Presentasi hasil pengamatan tumbuhan"></div>
     <div class="field"><label>Jenis Rubrik</label><select id="ar_jenis">${AI_JENIS_RUBRIK.map(j=>`<option>${j}</option>`).join("")}</select></div>
     <div class="field"><label>Kriteria yang dinilai (checklist, tambahkan sesuai kebutuhan di hasil AI)</label>${aiCheckGrid("ar_kriteria", ["Ketepatan konsep/isi","Kejelasan penyampaian","Kreativitas","Kerja sama","Kemandirian","Ketepatan waktu","Kerapian hasil kerja"], false)}</div>
-    <div class="field"><label>Skala Penilaian</label><select id="ar_skala"><option>1-4 (Belum Berkembang / Mulai Berkembang / Berkembang Sesuai Harapan / Sangat Berkembang)</option><option>1-4 (Angka sederhana)</option><option>0-100</option></select></div>
+    <div class="grid grid-2">
+      <div class="field"><label>Jumlah Kriteria</label><input type="number" id="ar_jmlKriteria" value="4" min="3" max="6"></div>
+      <div class="field"><label>Skala Penilaian</label><select id="ar_skala"><option>1-4 (Belum Berkembang / Mulai Berkembang / Berkembang Sesuai Harapan / Sangat Berkembang)</option><option>1-4 (Angka sederhana)</option><option>0-100</option></select></div>
+    </div>
     ${aiPresetSelectHtml("ar_preset","⚡ Preset Cepat",[
       {value:"unjukkerja",label:"Rubrik Unjuk Kerja/Praktik"},
       {value:"sikap",label:"Rubrik Sikap / Profil Lulusan"},
@@ -1377,11 +1643,19 @@ function generateAiRubrik(){
   const jenis = document.getElementById("ar_jenis").value;
   const kriteria = aiGetChecked("ar_kriteria");
   const skala = document.getElementById("ar_skala").value;
+  const jmlKriteria = Math.max(3, Math.min(6, parseInt(document.getElementById("ar_jmlKriteria").value||"4",10)));
   const cls = classInfo(kelasId);
   const prompt = `Susun RUBRIK PENILAIAN ${jenis.toUpperCase()} untuk mata pelajaran ${mapel}, kelas ${cls.label} (Fase ${faseForClassId(kelasId)}), Tujuan Pembelajaran: "${tp}", tugas/aktivitas: "${tugas}".
-Kriteria yang wajib dinilai: ${kriteria.length?kriteria.join(", "):"tentukan sendiri kriteria yang paling relevan dengan tugas di atas (3-5 kriteria)"}.
+Kriteria yang wajib dinilai (${jmlKriteria} kriteria): ${kriteria.length?kriteria.slice(0,jmlKriteria).join(", "):"tentukan sendiri "+jmlKriteria+" kriteria yang paling relevan dengan tugas di atas"}.
 Skala penilaian: ${skala}.
-Keluarkan sebagai TABEL HTML dengan kolom: Kriteria | Deskriptor Level Tertinggi | Deskriptor Level Menengah-Atas | Deskriptor Level Menengah-Bawah | Deskriptor Level Terendah, setiap deskriptor ditulis konkret dan dapat diamati guru (observable), bukan kalimat umum. Tambahkan di bawah tabel: cara menghitung nilai akhir dari rubrik ini.`;
+
+PEDOMAN PENSKORAN (Panduan Penilaian Tertulis 2019): tetapkan rentang skor per kriteria; tiap level dirinci kualitasnya secara konkret dan dapat diamati guru (observable), bukan kalimat umum — contoh pola: level terendah = tidak sesuai kriteria; berikutnya = sebagian kecil sesuai; berikutnya = sebagian besar sesuai; tertinggi = hampir seluruhnya/seluruhnya sesuai kriteria.
+
+Keluarkan sebagai TABEL HTML dengan kolom: Kriteria | Deskriptor Level Tertinggi | Deskriptor Level Menengah-Atas | Deskriptor Level Menengah-Bawah | Deskriptor Level Terendah. Tambahkan di bawah tabel: cara menghitung nilai akhir dari rubrik ini.
+
+ACUAN STANDAR: Permendikbudristek No. 21/2022 tentang Standar Penilaian; Panduan Pembelajaran dan Asesmen (Edisi Revisi 2025).
+
+CATATAN: Hasil ini draf awal — guru wajib meninjau dan menyesuaikannya dengan kondisi nyata kelas sebelum digunakan.`;
   const title = "Rubrik Penilaian - "+jenis+" - "+mapel+" - "+cls.label;
   aiRunGenerate("ar_result", {type:"Rubrik Penilaian", title, userPrompt: prompt});
 }
@@ -1401,6 +1675,20 @@ function aiApplyPresetRubrik(key){
   toast("Preset diterapkan — tinggal isi TP/tugas, lalu Generate.");
 }
 
+/* Kaidah tambahan dari Panduan Penilaian Tertulis 2019 (Pusat Penilaian Pendidikan,
+   Kemendikdasmen; repositori.kemendikdasmen.go.id/18344) — melengkapi kaidah di
+   systemPrompt. Catatan adaptasi: panduan ini memakai istilah KD (era K13);
+   untuk Kurikulum Merdeka dipetakan ke TP. */
+const AI_PANDUAN_2019_KAIDAH = `
+KAIDAH TAMBAHAN (Panduan Penilaian Tertulis 2019, Pusat Penilaian Pendidikan):
+A. KISI-KISI — format matriks: IDENTITAS (jenjang SD, mata pelajaran, kurikulum, jumlah soal) + MATRIKS (TP, materi, indikator soal, level kognitif C1–C6, nomor soal, bentuk soal). Syarat kisi-kisi baik: mewakili isi kurikulum; komponen rinci & jelas; setiap indikator dapat dibuat soalnya.
+B. PILIHAN GANDA — (1) Satu butir memakai SATU kata kerja operasional. (2) Pokok soal + opsi hanya memuat pernyataan yang diperlukan (tidak bertele-tele). (3) Kata/frasa yang berulang di semua opsi dipindah ke pokok soal. (4) Stimulus (gambar/tabel/grafik/diagram) harus jelas, berfungsi, dan kontekstual; satu stimulus boleh dipakai untuk beberapa butir soal. (5) Bahasa baku sesuai kaidah Bahasa Indonesia.
+C. ISIAN/JAWABAN SINGKAT — (1) Isian memakai kalimat pernyataan; jawaban singkat memakai kalimat tanya. (2) Jawaban yang dituntut singkat & pasti (kata, frasa, angka, simbol). (3) Tepat satu kunci jawaban. (4) Satu butir tidak boleh memuat informasi yang membantu menjawab butir lain.
+D. URAIAN — (1) Batasan pertanyaan dan jawaban yang diharapkan harus JELAS. (2) Gunakan kata tanya/perintah yang menuntut jawaban terurai. (3) Pokok soal logis dari segi materi.
+E. PEDOMAN PENSKORAN URAIAN — (1) Uraian objektif: tulis semua kata kunci jawaban; tiap kata kunci skor 1; sub-pertanyaan dirinci per kata kunci; jumlahkan = skor maksimum. (2) Uraian nonobjektif: tetapkan kriteria + rentang skor (0 s.d. maks sesuai kompleksitas); tiap rentang dirinci kualitasnya (0=tidak sesuai kriteria, 1=sebagian kecil sesuai, 2=sebagian besar sesuai, 3=hampir seluruhnya sesuai). (3) Bobot tiap soal mempertimbangkan: kedalaman/keluasan materi, kerumitan jawaban, level kognitif. (4) Nilai tiap soal = (skor perolehan / skor maksimum) × bobot; jumlahkan menjadi nilai akhir.
+F. TELAAH MANDIRI — setelah menyusun, telaah tiap butir terhadap kaidah di atas; klasifikasikan: DITERIMA (sesuai kaidah), DIREVISI (sebagian kaidah — sebutkan yang diperbaiki), DITOLAK (tidak sesuai indikator — ganti butir baru).
+`;
+
 /* ---------- E2. AI: BANK SOAL (PG + Isian + Uraian + HOTS, satu generator fleksibel) ---------- */
 PAGES.aiBankSoal = function(){
   const kelasId = activeClassId;
@@ -1416,7 +1704,9 @@ PAGES.aiBankSoal = function(){
           <li><strong>Konstruksi:</strong> pokok soal jelas &amp; tegas; tidak memberi petunjuk jawaban; hindari negatif ganda; panjang opsi relatif sama; tanpa opsi "semua benar/salah"; angka diurutkan; gambar/tabel jelas &amp; berfungsi; soal tidak bergantung pada soal lain.</li>
           <li><strong>Bahasa:</strong> kaidah Bahasa Indonesia yang baik, komunikatif, tidak memakai bahasa daerah/tabu.</li>
         </ol>
-        <span class="muted">Selalu tinjau ulang hasil generate sebelum digunakan — guru penanggung jawab akhir kualitas soal.</span>
+        <strong>Sumber kaidah:</strong> <em>Panduan Penilaian Tertulis 2019</em> (Pusat Penilaian Pendidikan, Kemendikdasmen) — kisi-kisi, kaidah PG/isian/uraian, pedoman penskoran, dan telaah butir soal; istilah KD pada panduan dipetakan ke TP (Kurikulum Merdeka).<br>
+        <strong>Format cetak Word:</strong> kertas F4, margin 2,5 cm, Times New Roman 12, spasi 1,5; akhir soal isian " …." (spasi + 4 titik); simbol matematika berspasi (3 x 4 = 12).
+        <br><span class="muted">Selalu tinjau ulang hasil generate sebelum digunakan — guru penanggung jawab akhir kualitas soal.</span>
       </div>
     </details>
     <div class="grid grid-2">
@@ -1451,10 +1741,20 @@ PAGES.aiBankSoal = function(){
       <div class="hint" style="margin-top:4px;">Contoh: PG 15, Isian 3, Uraian 2 — kosongkan (0) bila tidak dipakai.</div>
     </div>
     <div class="grid grid-2">
-      <div class="field"><label>Level Kognitif</label><select id="ab_hots">
-        <option value="campuran">Campuran C1–C6 (disarankan)</option>
+      <div class="field"><label>Sebaran Level Kognitif</label><select id="ab_hots">
+        <option value="campuran">Campuran + min. 30% HOTS C4–C6 (disarankan)</option>
         <option value="l1">Fokus C1–C3 (pengetahuan &amp; pemahaman)</option>
         <option value="hots">Fokus HOTS C4–C6 (analisis–kreasi)</option>
+      </select></div>
+      <div class="field"><label>Cakupan TP</label><select id="ab_cakupan">
+        <option value="terpilih">TP terpilih di atas</option>
+        <option value="semester">Seluruh TP semester ini</option>
+      </select><div class="hint" style="margin-top:4px;">Pilih "Seluruh TP" untuk STS/SAS multi-bab.</div></div>
+    </div>
+    <div class="grid grid-2">
+      <div class="field"><label>Konteks Soal</label><select id="ab_konteks">
+        <option>Kehidupan sehari-hari siswa Indonesia (disarankan)</option>
+        <option>Netral</option>
       </select></div>
       <div class="field"><label>Ilustrasi Gambar</label><select id="ab_ilustrasi">
         <option value="otomatis">Otomatis (disarankan utk Fase A)</option>
@@ -1484,6 +1784,8 @@ function generateAiBankSoal(){
   const jmlUraian = parseInt(document.getElementById("ab_jmlUraian").value||0,10);
   const hots = document.getElementById("ab_hots").value;
   const ilustrasi = document.getElementById("ab_ilustrasi").value;
+  const cakupan = document.getElementById("ab_cakupan").value;
+  const konteks = document.getElementById("ab_konteks").value;
   const pakaiKisi = document.getElementById("ab_kisi").checked;
   const pakaiKunci = document.getElementById("ab_kunci").checked;
   const cls = classInfo(kelasId);
@@ -1494,9 +1796,15 @@ function generateAiBankSoal(){
   if(jmlPG>0) bagian.push(jmlPG+" soal Pilihan Ganda (4 opsi A-D)");
   if(jmlIsian>0) bagian.push(jmlIsian+" soal Isian Singkat");
   if(jmlUraian>0) bagian.push(jmlUraian+" soal Uraian");
-  const levelTxt = hots==="campuran" ? "Gunakan sebaran level kognitif C1-C6 yang proporsional untuk jenjang SD (dominan C1-C3, selipkan C4-C6 secara wajar)."
+  const levelTxt = hots==="campuran" ? "Gunakan sebaran level kognitif C1-C6 yang proporsional untuk jenjang SD (dominan C1-C3) dengan MINIMAL 30% soal pada level HOTS C4-C6 yang kontekstual."
     : hots==="hots" ? "Fokus pada soal HOTS level C4 (menganalisis), C5 (mengevaluasi), C6 (mencipta) yang kontekstual untuk siswa SD."
     : "Fokus pada level C1 (mengingat), C2 (memahami), C3 (mengaplikasikan).";
+  const cakupanTxt = cakupan==="semester"
+    ? "Cakupan: SELURUH TP semester ini — kisi-kisi wajib mencakup tiap bab/unit yang telah dipelajari semester ini; bila lingkup materi di atas tidak mencukupi, TOLAK dengan pesan jelas dan minta guru mempersempit cakupan."
+    : "Cakupan: TP terpilih di atas.";
+  const konteksTxt = konteks.indexOf("Indonesia")>=0
+    ? "Gunakan skenario/fenomena nyata dari kehidupan sehari-hari siswa Indonesia sebagai konteks soal."
+    : "Konteks soal netral.";
   const ilusTxt = ilustrasi==="tidak" ? ""
     : ilustrasi==="ya" ? "Sertakan DESKRIPSI ILUSTRASI pada soal-soal yang terbantu gambar, dengan format [Ilustrasi: deskripsi rinci gambar]."
     : (fase==="A" ? "Karena ini Fase A (kelas 1-2), SERTAKAN deskripsi ilustrasi sederhana pada soal-soal yang terbantu gambar, format [Ilustrasi: deskripsi rinci]." : "Sertakan deskripsi ilustrasi [Ilustrasi: ...] hanya bila benar-benar membantu pemahaman soal.");
@@ -1508,6 +1816,8 @@ IDENTITAS
 - Mata Pelajaran: ${mapel}
 - Lingkup Materi: ${materi}
 - Acuan TP/Indikator: ${tp}
+- ${cakupanTxt}
+- ${konteksTxt}
 
 KOMPOSISI SOAL — buat tepat: ${bagian.join("; ")}.
 ${levelTxt}
@@ -1517,11 +1827,20 @@ KAIDAH PENULISAN SOAL (WAJIB dipatuhi):
 [Materi] (1) Soal harus sesuai indikator/TP. (2) Pilihan jawaban homogen & logis, pengecoh berfungsi. (3) Tepat satu jawaban benar.
 [Konstruksi] (4) Pokok soal jelas & tegas. (5) Hanya memuat pernyataan yang diperlukan. (6) Tidak memberi petunjuk ke jawaban benar. (7) Hindari pernyataan negatif ganda. (8) Panjang opsi relatif sama. (9) Tanpa opsi "semua jawaban benar/salah". (10) Opsi angka diurutkan kecil→besar. (11) Soal tidak bergantung pada jawaban soal lain.
 [Bahasa] (12) Bahasa Indonesia yang baik & komunikatif, sesuai jenjang SD. (13) Tanpa bahasa daerah/tabu.
+${AI_PANDUAN_2019_KAIDAH}
+FORMAT PENGETIKAN NASKAH (siap cetak Word, kertas F4):
+- Akhiri pokok soal isian dengan " …." (spasi + empat titik); blank di tengah kalimat ditulis " … " (spasi + tiga titik + spasi).
+- Simbol matematika: beri spasi sebelum & sesudah operator (contoh: 3 x 4 = 12); gunakan × untuk perkalian, bukan huruf X.
+- Opsi PG: tiap opsi pada baris tersendiri dengan label A–D tebal; nomor soal "1.", "2.", dst.
 
-STRUKTUR OUTPUT (gunakan heading):
-${pakaiKisi ? "1. KISI-KISI (tabel markdown): No | Materi Pokok | Indikator/TP | Bentuk Soal | Nomor Soal\n" : ""}2. NASKAH SOAL — susun per bagian (Bagian A: Pilihan Ganda — hanya bila >0; Bagian B: Isian Singkat; Bagian C: Uraian). Nomor soal berurutan 1 s.d. total.
-${pakaiKunci ? "3. KUNCI JAWABAN — daftar per nomor soal.\n4. PEDOMAN PENSKORAN — skor tiap bentuk soal + rumus nilai akhir (skor diperoleh / skor maksimal × 100)." : ""}
-Tulis siap cetak. Bahasa formal namun ramah anak SD Indonesia.`;
+ACUAN STANDAR: Permendikbudristek No. 21/2022 tentang Standar Penilaian; Panduan Pembelajaran dan Asesmen (Edisi Revisi 2025); kaidah Panduan Penilaian Tertulis 2019 (Pusat Penilaian Pendidikan). Jangan mengarang regulasi.
+
+STRUKTUR OUTPUT (HTML, gunakan heading h2/h3):
+${pakaiKisi ? "1. KISI-KISI — TABEL HTML. Identitas: jenjang SD, mata pelajaran, kurikulum, jumlah soal. Matriks: No | TP | Materi | Indikator Soal | Level Kognitif (C1–C6) | Bentuk Soal | Nomor Soal. Syarat: mewakili isi kurikulum; tampilkan rekap distribusi level kognitif di bawah tabel.\n" : ""}2. NASKAH SOAL — susun per bagian (Bagian A: Pilihan Ganda — hanya bila >0; Bagian B: Isian Singkat; Bagian C: Uraian). Nomor soal berurutan 1 s.d. total.
+${pakaiKunci ? "3. KUNCI JAWABAN — daftar per nomor soal.\n4. PEDOMAN PENSKORAN — PG: skor 1 per butir benar; Isian: skor 1 per kunci tepat; Uraian: ikuti kaidah E di atas (kata kunci/rentang skor + bobot + rumus Nilai = (skor perolehan / skor maksimum) × bobot). Tampilkan cara hitung nilai akhir.\n5. TELAAH MANDIRI — tabel singkat: No. Soal | Status (Diterima/Direvisi/Ditolak) | Catatan; atau pernyataan seluruh butir memenuhi kaidah." : ""}
+Tulis siap cetak. Bahasa formal namun ramah anak SD Indonesia.
+
+CATATAN: Hasil ini draf awal — guru wajib menelaah tiap butir soal dan menyesuaikannya dengan kondisi nyata kelas sebelum digunakan.`;
   const title = jenis+" - "+mapel+" - "+cls.label+" - Smt "+semester+" - "+materi;
   aiRunGenerate("ab_result", {type:"Bank Soal", title, userPrompt: prompt});
 }
@@ -1638,4 +1957,416 @@ function generateAiSuratOrtu(){
 Format surat resmi sekolah lengkap: nomor surat (boleh placeholder ".../..../${new Date(tanggal).getFullYear()}"), perihal, tanggal, salam pembuka, isi surat yang jelas dan sopan sesuai jenis surat di atas, salam penutup, dan blok tanda tangan Guru Kelas (kiri/kanan sesuai konvensi surat dinas Indonesia). JANGAN sertakan kop surat/kepala surat (sudah disediakan terpisah oleh sistem).`;
   const title = "Surat "+jenis+(namaSiswa?" - "+namaSiswa:" - "+cls.label);
   aiRunGenerate("aso_result", {type:"Surat Orang Tua", title, userPrompt: prompt});
+}
+
+/* ================= FASE 2 (13 Okt 2026): Prota, Promes, Alokasi Waktu,
+   Bahan Ajar, KKTP, Refleksi ================= */
+
+/* ---------- F2. GENERATOR: PROTA ---------- */
+function aiProtaHitungKalender(){
+  const k1 = aiKalenderMingguEfektif("1"), k2 = aiKalenderMingguEfektif("2");
+  if(k1.efektif) document.getElementById("apr_mef1").value = k1.efektif;
+  if(k2.efektif) document.getElementById("apr_mef2").value = k2.efektif;
+  document.getElementById("apr_kalInfo").innerHTML = aiKalenderInfoHtml("1")+"<br>"+aiKalenderInfoHtml("2");
+  toast("Minggu efektif dihitung ulang dari kalender.");
+}
+PAGES.aiProta = function(){
+  const kelasId = activeClassId;
+  const ta = (db.sekolah&&db.sekolah.tahunAjaran)||"2026/2027";
+  const k1 = aiKalenderMingguEfektif("1"), k2 = aiKalenderMingguEfektif("2");
+  return `<div class="ai-layout"><div class="card">
+    <h3>${ic("calendar",18)} AI Generator: Program Tahunan (Prota)</h3>
+    <details style="margin-bottom:12px;background:var(--primary-ghost);border:1px solid var(--primary);border-radius:12px;padding:10px 14px;">
+      <summary style="cursor:pointer;font-weight:800;font-size:13px;">📖 Panduan Pengisian (klik untuk buka)</summary>
+      <ol class="hint" style="font-size:12.5px;line-height:1.9;padding-left:18px;margin:8px 0 0;">
+        <li><strong>Minggu efektif</strong> terisi otomatis dari kalender pendidikan — klik <em>Hitung Ulang</em> bila kalender diperbarui. Bisa diubah manual.</li>
+        <li><strong>JP/minggu</strong> — alokasi jam pelajaran mapel ini per minggu.</li>
+        <li><strong>Pekan asesmen/cadangan</strong> — pekan untuk STS/SAS & cadangan per semester.</li>
+        <li><strong>Kerangka bab/unit</strong> — opsional; kosongkan agar AI memetakan dari CP.</li>
+      </ol>
+    </details>
+    <div class="grid grid-2">
+      <div class="field"><label>Kelas</label>${aiKelasSelect("apr_kelas", kelasId)}</div>
+      <div class="field"><label>Mata Pelajaran</label>${aiMapelSelect("apr_mapel", MAPEL_LIST[0])}</div>
+    </div>
+    <div class="grid grid-2">
+      <div class="field"><label>Tahun Ajaran</label><input type="text" id="apr_ta" value="${escapeHtml(ta)}"></div>
+      <div class="field"><label>JP per Minggu</label><input type="number" id="apr_jp" value="4" min="1" max="12"></div>
+    </div>
+    <div class="field"><label>Kalender Pendidikan</label><div id="apr_kalInfo">${aiKalenderInfoHtml("1")}<br>${aiKalenderInfoHtml("2")}</div>
+      <div class="hint" style="margin-top:4px;"><button class="btn btn-sm" type="button" onclick="aiProtaHitungKalender()">${ic("check",13)} Hitung Ulang dari Kalender</button></div></div>
+    <div class="grid grid-3">
+      <div class="field"><label>Minggu Efektif Smt 1</label><input type="number" id="apr_mef1" value="${k1.efektif||16}" min="10" max="26"></div>
+      <div class="field"><label>Minggu Efektif Smt 2</label><input type="number" id="apr_mef2" value="${k2.efektif||16}" min="10" max="26"></div>
+      <div class="field"><label>Pekan Asesmen/Cadangan per Semester</label><input type="number" id="apr_cad" value="3" min="0" max="8"><div class="hint">STS/SAS + cadangan.</div></div>
+    </div>
+    <div class="field"><label>Kerangka Bab/Unit (opsional)</label><textarea id="apr_bab" placeholder="mis. Bab 1: Bilangan Cacah; Bab 2: Penjumlahan; … (kosongkan — AI susun dari CP)"></textarea></div>
+    <button class="btn btn-primary" style="width:100%;" onclick="generateAiProta()">${ic("star",16)} Generate Prota</button>
+  </div><div id="apr_result"></div></div>`;
+};
+function generateAiProta(){
+  const kelasId = document.getElementById("apr_kelas").value;
+  const mapel = document.getElementById("apr_mapel").value;
+  const ta = document.getElementById("apr_ta").value.trim()||"2026/2027";
+  const jp = Math.max(1, Math.min(12, parseInt(document.getElementById("apr_jp").value||"4",10)));
+  const mef1 = Math.max(10, Math.min(26, parseInt(document.getElementById("apr_mef1").value||"16",10)));
+  const mef2 = Math.max(10, Math.min(26, parseInt(document.getElementById("apr_mef2").value||"16",10)));
+  const cad = Math.max(0, Math.min(8, parseInt(document.getElementById("apr_cad").value||"3",10)));
+  const bab = document.getElementById("apr_bab").value.trim();
+  const cList = aiCpListForKelasMapel(kelasId, mapel);
+  const cls = classInfo(kelasId);
+  const jp1 = (mef1-cad)*jp, jp2 = (mef2-cad)*jp;
+  const cpText = cList.length ? cList.map(c=>"- "+c.elemen+": "+c.cp).join("\n") : "(gunakan CP standar Fase "+faseForClassId(kelasId)+" untuk mapel ini sesuai Kep. Kepala BSKAP No. 046/H/KR/2025)";
+  const prompt = `Susun PROGRAM TAHUNAN (Prota) mata pelajaran ${mapel}, kelas ${cls.label} (Fase ${faseForClassId(kelasId)}), Tahun Ajaran ${ta}.
+
+DATA WAKTU (dari kalender pendidikan):
+- Semester 1: ${mef1} pekan efektif; Semester 2: ${mef2} pekan efektif.
+- Alokasi: ${jp} JP/minggu. Pekan asesmen (STS/SAS) & cadangan per semester: ${cad} pekan.
+- JP KBM Semester 1 = (${mef1}-${cad}) × ${jp} = ${jp1} JP; Semester 2 = (${mef2}-${cad}) × ${jp} = ${jp2} JP.
+- Total JP KBM setahun = ${jp1+jp2} JP. Tampilkan perhitungan ini di dokumen.
+
+Capaian Pembelajaran acuan:
+${cpText}
+${bab?"\nKerangka bab/unit dari guru:\n"+bab+"\n":""}
+Ketentuan:
+- Petakan seluruh elemen CP ke bab/unit selama 2 semester, proporsional terhadap keluasan materi dan total JP KBM.
+- Alokasikan pekan asesmen & cadangan secara eksplisit (tandai di kolom Keterangan).
+- Jangan mengarang minggu efektif — gunakan angka di atas; bila ragu tandai [perlu verifikasi].
+
+ACUAN STANDAR: CP sesuai Kep. Kepala BSKAP No. 046/H/KR/2025 (jangan mengubah maknanya); proses sesuai Panduan Pembelajaran dan Asesmen (Edisi Revisi 2025); kurikulum sesuai Permendikbudristek No. 12/2024 jo. Permendikdasmen No. 13/2025. Jangan mengarang regulasi.
+
+STRUKTUR OUTPUT WAJIB (HTML):
+1. Identitas (tabel kecil). 2. Rekapitulasi perhitungan JP (tampilkan hitungan di atas). 3. Tabel per semester: No | Bab/Unit | TP Pokok | Alokasi (JP & pekan) | Semester | Keterangan.
+
+CATATAN: Hasil ini draf awal — guru wajib meninjau dan menyesuaikannya dengan kondisi nyata sekolah sebelum digunakan.`;
+  const title = "Prota - "+mapel+" - "+cls.label+" - "+ta;
+  aiRunGenerate("apr_result", {type:"Prota", title, userPrompt: prompt});
+}
+
+/* ---------- F2. GENERATOR: PROMES ---------- */
+function aiPromesHitungKalender(){
+  const sem = document.getElementById("apm_semester").value;
+  const k = aiKalenderMingguEfektif(sem);
+  if(k.efektif) document.getElementById("apm_mef").value = k.efektif;
+  document.getElementById("apm_kalInfo").innerHTML = aiKalenderInfoHtml(sem);
+  if(k.khusus.length) document.getElementById("apm_khusus").value = k.khusus.map(x=>x.tanggal+": "+x.judul).join("\n");
+  toast("Dihitung ulang dari kalender (Semester "+sem+").");
+}
+PAGES.aiPromes = function(){
+  const kelasId = activeClassId;
+  const ta = (db.sekolah&&db.sekolah.tahunAjaran)||"2026/2027";
+  const k = aiKalenderMingguEfektif("1");
+  return `<div class="ai-layout"><div class="card">
+    <h3>${ic("calendar",18)} AI Generator: Program Semester (Promes)</h3>
+    <div class="grid grid-2">
+      <div class="field"><label>Kelas</label>${aiKelasSelect("apm_kelas", kelasId)}</div>
+      <div class="field"><label>Mata Pelajaran</label>${aiMapelSelect("apm_mapel", MAPEL_LIST[0])}</div>
+    </div>
+    <div class="grid grid-2">
+      <div class="field"><label>Semester</label><select id="apm_semester" onchange="aiPromesHitungKalender()"><option value="1">Semester 1 (Ganjil)</option><option value="2">Semester 2 (Genap)</option></select></div>
+      <div class="field"><label>Tahun Ajaran</label><input type="text" id="apm_ta" value="${escapeHtml(ta)}"></div>
+    </div>
+    <div class="field"><label>Acuan Prota (opsional)</label><textarea id="apm_prota" placeholder="Tempel ringkasan Prota semester ini (atau dari Riwayat hasil Prota). Kosongkan — AI susun dari CP."></textarea></div>
+    <div class="field"><label>Kalender Pendidikan</label><div id="apm_kalInfo">${aiKalenderInfoHtml("1")}</div>
+      <div class="hint" style="margin-top:4px;"><button class="btn btn-sm" type="button" onclick="aiPromesHitungKalender()">${ic("check",13)} Hitung Ulang dari Kalender</button></div></div>
+    <div class="grid grid-2">
+      <div class="field"><label>Minggu Efektif</label><input type="number" id="apm_mef" value="${k.efektif||16}" min="10" max="26"></div>
+      <div class="field"><label>JP per Minggu</label><input type="number" id="apm_jp" value="4" min="1" max="12"></div>
+    </div>
+    <div class="field"><label>Minggu Khusus (asesmen/libur — bisa diubah)</label><textarea id="apm_khusus" placeholder="mis. 2026-12-01: SAS; …">${k.khusus.map(x=>escapeHtml(x.tanggal+": "+x.judul)).join("\n")}</textarea></div>
+    <button class="btn btn-primary" style="width:100%;" onclick="generateAiPromes()">${ic("star",16)} Generate Promes</button>
+  </div><div id="apm_result"></div></div>`;
+};
+function generateAiPromes(){
+  const kelasId = document.getElementById("apm_kelas").value;
+  const mapel = document.getElementById("apm_mapel").value;
+  const semester = document.getElementById("apm_semester").value;
+  const ta = document.getElementById("apm_ta").value.trim()||"2026/2027";
+  const prota = document.getElementById("apm_prota").value.trim();
+  const mef = Math.max(10, Math.min(26, parseInt(document.getElementById("apm_mef").value||"16",10)));
+  const jp = Math.max(1, Math.min(12, parseInt(document.getElementById("apm_jp").value||"4",10)));
+  const khusus = document.getElementById("apm_khusus").value.trim();
+  const cls = classInfo(kelasId);
+  const total = mef*jp;
+  const prompt = `Susun PROGRAM SEMESTER (Promes) mata pelajaran ${mapel}, kelas ${cls.label} (Fase ${faseForClassId(kelasId)}), Semester ${semester} (${semester==="1"?"Ganjil":"Genap"}), Tahun Ajaran ${ta}.
+${prota?"\nAcuan Prota semester ini (WAJIB dijadikan dasar; bila distribusi menyimpang, tandai penyimpangannya + alasan):\n"+prota+"\n":"\nAcuan: susun dari Capaian Pembelajaran (Kep. Kepala BSKAP No. 046/H/KR/2025) untuk mapel ini.\n"}
+ALOKASI (dari kalender pendidikan): ${mef} pekan efektif × ${jp} JP/minggu = ${total} JP.
+Minggu khusus: ${khusus||"-"}
+
+Ketentuan:
+- Distribusikan bab/unit ke tiap pekan secara berurutan dan logis (prasyarat → kompleks).
+- Sisakan pekan untuk STS/SAS, remedial/pengayaan, dan cadangan; tandai di kolom Keterangan.
+- Estimasi rentang tanggal boleh dicantumkan dengan tanda [estimasi — sesuaikan kalender resmi].
+- Jangan mengarang minggu efektif — gunakan angka di atas; bila ragu tandai [perlu verifikasi].
+
+ACUAN STANDAR: CP sesuai Kep. Kepala BSKAP No. 046/H/KR/2025; proses sesuai Panduan Pembelajaran dan Asesmen (Edisi Revisi 2025). Jangan mengarang regulasi.
+
+STRUKTUR OUTPUT WAJIB (HTML):
+Tabel: Pekan Ke | Perkiraan Tanggal [estimasi] | Bab/Unit | TP | JP | Keterangan (asesmen/libur/cadangan). Di bawah tabel: total JP & cek konsistensi (harus = ${total} JP).
+
+CATATAN: Hasil ini draf awal — guru wajib meninjau dan menyesuaikannya dengan kondisi nyata sekolah sebelum digunakan.`;
+  const title = "Promes - "+mapel+" - "+cls.label+" - Smt "+semester+" - "+ta;
+  aiRunGenerate("apm_result", {type:"Promes", title, userPrompt: prompt});
+}
+
+/* ---------- F2. GENERATOR: ALOKASI WAKTU ---------- */
+PAGES.aiAlokasi = function(){
+  const kelasId = activeClassId;
+  return `<div class="ai-layout"><div class="card">
+    <h3>${ic("clock",18)} AI Generator: Alokasi Waktu</h3>
+    <p class="hint" style="margin-bottom:10px;">Membagi total JP semester ke tiap bab/unit secara proporsional. AI menampilkan penjumlahan pemeriksa — total harus pas.</p>
+    <div class="grid grid-3">
+      <div class="field"><label>Kelas</label>${aiKelasSelect("aaw_kelas", kelasId)}</div>
+      <div class="field"><label>Semester</label>${aiSemesterSelect("aaw_semester")}</div>
+      <div class="field"><label>Mata Pelajaran</label>${aiMapelSelect("aaw_mapel", MAPEL_LIST[0])}</div>
+    </div>
+    <div class="grid grid-3">
+      <div class="field"><label>Total JP Semester</label><input type="number" id="aaw_total" value="64" min="10" max="200"><div class="hint">Dari Promes.</div></div>
+      <div class="field"><label>Jumlah Bab/Unit</label><input type="number" id="aaw_nbab" value="6" min="2" max="15"></div>
+      <div class="field"><label>JP Cadangan</label><input type="number" id="aaw_cad" value="4" min="0" max="40"><div class="hint">Remedial/pengayaan.</div></div>
+    </div>
+    <div class="field"><label>Daftar Bab/Unit</label><textarea id="aaw_bab" placeholder="mis. Bab 1: Bilangan Cacah&#10;Bab 2: Penjumlahan&#10;… (satu baris per bab)"></textarea></div>
+    <div class="field"><label>Cara Pembobotan</label><select id="aaw_cara" onchange="document.getElementById('aaw_manualWrap').style.display=this.value==='manual'?'':'none'">
+      <option value="otomatis">Otomatis proporsional (disarankan)</option>
+      <option value="manual">Manual per bab</option>
+    </select></div>
+    <div class="field" id="aaw_manualWrap" style="display:none;"><label>Bobot Manual (JP per bab, urut sesuai daftar)</label><textarea id="aaw_manual" placeholder="mis. Bab 1: 12 JP&#10;Bab 2: 8 JP&#10;…"></textarea>
+      <div class="hint">Jumlah bobot harus = Total JP − Cadangan.</div></div>
+    <button class="btn btn-primary" style="width:100%;" onclick="generateAiAlokasi()">${ic("star",16)} Generate Alokasi Waktu</button>
+  </div><div id="aaw_result"></div></div>`;
+};
+function generateAiAlokasi(){
+  const kelasId = document.getElementById("aaw_kelas").value;
+  const semester = document.getElementById("aaw_semester").value;
+  const mapel = document.getElementById("aaw_mapel").value;
+  const total = Math.max(10, Math.min(200, parseInt(document.getElementById("aaw_total").value||"64",10)));
+  const nbab = Math.max(2, Math.min(15, parseInt(document.getElementById("aaw_nbab").value||"6",10)));
+  const cad = Math.max(0, Math.min(40, parseInt(document.getElementById("aaw_cad").value||"4",10)));
+  const bab = document.getElementById("aaw_bab").value.trim();
+  const cara = document.getElementById("aaw_cara").value;
+  const manual = document.getElementById("aaw_manual").value.trim();
+  const cls = classInfo(kelasId);
+  if(cara==="manual" && !manual){ toast("Isi dulu: Bobot Manual per bab."); document.getElementById("aaw_manual").focus(); return; }
+  const efektif = total - cad;
+  if(efektif<=0){ toast("JP Cadangan tidak boleh >= Total JP."); return; }
+  const prompt = `Hitung ALOKASI WAKTU mata pelajaran ${mapel}, kelas ${cls.label} (Fase ${faseForClassId(kelasId)}), Semester ${semester}.
+
+DATA:
+- Total JP semester: ${total} JP; JP cadangan: ${cad} JP; JP efektif: ${efektif} JP; jumlah bab/unit: ${nbab}.
+- Cara pembobotan: ${cara==="manual"?"MANUAL per bab (data guru di bawah)":"OTOMATIS proporsional (pertimbangkan keluasan CP per bab — Kep. Kepala BSKAP No. 046/H/KR/2025)"}.
+${bab?"Daftar bab/unit:\n"+bab+"\n":""}${cara==="manual"?"Bobot manual dari guru:\n"+manual+"\n":""}
+ATURAN KERAS: jumlah alokasi per bab + cadangan HARUS = ${total} JP tepat. Tampilkan PENJUMLAHAN PEMERIKSA di bawah tabel; bila tidak pas, perbaiki sebelum menyajikan.
+
+Keluarkan TABEL HTML: No | Bab/Unit | Bobot/Proporsi | Alokasi (JP) | Keterangan.
+Di bawah tabel: penjumlahan pemeriksa + 1 kalimat penjelasan dasar pembobotan.
+
+CATATAN: Hasil ini draf awal — guru wajib meninjau dan menyesuaikannya sebelum digunakan.`;
+  const title = "Alokasi Waktu - "+mapel+" - "+cls.label+" - Smt "+semester;
+  aiRunGenerate("aaw_result", {type:"Alokasi Waktu", title, userPrompt: prompt});
+}
+
+/* ---------- F2. GENERATOR: BAHAN AJAR ---------- */
+const AI_JENIS_BAHAN = [
+  "Ringkasan materi 1 halaman",
+  "Penjelasan konsep + analogi lokal",
+  "Cerita edukatif",
+  "Materi pengayaan",
+  "Modifikasi konteks lokal"
+];
+function aiBahanJenisOnChange(){
+  const j = document.getElementById("abh_jenis").value;
+  document.getElementById("abh_materiAsliWrap").style.display = j==="Modifikasi konteks lokal" ? "" : "none";
+  document.getElementById("abh_settingWrap").style.display = j==="Cerita edukatif" ? "" : "none";
+}
+PAGES.aiBahanAjar = function(){
+  const kelasId = activeClassId;
+  return `<div class="ai-layout"><div class="card">
+    <h3>${ic("book",18)} AI Generator: Bahan Ajar</h3>
+    <div class="grid grid-3">
+      <div class="field"><label>Kelas</label>${aiKelasSelect("abh_kelas", kelasId)}</div>
+      <div class="field"><label>Semester</label>${aiSemesterSelect("abh_semester")}</div>
+      <div class="field"><label>Mata Pelajaran</label>${aiMapelSelect("abh_mapel", MAPEL_LIST[0])}</div>
+    </div>
+    <div class="field"><label>Materi / Topik</label><input type="text" id="abh_materi" placeholder="mis. Penjumlahan bilangan 1–20"></div>
+    <div class="field"><label>Jenis Bahan Ajar</label><select id="abh_jenis" onchange="aiBahanJenisOnChange()">${AI_JENIS_BAHAN.map(j=>`<option>${j}</option>`).join("")}</select></div>
+    <div class="field"><label>TP Acuan (opsional)</label><div id="abh_tpHolder">${aiTpSelect("abh_tpHolder_sel", kelasId, MAPEL_LIST[0])}</div>
+      <div class="hint" style="margin-top:4px;"><button class="btn btn-sm" type="button" onclick="aiRefreshTp('abh_kelas','abh_mapel','abh_tpHolder')">${ic("check",13)} Muat TP dari ATP</button></div>
+      <input type="text" id="abh_tpManual" placeholder="atau tulis TP manual…" style="margin-top:6px;"></div>
+    <div class="field"><label>Konteks Lokal (opsional)</label><input type="text" id="abh_konteks" placeholder="mis. Pasar Gerduren, sawah, angkot jurusan Purwokerto"></div>
+    <div class="field" id="abh_materiAsliWrap" style="display:none;"><label>Tempel Materi Asli (wajib untuk jenis ini)</label><textarea id="abh_materiAsli" rows="5" placeholder="Tempel teks/poin materi standar yang akan dimodifikasi konteksnya…"></textarea></div>
+    <div class="grid grid-2">
+      <div class="field"><label>Target Panjang</label><select id="abh_panjang"><option>1 halaman A4 (disarankan)</option><option>2 halaman</option><option>Bebas</option></select></div>
+      <div class="field" id="abh_settingWrap" style="display:none;"><label>Setting Cerita</label><select id="abh_setting"><option>Desa</option><option>Kota</option><option>Pesisir</option><option>Pegunungan</option></select></div>
+    </div>
+    <button class="btn btn-primary" style="width:100%;" onclick="generateAiBahanAjar()">${ic("star",16)} Generate Bahan Ajar</button>
+  </div><div id="abh_result"></div></div>`;
+};
+function generateAiBahanAjar(){
+  const kelasId = document.getElementById("abh_kelas").value;
+  const semester = document.getElementById("abh_semester").value;
+  const mapel = document.getElementById("abh_mapel").value;
+  const materi = document.getElementById("abh_materi").value.trim();
+  const jenis = document.getElementById("abh_jenis").value;
+  const atpList = aiAtpListForKelasMapel(kelasId, mapel);
+  const tpIdx = document.getElementById("abh_tpHolder_sel") ? document.getElementById("abh_tpHolder_sel").value : "";
+  const tp = document.getElementById("abh_tpManual").value.trim() || (tpIdx!==""&&atpList[tpIdx]?atpList[tpIdx].tp:"(diturunkan dari CP)");
+  const konteks = document.getElementById("abh_konteks").value.trim();
+  const materiAsli = document.getElementById("abh_materiAsli").value.trim();
+  const panjang = document.getElementById("abh_panjang").value;
+  const setting = document.getElementById("abh_setting").value;
+  const cls = classInfo(kelasId);
+  const fase = faseForClassId(kelasId);
+  if(materi.length<3){ toast("Isi dulu: Materi / Topik."); document.getElementById("abh_materi").focus(); return; }
+  if(jenis==="Modifikasi konteks lokal" && materiAsli.length<100){ toast("Tempel dulu materi asli (±100 karakter) untuk dimodifikasi."); document.getElementById("abh_materiAsli").focus(); return; }
+  const usiaTokoh = fase==="A" ? "6–8" : fase==="B" ? "9–10" : "11–12";
+  const CABANG = {
+    "Ringkasan materi 1 halaman": `Judul besar → maksimal 7 poin utama (tiap poin 1–2 kalimat) → kotak "Istilah Penting" (5–8 kata kunci + definisi singkat) → kotak "Jangan Tertukar" (2–3 miskonsepsi umum + klarifikasinya) → kotak "Contoh Cepat" (2 aplikasi nyata) → 3 pertanyaan latihan mandiri.`,
+    "Penjelasan konsep + analogi lokal": `1 analogi dari kehidupan sehari-hari siswa Indonesia (manfaatkan konteks lokal: ${konteks||"lingkungan sekitar siswa"}) → 1 contoh nyata yang bisa dilihat/dirasakan di lingkungan sekolah → ilustrasi langkah demi langkah yang bisa digambar di papan tulis → 1 kalimat inti/mnemonic yang mudah diingat → 3 pertanyaan guided discovery yang membimbing siswa menemukan sendiri konsepnya.`,
+    "Cerita edukatif": `Cerita pendek 300–400 kata: tokoh anak usia ${usiaTokoh} tahun di Indonesia, setting ${setting}, gaya ringan dengan konflik kecil yang diselesaikan lewat penerapan konsep (konsep muncul alami dalam alur, bukan ceramah). Di akhir: 3 pertanyaan diskusi. Sisipkan 1 nilai Profil Pelajar Pancasila/Profil Lulusan secara alami lewat perilaku tokoh.`,
+    "Materi pengayaan": `Aktivitas mandiri 1–2 pertemuan untuk siswa yang sudah menguasai materi: menantang tanpa terasa seperti hukuman; pendalaman konsep atau koneksi antar mapel; bisa dikerjakan mandiri tanpa banyak arahan guru; menghasilkan produk yang bisa dipresentasikan/dipajang.`,
+    "Modifikasi konteks lokal": `Modifikasi materi di bawah agar relevan dengan konteks lokal (${konteks||"daerah siswa"}): ganti contoh umum dengan contoh lokal yang familier; tambahkan koneksi kearifan lokal/tradisi yang relevan; sesuaikan nama tokoh & skenario ke konteks Indonesia/daerah. PERTAHANKAN akurasi konten — hanya konteks & contoh yang diubah, bukan substansinya.\n\nMATERI ASLI:\n${materiAsli}`
+  }[jenis];
+  const gayaFase = fase==="A" ? "bahasa sederhana dan konkret sesuai dunia anak (kalimat pendek)" : "bahasa yang jelas dan mudah dipahami siswa";
+  const prompt = `Susun BAHAN AJAR jenis "${jenis}" untuk mata pelajaran ${mapel}, kelas ${cls.label} (Fase ${fase}), Semester ${semester}, materi "${materi}". TP acuan: "${tp}".
+Konteks lokal: ${konteks||"-"}. Target panjang: ${panjang}.
+
+ACUAN STANDAR: CP sesuai Kep. Kepala BSKAP No. 046/H/KR/2025 (jangan mengubah makna CP); proses sesuai Panduan Pembelajaran dan Asesmen (Edisi Revisi 2025). Jangan mengarang regulasi.
+Aturan: gunakan ${gayaFase}; akurasi konten tidak boleh diubah — hanya konteks, contoh, dan kemasan yang disesuaikan.
+
+STRUKTUR OUTPUT WAJIB (HTML) — ikuti persis:
+${CABANG}
+
+CATATAN: Hasil ini draf awal — guru wajib meninjau akurasi konten dan menyesuaikannya dengan kondisi nyata kelas sebelum digunakan.`;
+  const title = "Bahan Ajar ("+jenis+") - "+mapel+" - "+cls.label+" - "+materi;
+  aiRunGenerate("abh_result", {type:"Bahan Ajar", title, userPrompt: prompt});
+}
+
+/* ---------- F2. GENERATOR: KKTP ---------- */
+const AI_TEKNIK_KKTP = ["Tes tertulis","Unjuk kerja/praktik","Observasi","Produk/karya","Portofolio"];
+PAGES.aiKktp = function(){
+  const kelasId = activeClassId;
+  return `<div class="ai-layout"><div class="card">
+    <h3>${ic("target",18)} AI Generator: KKTP</h3>
+    <div class="card" style="margin-bottom:12px;border-left:4px solid var(--warn);background:var(--warn-ghost,transparent);">
+      <span class="hint"><strong>Penting:</strong> KKTP ditetapkan oleh <strong>satuan pendidikan</strong> (mis. rapat dewan guru) — AI menyusun <strong>USULAN</strong> yang wajib ditetapkan/disesuaikan sekolah. Bukan ketentuan nasional.</span>
+    </div>
+    <div class="grid grid-3">
+      <div class="field"><label>Kelas</label>${aiKelasSelect("akp_kelas", kelasId)}</div>
+      <div class="field"><label>Semester</label>${aiSemesterSelect("akp_semester")}</div>
+      <div class="field"><label>Mata Pelajaran</label>${aiMapelSelect("akp_mapel", MAPEL_LIST[0])}
+        <div class="hint" style="margin-top:4px;"><button class="btn btn-sm" type="button" onclick="aiRefreshTpCheck('akp_kelas','akp_mapel','akp_tpHolder','akp_tp')">${ic("check",13)} Muat TP dari ATP</button></div></div>
+    </div>
+    <div class="field"><label>TP yang Ditetapkan KKTP-nya</label><div id="akp_tpHolder">${aiTpCheckHtml("akp_tp", kelasId, MAPEL_LIST[0])}</div>
+      <textarea id="akp_tpManual" placeholder="atau tambah TP manual (satu baris per TP)…" style="margin-top:6px;"></textarea></div>
+    <div class="grid grid-2">
+      <div class="field"><label>Skala Penilaian</label><select id="akp_skala">
+        <option>1–4 (BB/MB/BSH/SB) (disarankan)</option>
+        <option>0–100</option>
+      </select></div>
+      <div class="field"><label>Ambang Ketuntasan Awal (usulan)</label><input type="number" id="akp_ambang" value="75" min="0" max="100"><div class="hint">Untuk skala 0–100; sekolah menetapkan final.</div></div>
+    </div>
+    <div class="field"><label>Teknik/Bukti Ketercapaian</label>${aiCheckGrid("akp_teknik", AI_TEKNIK_KKTP, true)}</div>
+    <div class="field"><label>Catatan Satuan Pendidikan (opsional)</label><textarea id="akp_catatan" placeholder="mis. KKTP ditetapkan dalam rapat dewan guru tanggal …"></textarea></div>
+    <button class="btn btn-primary" style="width:100%;" onclick="generateAiKktp()">${ic("star",16)} Generate Usulan KKTP</button>
+  </div><div id="akp_result"></div></div>`;
+};
+function generateAiKktp(){
+  const kelasId = document.getElementById("akp_kelas").value;
+  const semester = document.getElementById("akp_semester").value;
+  const mapel = document.getElementById("akp_mapel").value;
+  const atpList = aiAtpListForKelasMapel(kelasId, mapel);
+  const tpDipilih = aiGetChecked("akp_tp").map(i=>atpList[parseInt(i,10)]).filter(Boolean).map(a=>a.tp);
+  const tpManual = document.getElementById("akp_tpManual").value.trim().split("\n").map(s=>s.trim()).filter(Boolean);
+  const tpList = tpDipilih.concat(tpManual);
+  const skala = document.getElementById("akp_skala").value;
+  const ambang = document.getElementById("akp_ambang").value;
+  const teknik = aiGetChecked("akp_teknik");
+  const catatan = document.getElementById("akp_catatan").value.trim();
+  const cls = classInfo(kelasId);
+  if(!tpList.length){ toast("Pilih minimal 1 TP (atau tulis manual)."); return; }
+  const prompt = `Susun USULAN KRITERIA KETERCAPAIAN TUJUAN PEMBELAJARAN (KKTP) untuk mata pelajaran ${mapel}, kelas ${cls.label} (Fase ${faseForClassId(kelasId)}), Semester ${semester}.
+
+TP yang ditetapkan KKTP-nya:
+${tpList.map((t,i)=>(i+1)+". "+t).join("\n")}
+
+Skala: ${skala}. ${skala.indexOf("0–100")>=0?"Usulan ambang ketuntasan awal: "+ambang+".":""}
+Teknik/bukti ketercapaian: ${teknik.join(", ")||"disesuaikan per TP"}.
+${catatan?"Catatan satuan pendidikan: "+catatan+"\n":""}
+ACUAN STANDAR: Permendikbudristek No. 21/2022 tentang Standar Penilaian; Panduan Pembelajaran dan Asesmen (Edisi Revisi 2025). Jangan mengarang regulasi.
+
+PENTING — tegaskan di dokumen: ini USULAN. KKTP resmi ditetapkan oleh satuan pendidikan (mis. melalui rapat dewan guru) dan dapat disesuaikan; bukan ketentuan nasional.
+
+STRUKTUR OUTPUT WAJIB (HTML):
+1. Identitas + pernyataan status usulan (tegas di bagian atas).
+2. Tabel: No | Tujuan Pembelajaran | Indikator Ketercapaian | Kriteria per Level Skala (deskriptor konkret & observable per level) | Teknik/Bukti Penilaian.
+3. Panduan penggunaan: cara membaca ketercapaian per TP; kapan siswa dinyatakan tuntas per TP; tindak lanjut (remedial/pengayaan).
+
+CATATAN: Hasil ini draf awal — wajib ditetapkan/disesuaikan oleh satuan pendidikan sebelum digunakan.`;
+  const title = "Usulan KKTP - "+mapel+" - "+cls.label+" - Smt "+semester;
+  aiRunGenerate("akp_result", {type:"KKTP", title, userPrompt: prompt});
+}
+
+/* ---------- F2. GENERATOR: REFLEKSI PEMBELAJARAN (format standar) ---------- */
+PAGES.aiRefleksi = function(){
+  const kelasId = activeClassId;
+  return `<div class="ai-layout"><div class="card">
+    <h3>${ic("book",18)} AI Generator: Refleksi Pembelajaran</h3>
+    <p class="hint" style="margin-bottom:10px;">Refleksi format standar: hal yang berjalan baik → kendala → rencana tindak lanjut. Ceritakan pelaksanaan apa adanya — AI tidak mengarang kejadian.</p>
+    <div class="grid grid-2">
+      <div class="field"><label>Kelas</label>${aiKelasSelect("are_kelas", kelasId)}</div>
+      <div class="field"><label>Mata Pelajaran</label>${aiMapelSelect("are_mapel", MAPEL_LIST[0])}</div>
+    </div>
+    <div class="grid grid-2">
+      <div class="field"><label>Tanggal Pembelajaran</label><input type="date" id="are_tanggal" value="${todayISO()}"></div>
+      <div class="field"><label>Topik / Materi</label><input type="text" id="are_topik" placeholder="mis. Penjumlahan sampai 20"></div>
+    </div>
+    <div class="field"><label>Cerita Pelaksanaan (wajib)</label><textarea id="are_cerita" rows="4" placeholder="Ceritakan apa adanya: apa yang berjalan baik, apa yang tidak, kejadian penting di kelas…"></textarea>
+      <div class="hint">Minimal 50 karakter — tanpa bahan cerita, refleksi tidak bermakna.</div></div>
+    <div class="grid grid-2">
+      <div class="field"><label>Fokus Refleksi</label><select id="are_fokus">
+        <option>Ketercapaian TP</option>
+        <option>Keterlibatan siswa</option>
+        <option>Pengelolaan kelas</option>
+        <option>Penggunaan media/metode</option>
+        <option>Bebas</option>
+      </select></div>
+      <div class="field"><label>TP Acuan (opsional)</label><div id="are_tpHolder">${aiTpSelect("are_tpHolder_sel", kelasId, MAPEL_LIST[0])}</div>
+        <div class="hint" style="margin-top:4px;"><button class="btn btn-sm" type="button" onclick="aiRefreshTp('are_kelas','are_mapel','are_tpHolder')">${ic("check",13)} Muat TP dari ATP</button></div></div>
+    </div>
+    <button class="btn btn-primary" style="width:100%;" onclick="generateAiRefleksi()">${ic("star",16)} Generate Refleksi</button>
+  </div><div id="are_result"></div></div>`;
+};
+function generateAiRefleksi(){
+  const kelasId = document.getElementById("are_kelas").value;
+  const mapel = document.getElementById("are_mapel").value;
+  const tanggal = document.getElementById("are_tanggal").value;
+  const topik = document.getElementById("are_topik").value.trim();
+  const cerita = document.getElementById("are_cerita").value.trim();
+  const fokus = document.getElementById("are_fokus").value;
+  const atpList = aiAtpListForKelasMapel(kelasId, mapel);
+  const tpIdx = document.getElementById("are_tpHolder_sel") ? document.getElementById("are_tpHolder_sel").value : "";
+  const tp = (tpIdx!==""&&atpList[tpIdx]) ? atpList[tpIdx].tp : "(sesuai topik)";
+  const cls = classInfo(kelasId);
+  if(!tanggal){ toast("Isi dulu: Tanggal Pembelajaran."); return; }
+  if(topik.length<3){ toast("Isi dulu: Topik / Materi."); document.getElementById("are_topik").focus(); return; }
+  if(cerita.length<50){ toast("Cerita pelaksanaan minimal 50 karakter — ceritakan apa adanya."); document.getElementById("are_cerita").focus(); return; }
+  const prompt = `Susun REFLEKSI PEMBELAJARAN format standar untuk guru SD.
+
+Konteks: Kelas ${cls.label} (Fase ${faseForClassId(kelasId)}), ${mapel}, tanggal ${fmtDate(tanggal)}, topik "${topik}". TP acuan: "${tp}". Fokus: ${fokus}.
+
+Cerita pelaksanaan dari guru (FAKTA — jangan menambah kejadian yang tidak diceritakan):
+"${cerita}"
+
+ACUAN: Permendikdasmen No. 23/2026 tentang Standar Tenaga Kependidikan (pengembangan kompetensi pedagogik & profesional guru). Bedakan fakta pelaksanaan, interpretasi, dan rencana tindak lanjut. Jangan mengarang regulasi.
+
+STRUKTUR OUTPUT WAJIB (HTML) — format standar:
+1. Identitas (tabel kecil: kelas, mapel, tanggal, topik, TP).
+2. Hal yang Berjalan Baik — 2–4 poin, merujuk konkret pada cerita guru.
+3. Kendala / Hal yang Perlu Diperbaiki — 2–4 poin, faktual dari cerita (jangan mengada-ada).
+4. Rencana Tindak Lanjut — maksimal 5 butir AKSI KONKRET untuk pertemuan berikutnya (apa, untuk siapa/kapan), fokus: ${fokus}.
+5. Satu kalimat penutup yang menguatkan.
+
+CATATAN: Hasil ini draf awal — guru wajib menyesuaikannya dengan kondisi nyata sebelum disimpan sebagai dokumen refleksi.`;
+  const title = "Refleksi Pembelajaran - "+mapel+" - "+fmtDate(tanggal);
+  aiRunGenerate("are_result", {type:"Refleksi", title, userPrompt: prompt});
 }
