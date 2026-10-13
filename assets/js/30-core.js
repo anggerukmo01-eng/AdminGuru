@@ -197,18 +197,21 @@ function buildSidebar(){
   }
   let h = `<div class="brand">
     <div class="logo logo-img"><img src="${LOGO_SEKOLAH}" alt="Logo SD Negeri 1 Gerduren"></div>
-    <div class="txt"><strong>Administrasi Guru</strong><span>SD Negeri 1 Gerduren</span></div>
+    <div class="txt"><strong>Admin<span class="brand-accent">Guru</span></strong><span>Ruang kerja guru SD</span></div>
+    <button class="sidebar-close iconbtn" onclick="toggleSidebar(false)" aria-label="Tutup menu">${ic("x",18)}</button>
   </div>
-  <div class="navsearch">${ic("search",16)}<input id="navSearch" type="search" placeholder="Cari menu..." autocomplete="off" oninput="filterNav(this.value)"></div>
+  <div class="sidebar-school">${ic("school",16)}<span>${escapeHtml(db.sekolah.namaSekolah)}</span></div>
+  <div class="sidebar-shortcuts"><button onclick="navigate('kehadiran')">${ic("attendance",17)} Kehadiran</button><button onclick="navigate('aiDashboard')">${ic("star",17)} Pusat AI</button></div>
+  <div class="navsearch">${ic("search",16)}<input id="navSearch" aria-label="Cari menu" type="search" placeholder="Cari menu..." autocomplete="off" oninput="filterNav(this.value)"></div>
   <div class="nav-empty" id="navEmpty">Tidak ada menu yang cocok.</div>`;
   NAV.forEach(g=>{
     const isCol = collapsed.includes(g.group);
     const items = g.items.map(it=>
-      `<div class="navitem" data-page="${it.id}" data-label="${it.label.toLowerCase()}" onclick="navigate('${it.id}')">${ic(it.icon,18)}<span>${it.label}</span></div>`
+      `<button class="navitem" data-page="${it.id}" data-label="${it.label.toLowerCase()}" onclick="navigate('${it.id}')">${ic(it.icon,18)}<span>${it.label}</span></button>`
     ).join("");
     const chev = ic("chevronRight",14).replace("<svg ", '<svg class="chev" ');
     h += `<div class="navgroup${isCol?" collapsed":""}" data-group="${g.group}">
-      <button class="navgroup-head" onclick="toggleNavGroup('${g.group}')" title="Buka/tutup grup">
+      <button class="navgroup-head" aria-expanded="${!isCol}" onclick="toggleNavGroup('${g.group}')" title="Buka/tutup grup">
         <span>${g.group}</span><span class="g-count">${g.items.length}</span>${chev}
       </button>
       <div class="navgroup-items"><div>${items}</div></div>
@@ -217,11 +220,13 @@ function buildSidebar(){
   el.innerHTML = h;
   buildClassSwitcher();
   markActiveNav(currentPage);
+  if(typeof buildMobileNav==="function") buildMobileNav();
 }
 function toggleNavGroup(group){
   const g = document.querySelector('.navgroup[data-group="'+group+'"]');
   if(!g) return;
   g.classList.toggle("collapsed");
+  g.querySelector(".navgroup-head").setAttribute("aria-expanded", !g.classList.contains("collapsed"));
   let c = navCollapsedGet()||[];
   c = c.filter(x=>x!==group);
   if(g.classList.contains("collapsed")) c.push(group);
@@ -238,19 +243,24 @@ function filterNav(q){
       if(hit){ gv++; visible++; }
     });
     g.style.display = gv ? "" : "none";
-    if(q) g.classList.remove("collapsed"); // saat mencari, buka semua grup
+    g.classList.toggle("collapsed", !q && (navCollapsedGet()||[]).includes(g.dataset.group));
+    g.querySelector(".navgroup-head").setAttribute("aria-expanded", !g.classList.contains("collapsed"));
   });
   const em = document.getElementById("navEmpty");
   if(em) em.classList.toggle("show", visible===0);
 }
 function markActiveNav(page){
-  document.querySelectorAll(".navitem").forEach(n=>n.classList.toggle("active", n.dataset.page===page));
+  document.querySelectorAll(".navitem, .mobile-nav [data-page]").forEach(n=>{
+    n.classList.toggle("active", n.dataset.page===page);
+    if(n.dataset.page===page) n.setAttribute("aria-current","page"); else n.removeAttribute("aria-current");
+  });
   // pastikan grup induk halaman aktif terbuka
   const grp = NAV.find(g=>g.items.some(i=>i.id===page));
   if(grp){
     const el = document.querySelector('.navgroup[data-group="'+grp.group+'"]');
     if(el && el.classList.contains("collapsed")){
       el.classList.remove("collapsed");
+      el.querySelector(".navgroup-head").setAttribute("aria-expanded","true");
       navCollapsedSet((navCollapsedGet()||[]).filter(x=>x!==grp.group));
     }
   }
@@ -268,8 +278,14 @@ function toggleSidebar(force){
   const open = force!==undefined ? force : !sb.classList.contains("open");
   sb.classList.toggle("open", open);
   mask.classList.toggle("show", open);
+  const mobile = window.innerWidth<=960;
+  sb.inert = mobile && !open;
+  document.body.classList.toggle("sidebar-visible", mobile && open);
+  document.getElementById("menuToggle").setAttribute("aria-expanded", String(open));
 }
 function navigate(page){
+  if(!PAGES[page]){ toast("Halaman belum tersedia."); return; }
+  if(typeof cancelAiRequests==="function") cancelAiRequests();
   currentPage = page;
   markActiveNav(page);
   const navItem = NAV.flatMap(g=>g.items).find(i=>i.id===page);
@@ -277,11 +293,14 @@ function navigate(page){
   renderPage(page);
   toggleSidebar(false);
   window.scrollTo(0,0);
+  if(typeof syncWorkspaceUi==="function") syncWorkspaceUi();
 }
 function renderPage(page){
   const c = document.getElementById("pageContent");
   const renderer = PAGES[page];
   c.innerHTML = renderer ? renderer() : "<p>Halaman tidak ditemukan.</p>";
+  c.dataset.page = page;
+  if(typeof enhanceFormLabels==="function") enhanceFormLabels(c);
 }
 
 /* ============================================================
@@ -298,21 +317,45 @@ function toast(msg){
 /* ============================================================
    5B. MODAL ENGINE
    ============================================================ */
+let modalReturnFocus = null;
 function openModal({title, bodyHtml, onMount, footHtml}){
   closeModal();
+  modalReturnFocus = document.activeElement;
   const mask = document.createElement("div");
   mask.className = "modal-mask show"; mask.id = "activeModal";
-  mask.innerHTML = `<div class="modal">
-      <div class="modal-head"><h3>${escapeHtml(title)}</h3>
-        <button class="iconbtn" onclick="closeModal()">${ic("x",18)}</button></div>
+  mask.innerHTML = `<div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" tabindex="-1">
+      <div class="modal-head"><h3 id="modalTitle">${escapeHtml(title)}</h3>
+        <button class="iconbtn" aria-label="Tutup dialog" onclick="closeModal()">${ic("x",18)}</button></div>
       <div class="modal-body" id="modalBody">${bodyHtml}</div>
       ${footHtml? `<div class="modal-foot">${footHtml}</div>` : ""}
     </div>`;
   mask.addEventListener("click", e=>{ if(e.target===mask) closeModal(); });
   document.body.appendChild(mask);
+  document.body.classList.add("modal-open");
+  document.getElementById("app").inert = true;
+  document.getElementById("mobileNav").inert = true;
+  enhanceFormLabels(mask);
+  mask.addEventListener("keydown", e=>{
+    if(e.key==="Escape"){ e.preventDefault(); closeModal(); return; }
+    if(e.key!=="Tab") return;
+    const focusable = Array.from(mask.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex="0"]')).filter(n=>n.getClientRects().length);
+    const first=focusable[0], last=focusable[focusable.length-1];
+    if(!first){ e.preventDefault(); return; }
+    if(e.shiftKey && document.activeElement===first){ e.preventDefault(); last.focus(); }
+    else if(!e.shiftKey && document.activeElement===last){ e.preventDefault(); first.focus(); }
+  });
   if(onMount) onMount();
+  const first = mask.querySelector("input, select, textarea") || mask.querySelector(".modal");
+  if(first) first.focus();
 }
-function closeModal(){ const m = document.getElementById("activeModal"); if(m) m.remove(); }
+function closeModal(){
+  const m = document.getElementById("activeModal"); if(m) m.remove();
+  document.body.classList.remove("modal-open");
+  document.getElementById("app").inert = !document.getElementById("app").classList.contains("ready");
+  document.getElementById("mobileNav").inert = !document.getElementById("app").classList.contains("ready");
+  if(modalReturnFocus && modalReturnFocus.isConnected) modalReturnFocus.focus();
+  modalReturnFocus = null;
+}
 
 function confirmDialog(msg, onYes){
   openModal({
@@ -384,13 +427,13 @@ function crudSection(cfg){
     const body = data.map(r=>{
       const tds = cfg.columns.map(c=>{
         let val = r[c.key];
-        if(c.render) val = c.render(val, r);
+        if(c.render) val = c.render(val, r); else val = escapeHtml(val);
         return `<td>${val==null?'':val}</td>`;
       }).join("");
       return `<tr><td>${data.indexOf(r)+1}</td>${tds}
         <td><div class="row-actions">
-          <button class="btn btn-sm btn-icon" onclick="crudEdit('${cfg.store}','${r.id}')">${ic("edit",15)}</button>
-          <button class="btn btn-sm btn-icon btn-danger" onclick="crudDelete('${cfg.store}','${r.id}')">${ic("trash",15)}</button>
+          <button class="btn btn-sm btn-icon" aria-label="Ubah data" onclick="crudEdit('${cfg.store}',${htmlJsArg(r.id)})">${ic("edit",15)}</button>
+          <button class="btn btn-sm btn-icon btn-danger" aria-label="Hapus data" onclick="crudDelete('${cfg.store}',${htmlJsArg(r.id)})">${ic("trash",15)}</button>
         </div></td></tr>`;
     }).join("");
     return `<div class="table-wrap"><table><thead><tr><th>No</th>${head}</tr></thead><tbody>${body}</tbody></table></div>`;

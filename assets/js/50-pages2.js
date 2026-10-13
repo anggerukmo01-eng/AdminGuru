@@ -132,16 +132,18 @@ PAGES.rekapJumlahSiswa = function(){
   const totalL = db.siswa.filter(s=>s.jk==="L").length, totalP = db.siswa.filter(s=>s.jk==="P").length;
   const rows = BULAN_TA.map((nm,i)=>{
     const bln = String(bulanTaToMonthNum(i)).padStart(2,"0");
-    const masuk = db.mutasi.filter(m=>m.jenis==="Masuk" && (m.tanggal||"").slice(5,7)===bln).length;
-    const keluar = db.mutasi.filter(m=>(m.jenis==="Pindah Keluar"||m.jenis==="Keluar/Putus Sekolah") && (m.tanggal||"").slice(5,7)===bln).length;
+    const tahun = Number(String(db.sekolah.tahunAjaran).match(/\d{4}/)?.[0] || new Date().getFullYear()) + (Number(bln)<7?1:0);
+    const monthKey=tahun+"-"+bln;
+    const masuk = db.mutasi.filter(m=>m.jenis==="Masuk" && (m.tanggal||"").slice(0,7)===monthKey).length;
+    const keluar = db.mutasi.filter(m=>(m.jenis==="Pindah Keluar"||m.jenis==="Keluar/Putus Sekolah") && (m.tanggal||"").slice(0,7)===monthKey).length;
     let s=0,iz=0,a=0;
     Object.keys(db.kehadiran).forEach(tgl=>{
-      if(tgl.slice(5,7)===bln) Object.values(db.kehadiran[tgl]).forEach(st=>{ if(st==="S")s++; else if(st==="I")iz++; else if(st==="A")a++; });
+      if(tgl.slice(0,7)===monthKey) Object.values(db.kehadiran[tgl]).forEach(st=>{ if(st==="S")s++; else if(st==="I")iz++; else if(st==="A")a++; });
     });
     return `<tr><td>${nm}</td><td>${totalL}</td><td>${totalP}</td><td>${totalL+totalP}</td><td>${masuk}</td><td>${keluar}</td><td>${s}</td><td>${iz}</td><td>${a}</td></tr>`;
   }).join("");
   return `
-  <div class="section-head"><div><h1>Rekap Jumlah Siswa Bulanan</h1><div class="desc">Dihitung otomatis dari Data Siswa (L/P), Buku Mutasi Siswa (masuk/keluar), dan Kehadiran (S/I/A).</div></div>
+  <div class="section-head"><div><h1>Rekap Jumlah Siswa Bulanan</h1><div class="desc">Jumlah L/P menunjukkan data siswa aktif saat ini; mutasi dan S/I/A dibatasi pada tahun pelajaran aktif. Rekonstruksi jumlah siswa historis per bulan memerlukan data riwayat lengkap.</div></div>
     <div class="grow"></div><button class="btn" onclick="printRekapJlhSiswa()">${ic("print",15)} Cetak</button></div>
   <div id="rekapJlhHolder" class="table-wrap"><table><thead><tr><th>Bulan</th><th>L</th><th>P</th><th>Jumlah</th><th>Masuk</th><th>Keluar</th><th>S</th><th>I</th><th>A</th></tr></thead>
   <tbody>${rows}</tbody></table></div>`;

@@ -48,187 +48,73 @@ function updateTahunSemesterBeranda(){
 }
 
 PAGES.dashboard = function(){
-  const totalSiswa = db.siswa.length;
-  const L = db.siswa.filter(s=>s.jk==="L").length;
-  const P = db.siswa.filter(s=>s.jk==="P").length;
-  const totalGuru = db.guru.length + db.tendik.length;
-  const todayEvents = db.kalender.filter(k=>k.tanggal===todayISO());
-  const upcoming = db.kalender.filter(k=>k.tanggal>=todayISO()).sort((a,b)=>a.tanggal.localeCompare(b.tanggal)).slice(0,5);
-  const agendaRecent = db.agenda.slice().sort((a,b)=>(b.tanggal||"").localeCompare(a.tanggal||"")).slice(0,5);
-  const wali = db.guru.find(g=>g.id===db.sekolah.waliKelasId);
-
-  // Kehadiran hari ini
-  const kehadiranHariIni = db.kehadiran[todayISO()] || {};
-  let hadirCount=0, sakitCount=0, izinCount=0, alfaCount=0;
-  db.siswa.forEach(s=>{
-    const st = kehadiranHariIni[s.id] || "H";
-    if(st==="S") sakitCount++; else if(st==="I") izinCount++; else if(st==="A") alfaCount++; else hadirCount++;
-  });
-
-  // Jadwal hari ini
-  const hariIniNama = new Date().toLocaleDateString("id-ID",{weekday:"long"});
-  const jadwalHariIni = (db.jadwal[hariIniNama]||[]).slice().sort((a,b)=>Number(a.jam||0)-Number(b.jam||0));
-
-  // Catatan siswa terbaru (Catatan Perkembangan)
-  const catatanTerbaru = db.perkembangan.slice().sort((a,b)=>(b.tanggal||"").localeCompare(a.tanggal||"")).slice(0,4);
-
-  // Penilaian terbaru (gabungan formatif & sumatif)
-  const penilaianTerbaru = db.asesmenFormatif.concat(db.asesmenSumatif)
-    .slice().sort((a,b)=>(b.tanggal||"").localeCompare(a.tanggal||"")).slice(0,4);
-
-  // Rekap seluruh kelas (ringkas, untuk widget dashboard)
-  const rekapKelasRingkas = CLASS_LIST.map(c=>{
-    const data = (c.id===activeClassId) ? db : loadClassDB(c.id);
-    return {c, jumlah:(data.siswa||[]).length};
-  });
-
-  // Rekap Buku Induk: pekerjaan ortu & PIP (semua kelas)
-  let _rekapOrtu = [], _rekapPip = {penerima:0, usulan:0, byKategori:{}};
-  try{
-    if(typeof rekapPekerjaanOrtu === "function") _rekapOrtu = rekapPekerjaanOrtu().slice(0,8);
-    if(typeof rekapPIP === "function") _rekapPip = rekapPIP();
-  }catch(e){}
-
-  setTimeout(()=>{ window.dashRefresh = ()=>renderPage("dashboard"); },0);
-
-  return `
-  <div class="section-head">
-    <div><h1>Selamat Datang${wali?", "+escapeHtml(wali.nama):""} 👋</h1>
-      <div class="desc">${escapeHtml(db.sekolah.namaSekolah)} &middot; ${escapeHtml(classInfo(activeClassId).label)} &middot; T.A. ${escapeHtml(db.sekolah.tahunAjaran)} &middot; Semester ${escapeHtml(db.sekolah.semester)}</div>
+  const today=todayISO(), cls=classInfo(activeClassId), total=db.siswa.length;
+  const summary=attendanceSummary(db.siswa,db.kehadiran[today]);
+  const marked=total-summary.unmarked, pct=total ? Math.round(marked/total*100) : 0;
+  const upcoming=db.kalender.filter(e=>e.tanggal>=today).sort((a,b)=>a.tanggal.localeCompare(b.tanggal)).slice(0,5);
+  const todayEvents=db.kalender.filter(e=>e.tanggal===today);
+  const journals=db.agenda.filter(e=>e.tanggal && e.tanggal<=today).sort((a,b)=>b.tanggal.localeCompare(a.tanggal)).slice(0,3);
+  const day=new Date().toLocaleDateString('id-ID',{weekday:'long'});
+  const schedule=(db.jadwal[day]||[]).slice().sort((a,b)=>String(a.jam||'').localeCompare(String(b.jam||''),undefined,{numeric:true}));
+  const dateLabel=new Date().toLocaleDateString('id-ID',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  const teacher=db.guru.find(g=>g.id===db.sekolah.waliKelasId);
+  const pip=rekapPIP();
+  const tools=[
+    {id:'siswa',icon:'student',title:'Data siswa',desc:'Identitas & buku induk',tone:'indigo'},
+    {id:'kehadiran',icon:'attendance',title:'Kehadiran',desc:'Catat hadir hari ini',tone:'teal'},
+    {id:'inputnilai',icon:'bar',title:'Input nilai',desc:'Asesmen & rekap nilai',tone:'coral'},
+    {id:'agenda',icon:'book',title:'Jurnal mengajar',desc:'Catat kegiatan harian',tone:'amber'},
+    {id:'modulajar',icon:'clipboard',title:'Perangkat ajar',desc:'Rencana pembelajaran',tone:'blue'},
+    {id:'aiDashboard',icon:'star',title:'Pusat AI Guru',desc:'Susun draf lebih cepat',tone:'violet'}
+  ];
+  window.dashRefresh=()=>{ if(currentPage==='dashboard') renderPage('dashboard'); };
+  return `<section class="dashboard-hero">
+    <div class="hero-copy"><span class="hero-eyebrow">RUANG KERJA ANDA <span class="hero-dot"></span> ${escapeHtml(cls.label)} · Fase ${faseForClassId(activeClassId)}</span>
+      <h1>Selamat datang${teacher?', '+escapeHtml(teacher.nama.split(',')[0]):''}!<br><span>Siap menginspirasi hari ini?</span></h1>
+      <p>Administrasi tertata, lebih banyak waktu untuk murid.</p>
+      <div class="hero-actions"><button class="btn hero-btn" onclick="navigate('kehadiran')">${ic('attendance',18)} Isi kehadiran</button><button class="btn hero-btn-secondary" onclick="navigate('aiModul')">${ic('star',18)} Buat modul AI</button></div>
+    </div>${workspaceHeroArt()}
+    <div class="hero-date">${ic('calendar',15)} ${escapeHtml(dateLabel)}</div>
+  </section>
+  <div class="dashboard-context"><span>${ic('school',16)} ${escapeHtml(db.sekolah.namaSekolah)}</span><span>T.A. ${escapeHtml(db.sekolah.tahunAjaran)} · Semester ${escapeHtml(db.sekolah.semester)}</span></div>
+  <div class="workspace-metrics">
+    <article class="metric-card tone-indigo"><span class="metric-icon">${ic('student',22)}</span><div><span class="metric-label">Siswa aktif</span><strong>${total}</strong><small>${db.siswa.filter(s=>s.jk==='L').length} laki-laki · ${db.siswa.filter(s=>s.jk==='P').length} perempuan</small></div></article>
+    <article class="metric-card tone-teal"><span class="metric-icon">${ic('attendance',22)}</span><div><span class="metric-label">Hadir hari ini</span><strong>${summary.H}<span> / ${total}</span></strong><small>${summary.unmarked ? summary.unmarked+' belum diisi' : (total?'Semua status tercatat':'Belum ada siswa')}</small></div></article>
+    <article class="metric-card tone-amber"><span class="metric-icon">${ic('calendar',22)}</span><div><span class="metric-label">Agenda hari ini</span><strong>${todayEvents.length}</strong><small>${todayEvents.length?'Ada kegiatan terjadwal':'Belum ada kegiatan'}</small></div></article>
+    <article class="metric-card tone-coral"><span class="metric-icon">${ic('clipboard',22)}</span><div><span class="metric-label">Modul ajar</span><strong>${db.modulAjar.length}</strong><small>Perangkat tersimpan</small></div></article>
+  </div>
+  <div class="dashboard-heading"><div><h2>Akses cepat</h2><p>Mulai dari pekerjaan yang paling sering Anda lakukan.</p></div><button class="text-btn" onclick="openMenuSearch()">Semua fitur ${ic('chevronRight',16)}</button></div>
+  <div class="workspace-tools">${tools.map(t=>`<button class="workspace-tool tone-${t.tone}" onclick="navigate('${t.id}')"><span class="tool-icon">${ic(t.icon,23)}</span><strong>${t.title}</strong><small>${t.desc}</small><span class="tool-arrow" aria-hidden="true">↗</span></button>`).join('')}</div>
+  <div class="dashboard-columns">
+    <section class="card today-card"><div class="dashboard-card-head"><div><span class="card-eyebrow">KEGIATAN BELAJAR</span><h2>Jadwal ${escapeHtml(day)}</h2></div><button class="text-btn" onclick="navigate('jadwal')">Lihat jadwal ${ic('chevronRight',16)}</button></div>
+      ${schedule.length?`<div class="schedule-list">${schedule.map((j,i)=>`<div class="schedule-row"><span class="schedule-dot tone-${['indigo','teal','amber','coral'][i%4]}"></span><div><strong>${escapeHtml(j.mapel||'-')}</strong><span>${escapeHtml(String(j.jam||'-'))}</span></div><span class="schedule-number">${String(i+1).padStart(2,'0')}</span></div>`).join('')}</div>`:`<div class="workspace-empty">${illus('dokumen',90)}<strong>Belum ada jadwal hari ini</strong><span>Atur jadwal agar kegiatan belajar lebih tertata.</span><button class="btn" onclick="navigate('jadwal')">Atur jadwal</button></div>`}
+    </section>
+    <div class="dashboard-side">
+      <section class="card attendance-card"><div class="dashboard-card-head"><div><span class="card-eyebrow">KEHADIRAN HARI INI</span><h2>${total?marked+' dari '+total+' tercatat':'Belum ada siswa'}</h2></div><span class="attendance-percent">${pct}%</span></div>
+        <div class="attendance-progress" role="progressbar" aria-label="Status kehadiran tercatat" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><span style="width:${pct}%"></span></div>
+        <div class="attendance-legend"><span><i class="legend-h"></i>Hadir <strong>${summary.H}</strong></span><span><i class="legend-s"></i>Sakit <strong>${summary.S}</strong></span><span><i class="legend-i"></i>Izin <strong>${summary.I}</strong></span><span><i class="legend-a"></i>Alfa <strong>${summary.A}</strong></span></div>
+        <p class="hint">${summary.unmarked?summary.unmarked+' siswa belum memiliki status kehadiran.':'Status kehadiran sesuai pencatatan guru.'}</p><button class="btn attendance-action" onclick="navigate('kehadiran')">${ic('edit',17)} Kelola kehadiran ${ic('chevronRight',17)}</button>
+      </section>
+      <section class="ai-banner"><span class="ai-banner-icon">${ic('star',25)}</span><span class="card-eyebrow">ASISTEN PEMBELAJARAN</span><h2>Ide Anda, dibantu AI.</h2><p>Dari CP ke TP, modul ajar, hingga asesmen. Guru tetap menelaah setiap draf.</p><button class="btn" onclick="navigate('aiDashboard')">Jelajahi Pusat AI ${ic('chevronRight',17)}</button></section>
     </div>
   </div>
-  <div class="card" style="margin-bottom:16px;">
-    <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;">
-      <div style="flex:1;min-width:170px;">
-        <label style="display:block;font-size:11.5px;font-weight:600;color:var(--text-soft);margin-bottom:5px;">${ic("calendar",14)} Tahun Pelajaran Aktif</label>
-        <select id="berandaTahunAjaran" onchange="updateTahunSemesterBeranda()" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:var(--surface-solid);color:var(--text);font-size:13.5px;">
-          ${taGenerateOptions().map(t=>`<option value="${escapeHtml(t)}" ${t===db.sekolah.tahunAjaran?"selected":""}>${escapeHtml(t)}</option>`).join("")}
-        </select>
-      </div>
-      <div style="flex:1;min-width:170px;">
-        <label style="display:block;font-size:11.5px;font-weight:600;color:var(--text-soft);margin-bottom:5px;">${ic("clock",14)} Semester Aktif</label>
-        <select id="berandaSemester" onchange="updateTahunSemesterBeranda()" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:var(--surface-solid);color:var(--text);font-size:13.5px;">
-          ${taSemesterOptions().map(s=>`<option value="${escapeHtml(s)}" ${s===db.sekolah.semester?"selected":""}>Semester ${escapeHtml(s)}</option>`).join("")}
-        </select>
-      </div>
-    </div>
-    <p class="hint" style="margin-top:8px;">Perubahan di sini otomatis tersinkron dengan field Tahun Ajaran &amp; Semester pada menu Profil Sekolah, dan langsung dipakai pada seluruh dokumen (Program Tahunan, Program Semester, Kop Surat, Rapor, dsb).</p>
+  <div class="dashboard-columns dashboard-secondary">
+    <section class="card"><div class="dashboard-card-head"><div><span class="card-eyebrow">KALENDER PENDIDIKAN</span><h2>Agenda mendatang</h2></div><button class="text-btn" onclick="navigate('kalender')">Kalender ${ic('chevronRight',16)}</button></div>
+      ${upcoming.length?upcoming.map(e=>`<div class="agenda-row"><span class="agenda-date"><strong>${escapeHtml(String(Number(e.tanggal.slice(8,10))))}</strong><small>${escapeHtml(new Date(e.tanggal+'T00:00:00').toLocaleDateString('id-ID',{month:'short'}))}</small></span><div><strong>${escapeHtml(e.judul)}</strong><small>${escapeHtml(e.jenis||'Agenda')} · ${fmtDate(e.tanggal)}</small></div></div>`).join(''):`<p class="muted">Belum ada agenda. Tambahkan kegiatan di kalender pendidikan.</p>`}
+    </section>
+    <section class="card"><div class="dashboard-card-head"><div><span class="card-eyebrow">CATATAN MENGAJAR</span><h2>Jurnal terbaru</h2></div><button class="text-btn" onclick="navigate('agenda')">Jurnal ${ic('chevronRight',16)}</button></div>
+      ${journals.length?journals.map(j=>`<div class="journal-row"><span class="journal-icon">${ic('book',18)}</span><div><strong>${fmtDate(j.tanggal)}</strong><small>${escapeHtml((j.kegiatan||j.materi||j.mapel||'Catatan pembelajaran').slice(0,100))}</small></div></div>`).join(''):`<div class="workspace-empty compact">${ic('book',30)}<strong>Belum ada jurnal kegiatan</strong><span>Catat pembelajaran hari ini untuk bahan refleksi.</span><button class="btn" onclick="navigate('agenda')">Tulis jurnal</button></div>`}
+    </section>
   </div>
-  <div class="quicknav-wrap">
-    <div class="quicknav-title">${ic("chevronRight",13)} Geser untuk menu utama</div>
-    <div class="quicknav-scroll">
-      <div class="quicknav-card" style="--qc:var(--primary);" onclick="navigate('kehadiran')">
-        <div class="qn-icon" style="background:var(--primary-soft);color:var(--primary);">${ic("attendance",20)}</div>
-        <div><div class="qn-label">Kehadiran</div><div class="qn-desc">Tandai &amp; rekap hadir siswa</div></div>
-      </div>
-      <div class="quicknav-card" style="--qc:var(--accent);" onclick="navigate('rekapnilai')">
-        <div class="qn-icon" style="background:var(--accent-soft);color:var(--accent);">${ic("bar",20)}</div>
-        <div><div class="qn-label">Daftar Nilai</div><div class="qn-desc">Rekap nilai per siswa</div></div>
-      </div>
-      <div class="quicknav-card" style="--qc:var(--warn);" onclick="navigate('agenda')">
-        <div class="qn-icon" style="background:var(--warn-soft);color:var(--warn);">${ic("book",20)}</div>
-        <div><div class="qn-label">Jurnal Guru</div><div class="qn-desc">Jurnal mengajar harian</div></div>
-      </div>
-      <div class="quicknav-card" style="--qc:var(--danger);" onclick="navigate('modulajar')">
-        <div class="qn-icon" style="background:var(--danger-soft);color:var(--danger);">${ic("clipboard",20)}</div>
-        <div><div class="qn-label">Modul Ajar</div><div class="qn-desc">Susun &amp; unggah modul</div></div>
-      </div>
-    </div>
-  </div>
-  <div class="grid grid-4" style="margin-bottom:14px;">
-    <div class="card stat-card" style="--sc:var(--primary);"><div class="icon" style="background:var(--primary-soft);color:var(--primary);">${ic("student",20)}</div><div class="num">${totalSiswa}</div><div class="lbl">Total Siswa (L:${L} / P:${P})</div></div>
-    <div class="card stat-card" style="--sc:var(--accent);"><div class="icon" style="background:var(--accent-soft);color:var(--accent);">${ic("users",20)}</div><div class="num">${totalGuru}</div><div class="lbl">Guru & Tenaga Kependidikan</div></div>
-    <div class="card stat-card" style="--sc:var(--warn);"><div class="icon" style="background:var(--warn-soft);color:var(--warn);">${ic("calendar",20)}</div><div class="num">${todayEvents.length}</div><div class="lbl">Agenda Hari Ini</div></div>
-    <div class="card stat-card" style="--sc:var(--danger);"><div class="icon" style="background:var(--danger-soft);color:var(--danger);">${ic("clipboard",20)}</div><div class="num">${db.modulAjar.length}</div><div class="lbl">Modul Ajar Tersimpan</div></div>
-  </div>
-  <div class="grid grid-4" style="margin-bottom:18px;">
-    <div class="card stat-card" style="--sc:var(--primary);"><div class="icon" style="background:var(--primary-soft);color:var(--primary);">${ic("attendance",20)}</div><div class="num">${hadirCount}</div><div class="lbl">Hadir Hari Ini</div></div>
-    <div class="card stat-card" style="--sc:var(--warn);"><div class="icon" style="background:var(--warn-soft);color:var(--warn);">${ic("heart",20)}</div><div class="num">${sakitCount}</div><div class="lbl">Sakit</div></div>
-    <div class="card stat-card" style="--sc:var(--accent);"><div class="icon" style="background:var(--accent-soft);color:var(--accent);">${ic("parent",20)}</div><div class="num">${izinCount}</div><div class="lbl">Izin</div></div>
-    <div class="card stat-card" style="--sc:var(--danger);"><div class="icon" style="background:var(--danger-soft);color:var(--danger);">${ic("close",20)}</div><div class="num">${alfaCount}</div><div class="lbl">Alfa</div></div>
-  </div>
-  <div class="grid grid-2">
-    <div class="card">
-      <h3>${ic("calendar",16)} Agenda Mendatang</h3>
-      ${upcoming.length? upcoming.map(e=>`<div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border);">
-        <div><strong style="font-size:13px;">${escapeHtml(e.judul)}</strong><div class="muted" style="font-size:11.5px;">${escapeHtml(e.jenis||"")}</div></div>
-        <div class="badge badge-blue">${fmtDate(e.tanggal)}</div></div>`).join("") : `<p class="muted">Belum ada agenda. Tambahkan di menu Kalender Pendidikan.</p>`}
-    </div>
-    <div class="card">
-      <h3>${ic("book",16)} Jurnal Harian Terbaru</h3>
-      ${agendaRecent.length? agendaRecent.map(e=>`<div style="padding:9px 0;border-bottom:1px solid var(--border);">
-        <strong style="font-size:13px;">${fmtDate(e.tanggal)}</strong>
-        <div class="muted" style="font-size:12.5px;">${escapeHtml((e.kegiatan||"").slice(0,90))}${(e.kegiatan||"").length>90?"...":""}</div></div>`).join("") : `<p class="muted">Belum ada jurnal harian. Tambahkan di menu Agenda / Jurnal Harian.</p>`}
-    </div>
-  </div>
-  <div class="grid grid-2" style="margin-top:16px;">
-    <div class="card">
-      <h3>${ic("clock",16)} Jadwal Hari Ini (${escapeHtml(hariIniNama)})</h3>
-      ${jadwalHariIni.length? jadwalHariIni.map(j=>`<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);">
-        <span style="font-size:13px;">${escapeHtml(j.mapel||"-")}</span><span class="badge badge-blue">Jam ke-${escapeHtml(String(j.jam||"-"))}</span></div>`).join("") : `<p class="muted">Tidak ada jadwal untuk hari ini, atau hari libur.</p>`}
-    </div>
-    <div class="card">
-      <h3>${ic("heart",16)} Catatan Siswa Terbaru</h3>
-      ${catatanTerbaru.length? catatanTerbaru.map(c=>`<div style="padding:8px 0;border-bottom:1px solid var(--border);">
-        <strong style="font-size:12.5px;">${escapeHtml((db.siswa.find(s=>s.id===c.siswaId)||{}).nama||"?")}</strong> &middot; <span class="muted" style="font-size:11.5px;">${fmtDate(c.tanggal)}</span>
-        <div class="muted" style="font-size:12px;">${escapeHtml((c.catatan||"").slice(0,70))}${(c.catatan||"").length>70?"...":""}</div></div>`).join("") : `<p class="muted">Belum ada catatan perkembangan siswa.</p>`}
-    </div>
-  </div>
-  <div class="card" style="margin-top:16px;">
-    <h3>${ic("bar",16)} Penilaian Terbaru</h3>
-    ${penilaianTerbaru.length? `<div class="table-wrap"><table><thead><tr><th>Siswa</th><th>Mapel</th><th>Tanggal</th><th>Nilai/Catatan</th></tr></thead><tbody>
-      ${penilaianTerbaru.map(p=>`<tr><td>${escapeHtml((db.siswa.find(s=>s.id===p.siswaId)||{}).nama||"?")}</td><td>${escapeHtml(p.mapel||"-")}</td><td>${fmtDate(p.tanggal)}</td><td>${p.nilai!=null?p.nilai:escapeHtml((p.catatan||"").slice(0,40))}</td></tr>`).join("")}
-      </tbody></table></div>` : `<p class="muted">Belum ada asesmen tercatat.</p>`}
-  </div>
-  <div class="card" style="margin-top:16px;">
-    <h3>${ic("bar",16)} Rekap Seluruh Kelas</h3>
-    <div class="grid grid-3">
-      ${rekapKelasRingkas.map(r=>`<div style="cursor:pointer;padding:10px;border:1.5px solid ${r.c.id===activeClassId?'var(--primary)':'var(--border)'};border-radius:10px;" onclick="switchActiveClass('${r.c.id}')">
-        <div class="muted" style="font-size:11px;">${r.c.id===activeClassId?"Aktif":"Klik utk pindah"}</div>
-        <strong>${r.c.label}</strong><div style="font-size:20px;font-weight:800;">${r.jumlah} siswa</div>
-      </div>`).join("")}
-    </div>
-    <button class="btn" style="margin-top:10px;" onclick="navigate('rekapSeluruhKelas')">${ic("bar",15)} Lihat Detail Rekap</button>
-  </div>
-  <div class="grid grid-2" style="margin-top:16px;">
-    <div class="card" style="margin:0;">
-      <h3>${ic("users",16)} Pekerjaan Orang Tua</h3>
-      <p class="muted" style="font-size:11.5px;">Rekap seluruh kelas (ayah + ibu).</p>
-      ${_rekapOrtu.length ? `<div class="table-wrap"><table><thead><tr><th>Pekerjaan</th><th>Ayah</th><th>Ibu</th><th>Total</th></tr></thead><tbody>`
-        + _rekapOrtu.map(r=>`<tr><td style="text-align:left;">${escapeHtml(r.pekerjaan||"-")}</td><td>${r.ayah}</td><td>${r.ibu}</td><td><strong>${r.total}</strong></td></tr>`).join("")
-        + `</tbody></table></div>` : `<p class="muted">Belum ada data Buku Induk.</p>`}
-    </div>
-    <div class="card" style="margin:0;">
-      <h3>${ic("star",16)} PIP — Program Indonesia Pintar</h3>
-      <div class="grid grid-2" style="margin-bottom:10px;">
-        <div><div class="muted" style="font-size:11.5px;">Penerima (KIP)</div><div style="font-size:24px;font-weight:800;color:var(--accent);">${_rekapPip.penerima}</div></div>
-        <div><div class="muted" style="font-size:11.5px;">Usulan Sekolah</div><div style="font-size:24px;font-weight:800;color:var(--warn);">${_rekapPip.usulan}</div></div>
-      </div>
-      ${Object.keys(_rekapPip.byKategori).length ? `<div class="table-wrap"><table><thead><tr><th>Kategori Usulan</th><th>Jumlah</th></tr></thead><tbody>`
-        + Object.entries(_rekapPip.byKategori).map(([k,v])=>`<tr><td style="text-align:left;">${escapeHtml(k)}</td><td><strong>${v}</strong></td></tr>`).join("")
-        + `</tbody></table></div>` : `<p class="muted">Belum ada usulan PIP.</p>`}
-      <p class="hint" style="margin-top:8px;">Kategori sesuai Permendikdasmen No. 11/2026. Nominal SD: Rp450rb/thn.</p>
-    </div>
-  </div>
-  <div class="card" style="margin-top:16px;">
-    <h3>${ic("backup",16)} Status Cloud Storage</h3>
-    <div class="grid grid-3">
-      <div><div class="muted" style="font-size:11.5px;">Status</div><strong>${cloudUser?'<span class="badge badge-green">Terhubung</span>':'<span class="badge badge-red">Belum Login</span>'}</strong></div>
-      <div><div class="muted" style="font-size:11.5px;">Backup Terakhir</div><strong>${settings.cloud.lastBackupAt?fmtDate(settings.cloud.lastBackupAt.slice(0,10)):"Belum pernah"}</strong></div>
-      <div><div class="muted" style="font-size:11.5px;">Sinkronisasi</div><strong>${escapeHtml(settings.cloud.lastSyncStatus)}</strong></div>
-    </div>
-    <button class="btn" style="margin-top:10px;" onclick="navigate('cloudStorage')">${ic("backup",15)} Buka Menu Cloud Storage</button>
-  </div>
-  <div class="card" style="margin-top:16px;">
-    <h3>${ic("target",16)} Dimensi Profil Lulusan (Permendikdasmen No. 10/2025)</h3>
-    <div style="display:flex;flex-wrap:wrap;">
-      ${DIMENSI_PROFIL.map(d=>`<span class="chip">${d.nama}</span>`).join("")}
-    </div>
-    <p class="hint" style="margin-top:10px;">Delapan dimensi ini menjadi acuan penyusunan Modul Ajar & Deskripsi Rapor pada aplikasi ini, selaras dengan pendekatan Pembelajaran Mendalam.</p>
-  </div>`;
+  <details class="card academic-settings"><summary>${ic('calendar',18)} Tahun pelajaran & semester <span>${escapeHtml(db.sekolah.tahunAjaran)}</span></summary><div class="form-grid">
+    <div class="field"><label for="berandaTahunAjaran">Tahun Pelajaran Aktif</label><select id="berandaTahunAjaran" onchange="updateTahunSemesterBeranda()">${taGenerateOptions().map(t=>`<option ${t===db.sekolah.tahunAjaran?'selected':''}>${escapeHtml(t)}</option>`).join('')}</select></div>
+    <div class="field"><label for="berandaSemester">Semester Aktif</label><select id="berandaSemester" onchange="updateTahunSemesterBeranda()">${taSemesterOptions().map(s=>`<option value="${escapeHtml(s)}" ${s===db.sekolah.semester?'selected':''}>Semester ${escapeHtml(s)}</option>`).join('')}</select></div>
+    </div><p class="hint">Dipakai bersama pada profil sekolah, kop surat, program pembelajaran, dan rapor.</p></details>
+  <details class="card school-summary"><summary>${ic('bar',18)} Ringkasan sekolah & pembinaan</summary><div class="school-summary-grid">${CLASS_LIST.map(c=>{const n=(c.id===activeClassId?db:loadClassDB(c.id)).siswa.length;return `<button class="class-summary ${c.id===activeClassId?'active':''}" onclick="switchActiveClass('${c.id}')"><small>${c.id===activeClassId?'Kelas aktif':'Pindah kelas'}</small><strong>${c.label}</strong><span>${n} siswa</span></button>`;}).join('')}</div><div class="school-links">${[{id:'perkembangan',label:'Catatan perkembangan',icon:'heart'},{id:'analisisnilai',label:'Analisis nilai',icon:'target'},{id:'pekerjaanOrtu',label:'Pekerjaan orang tua',icon:'users'},{id:'backup',label:'Backup & sinkronisasi',icon:'backup'},{id:'guru',label:(db.guru.length+db.tendik.length)+' guru & tendik',icon:'school'}].map(item=>`<button class="btn" onclick="navigate('${item.id}')">${ic(item.icon,16)} ${item.label}</button>`).join('')}</div><p class="hint">Dimensi Profil Lulusan: ${DIMENSI_PROFIL.map(d=>escapeHtml(d.nama)).join(' · ')}.</p></details>
+  <details class="card school-summary"><summary>${ic('star',18)} Rekap Program Indonesia Pintar</summary><div class="pip-summary"><div><span>Penerima (KIP)</span><strong>${pip.penerima}</strong></div><div><span>Usulan sekolah</span><strong>${pip.usulan}</strong></div></div><div class="table-wrap"><table><thead><tr><th>Kategori usulan</th><th>Jumlah</th></tr></thead><tbody>${Object.entries(pip.byKategori).map(([label,n])=>`<tr><td>${escapeHtml(label)}</td><td>${n}</td></tr>`).join('')||'<tr><td colspan="2">Belum ada usulan tercatat.</td></tr>'}</tbody></table></div><p class="hint">Rekap seluruh kelas berdasarkan Buku Induk; satu usulan dapat memiliki beberapa kategori.</p></details>
+  <footer class="workspace-footer"><span>AdminGuru <strong>· Edukreativa By Anggi</strong></span><span>Data administrasi tersimpan di perangkat ini.</span></footer>`;
 };
 
-/* ---------- PROFIL SEKOLAH ---------- */
 PAGES.sekolah = function(){
   const s = db.sekolah;
   const guruOpts = db.guru.map(g=>({value:g.id,label:g.nama}));
