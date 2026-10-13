@@ -263,7 +263,7 @@ function loadSettings(){
 }
 function defaultSettings(){
   return {
-    pin:"", theme:"dark", autoLockMin:10,
+    pin:"", theme:"light", autoLockMin:10,
     cloud:{
       email:"",
       totalBackup:0,
@@ -280,7 +280,7 @@ let settings = loadSettings();
 
 function uid(prefix){ return prefix+"_"+Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
 function fmtDate(iso){ if(!iso) return "-"; const d=new Date(iso+"T00:00:00"); if(isNaN(d)) return iso; const bln=["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"]; return d.getDate()+" "+bln[d.getMonth()]+" "+d.getFullYear(); }
-function todayISO(){ return new Date().toISOString().slice(0,10); }
+function todayISO(){ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
 function escapeHtml(s){ return (s==null?"":String(s)).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
 
 /* ============================================================

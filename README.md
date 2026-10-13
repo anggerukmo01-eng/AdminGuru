@@ -1,49 +1,85 @@
-# Teacher Planner SD 2026 — Multi-Kelas (1–6)
+# AdminGuru — Ruang Kerja Guru SD (Kelas 1–6)
 
-Aplikasi administrasi guru SD: 100% offline (data di `localStorage` perangkat),
-tanpa build process. Buka `index.html` langsung di browser, atau akses via
-GitHub Pages.
+Aplikasi administrasi guru SD tanpa build process. Data utama tersimpan di
+localStorage dan arsip di IndexedDB perangkat. Fitur lokal dapat berjalan dari
+salinan berkas lengkap; akses awal GitHub Pages, AI, OCR/CDN, serta sinkronisasi
+cloud memerlukan internet. PIN merupakan pengunci antarmuka, bukan enkripsi data.
 
-## Struktur File (v2 — sudah dirapikan)
+## Pembaruan 13 Oktober 2026
 
+- Beranda berwarna indigo, toska, koral, dan kuning; mode terang/gelap.
+- Pencarian fitur Ctrl/Cmd+K dan navigasi bawah untuk ponsel/tablet.
+- Kehadiran hanya menghitung status tercatat, termasuk jumlah yang belum diisi.
+  Jurnal terbaru tidak memasukkan rencana masa depan.
+- Tanggal mengikuti kalender lokal perangkat. Rekap bulanan memisahkan tahun
+  ajaran; jumlah siswa aktif tidak diklaim sebagai jumlah historis per bulan.
+- Hasil AI dibersihkan dari HTML aktif sebelum ditampilkan, disimpan, dan
+  diekspor. Timeout mencakup seluruh streaming; tersedia pembatalan.
+- Referensi CP per fase, Analisis CP → TP (ABCD), dan Telaah CP–ATP.
+  Lampiran CP Agama 2025 tidak otomatis dipakai dalam generator baru karena
+  pembaruan BKPDM 020/2026. Pembandingan penuh dengan PDF primer masih diperlukan.
+- Prompt V3, opsi PG kelas 1 a–c / kelas 2 ke atas a–d, prompt kustom,
+  serta kunci penyimpanan lama dipertahankan.
+
+## Struktur
+
+| Berkas | Fungsi |
+| --- | --- |
+| `index.html` | Kerangka aplikasi dan urutan skrip |
+| `assets/css/app.css` | Komponen tampilan awal |
+| `assets/css/modern.css` | Desain workspace terbaru dan mode gelap |
+| `assets/js/05-logo.js` | Logo sekolah |
+| `assets/js/10-data.js` | Data awal dan referensi lokal |
+| `assets/js/20-storage.js` | Penyimpanan multi-kelas dan arsip IndexedDB |
+| `assets/js/25-safety.js` | Sanitasi dokumen dan ringkasan kehadiran |
+| `assets/js/30-core.js` | Navigasi, modal, form, CRUD, ekspor |
+| `assets/js/40-pages-a.js`, `40-pages-b.js` | Halaman utama |
+| `assets/js/44-rencana.js`, `45-analisis.js` | Rencana pembelajaran dan analisis nilai |
+| `assets/js/50-pages2.js` | Administrasi tambahan |
+| `assets/js/60-cloud.js`, `62-dropbox.js` | Sinkronisasi opsional |
+| `assets/js/70-shell.js` | PIN dan tema |
+| `assets/js/80-ai.js` | Layanan AI, settings, riwayat, Modul/ATP/LKPD |
+| `assets/js/82-ai-tools.js` | Absensi, ekspor, generator AI tambahan |
+| `assets/js/cp-data.js` | Dataset CP dari lampiran handoff |
+| `assets/js/81-ai-curriculum.js` | Referensi CP, Analisis CP–TP, Telaah CP–ATP |
+| `assets/js/85-workspace.js` | Pencarian fitur, form aksesibel, navigasi ponsel |
+| `assets/js/90-boot.js` | Inisialisasi terakhir |
+
+Urutan skrip pada `index.html` harus dipertahankan: `82-ai-tools.js` mengikuti
+`80-ai.js`; `cp-data.js` mendahului `81-ai-curriculum.js`; boot selalu terakhir.
+Untuk mengubah warna, edit tokens di `modern.css`. Menu terdaftar pada NAV
+(`30-core.js`), dengan tambahan kurikulum/AI di `81-ai-curriculum.js`.
+
+## Pengujian
+
+Frontend tidak membutuhkan instalasi npm. Untuk pengembangan dan pengujian:
+
+```sh
+npm ci
+npm test
+npx playwright install chromium
+npm run test:browser
 ```
-index.html               ← kerangka aplikasi (lock screen + sidebar + topbar)
-assets/
-  css/
-    app.css              ← SELURUH TAMPILAN. Edit file ini untuk ubah warna/desain.
-  js/
-    10-data.js           ← data awal (seed): siswa, CP, ATP/KKTP generator
-    20-storage.js        ← mesin penyimpanan multi-kelas (localStorage) + arsip IndexedDB
-    30-core.js           ← ikon SVG, navigasi/sidebar, toast, modal, form, tabel CRUD, ekspor
-    40-pages.js         ← halaman-halaman utama (dashboard s/d input nilai)
-    50-pages2.js         ← modul tambahan administrasi (inventaris, mutasi, dsb.)
-    60-cloud.js          ← backup/restore via Supabase (opsional)
-    70-shell.js          ← lock screen/PIN + tema gelap/terang
-    80-ai.js             ← AI Teacher Suite (generator dokumen)
-    90-boot.js           ← inisialisasi aplikasi (wajib dimuat terakhir)
-supabase.js              ← konfigurasi Supabase (opsional)
-```
 
-> **Urutan `<script>` di `index.html` jangan diubah** (ditandai angka `10, 20, … 90`).
+Tes unit mencakup fase CP, prompt V3, tanggal lokal, kehadiran, serta
+streaming/timeout/error AI. Tes browser memakai server lokal dan memblokir
+endpoint eksternal: seluruh menu, prompt 16 generator lama, pemilih CP, CRUD,
+keyboard, serta layout desktop/ponsel/tablet. Layanan AI berbayar, Dropbox dan
+Supabase dengan akun nyata, serta hasil ekspor di aplikasi Office perlu diuji
+terpisah oleh pemilik akun. CI berjalan pada pull request dan main.
 
-## Mengubah Tampilan (cepat)
+## Ekspor dan penyimpanan
 
-1. **Ganti warna global** → edit variabel di `:root` paling atas `assets/css/app.css`
-   (`--primary`, `--accent`, `--bg`, `--surface`, …). Satu variabel = seluruh aplikasi.
-2. **Mode gelap** → variabel tema gelap ada di blok `[data-theme="dark"]`.
-3. **Komponen** (tombol `.btn`, kartu `.card`, tabel, badge, modal) masing-masing punya
-   section berlabel jelas di `app.css` — cari dengan `Ctrl+F`.
-4. **Menu sidebar** → daftar menu ada di `const NAV` (file `assets/js/30-core.js`).
-   Grup sidebar bisa dilipat/dibuka; status lipatan tersimpan otomatis.
+Ekspor Word/Excel menggunakan HTML yang dapat dibaca aplikasi Office; berkas
+tersebut bukan DOCX/XLSX native. PDF menggunakan print-to-PDF browser. Backup
+lokal tersedia pada menu Backup & Sinkron Data. Kunci penyimpanan lama dan
+pemisahan data kelas tidak dimigrasikan oleh pembaruan UI ini.
 
-## Menambah / Mengubah Halaman
+## Batasan privasi yang perlu ditangani
 
-Setiap halaman = satu fungsi `PAGES.namaHalaman = function(){ return \`<html…>\`; }`
-di `40-pages.js` / `50-pages2.js`, lalu daftarkan di `const NAV` (`30-core.js`).
-
-## Catatan
-
-- Ekspor "Word"/"Excel" memakai teknik HTML yang dibaca native Ms Word/Excel
-  (tetap offline). PDF via print-to-PDF browser.
-- Backup data: menu **Backup & Restore (Lokal)** atau **Cloud Storage**.
-- PIN & tema tersimpan di `localStorage` perangkat masing-masing.
+Kode awal proyek memuat data seed sekolah/siswa/buku induk. JavaScript pada
+GitHub Pages publik dapat diunduh tanpa PIN. Pindahkan identitas nyata ke impor
+lokal atau backend dengan autentikasi dan otorisasi sebelum memakai distribusi
+publik untuk data pribadi. Penghapusan dari versi terbaru tidak menghapus
+riwayat Git. Pembaruan ini tidak menghapus data sekolah atau mengubah akses
+cloud pengguna.

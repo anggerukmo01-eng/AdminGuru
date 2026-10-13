@@ -37,8 +37,14 @@ function pinPress(d){
 function pinDelete(){ pinBuffer = pinBuffer.slice(0,-1); renderPinDots(); }
 
 function showLockScreen(){
+  if(typeof cancelAiRequests==='function') cancelAiRequests();
+  closeModal();
   document.getElementById("lockScreen").classList.remove("hidden");
   document.getElementById("app").classList.remove("ready");
+  document.getElementById("app").inert = true;
+  document.getElementById("mobileNav").inert = true;
+  toggleSidebar(false);
+  syncWorkspaceUi();
   if(settings.pin){
     document.getElementById("pinArea").style.display="block";
     document.getElementById("noPinArea").style.display="none";
@@ -47,10 +53,15 @@ function showLockScreen(){
     document.getElementById("pinArea").style.display="none";
     document.getElementById("noPinArea").style.display="block";
   }
+  const button=document.querySelector("#lockScreen button"); if(button) button.focus();
 }
 function unlockApp(){
   document.getElementById("lockScreen").classList.add("hidden");
   document.getElementById("app").classList.add("ready");
+  document.getElementById("app").inert = false;
+  document.getElementById("mobileNav").inert = false;
+  syncWorkspaceUi();
+  document.getElementById("pageContent").focus();
   resetAutoLockTimer();
 }
 function lockNow(){ showLockScreen(); }
