@@ -503,6 +503,7 @@ function aiResultHtml(title, contentHtml, docType, saveId){
     <div class="ai-toolbar">
       <button class="btn btn-primary" onclick="aiSaveDoc('${docType}','${saveId}')">${ic("check",15)} Simpan Dokumen</button>
       <button class="btn" onclick="aiExportWordAuto('${docType}','${saveId}','${escapeHtml(title).replace(/'/g,"")}')">${ic("download",15)} Export Word</button>
+      <button class="btn" onclick="dbxSaveAiDoc('${docType}','${saveId}','${escapeHtml(title).replace(/'/g,"")}')">${ic("upload",15)} Simpan ke Dropbox</button>
       <button class="btn" onclick="aiExportExcel(document.getElementById('${saveId}').innerHTML,'${escapeHtml(title).replace(/'/g,"")}')">${ic("download",15)} Export Excel</button>
       <button class="btn" onclick="aiExportPDF(document.getElementById('${saveId}').innerHTML,'${escapeHtml(title).replace(/'/g,"")}','${docType}')">${ic("download",15)} Export PDF</button>
       <button class="btn" onclick="aiExportMarkdown(document.getElementById('${saveId}'),'${escapeHtml(title).replace(/'/g,"")}')">${ic("download",15)} Export Markdown</button>
@@ -560,11 +561,14 @@ async function aiRunGenerate(resultElId, {type, title, systemPrompt, userPrompt}
 }
 
 /* ---------- 8. EXPORT SERVICE ---------- */
-function aiExportWord(html, title){
-  const doc = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+function aiBuildWordDoc(html, title){
+  return `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
   <head><meta charset="utf-8"><title>${escapeHtml(title)}</title>
   <style>body{font-family:Calibri,Arial,sans-serif;font-size:12pt;} table{border-collapse:collapse;width:100%;} td,th{border:1px solid #333;padding:5px;}</style>
   </head><body>${letterheadHtml()}<h1 style="font-size:15pt;">${escapeHtml(title)}</h1>${html}</body></html>`;
+}
+function aiExportWord(html, title){
+  const doc = aiBuildWordDoc(html, title);
   const blob = new Blob(['\ufeff', doc], {type:"application/msword"});
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
@@ -605,8 +609,8 @@ function kopSoalHtml(){
 /* Export Word KHUSUS naskah soal/asesmen: kop soal persis format cetak sekolah,
    kertas F4, margin 2,5 cm, Times New Roman 12, spasi 1,5.
    Blok identitas naskah dibuat oleh AI di dalam konten (bukan di sini). */
-function aiExportWordSoal(html, title){
-  const doc = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+function aiBuildWordSoalDoc(html, title){
+  return `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
   <head><meta charset="utf-8"><title>${escapeHtml(title)}</title>
   <style>
     @page{size:21cm 33cm;margin:2.5cm;}
@@ -619,6 +623,9 @@ function aiExportWordSoal(html, title){
     .soal-sep{text-align:center;letter-spacing:3px;margin:8px 0;}
   </style>
   </head><body>${kopSoalHtml()}${html}</body></html>`;
+}
+function aiExportWordSoal(html, title){
+  const doc = aiBuildWordSoalDoc(html, title);
   const blob = new Blob(['\ufeff', doc], {type:"application/msword"});
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);

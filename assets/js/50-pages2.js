@@ -535,7 +535,10 @@ function applyFullBackupPayload(payload){
    Riwayat Backup Cloud — agar administrasi backup terpusat.
    ============================================================ */
 PAGES.backup = function(){
-  setTimeout(()=>{ if(typeof cloudUser!=="undefined" && cloudUser && typeof cloudRefreshList==="function") cloudRefreshList(); }, 30);
+  setTimeout(()=>{
+    if(typeof cloudUser!=="undefined" && cloudUser && typeof cloudRefreshList==="function") cloudRefreshList();
+    if(typeof dbxIsConnected==="function" && dbxIsConnected()){ dbxRefreshList(); dbxRefreshAccount(); }
+  }, 30);
   const sizeKb = Math.round((JSON.stringify(collectFullBackupPayload()).length)/1024);
   const c = settings.cloud;
   const cloudUser_ = (typeof cloudUser!=="undefined") ? cloudUser : null;
@@ -543,7 +546,7 @@ PAGES.backup = function(){
   const logRows = (c.log||[]).slice().reverse().map(l=>`<tr><td>${fmtDate(l.waktu.slice(0,10))} ${l.waktu.slice(11,16)}</td><td>${escapeHtml(l.aktivitas||"")}</td>`
     + `<td><span class="badge ${l.status==="Berhasil"?"badge-green":"badge-red"}">${escapeHtml(l.status||"")}</span></td><td>${escapeHtml(l.keterangan||"")}</td></tr>`).join("");
   return `
-  <div class="section-head"><div><h1>Backup &amp; Sinkron Data</h1><div class="desc">Pusat pencadangan: file lokal, Cloud Storage (Supabase), dan riwayat aktivitas — mencakup Kelas 1 s.d. Kelas 6.</div></div>
+  <div class="section-head"><div><h1>Backup &amp; Sinkron Data</h1><div class="desc">Pusat pencadangan: file lokal, Cloud Storage (Supabase &amp; Dropbox), dan riwayat aktivitas — mencakup Kelas 1 s.d. Kelas 6.</div></div>
     <div class="grow"></div>${(typeof cloudStatusBadge==="function")?cloudStatusBadge():""}</div>
 
   ${notConfigured ? `<div class="card" style="background:var(--warn-soft);border-color:var(--warn);margin-bottom:16px;">
@@ -581,6 +584,24 @@ PAGES.backup = function(){
         : `<button class="btn btn-primary" onclick="cloudOpenAuthModal()">${ic("lock",15)} Login Cloud</button>`}
     </div>
     <div id="cloudListHolder" style="margin-top:12px;">${cloudUser_?`<p class="muted">Memuat daftar backup...</p>`:`<p class="muted">Masuk (login) terlebih dahulu untuk melihat daftar backup cloud.</p>`}</div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px;">
+    <h3>${ic("backup",16)} Dropbox</h3>
+    <div class="grid grid-3" style="margin-bottom:10px;">
+      <div><div class="muted" style="font-size:11.5px;">Status</div><strong id="dbxStatusText">${(typeof dbxIsConnected==="function"&&dbxIsConnected())?"Terhubung":"Belum terhubung"}</strong></div>
+      <div><div class="muted" style="font-size:11.5px;">Akun</div><strong id="dbxAccountText">-</strong></div>
+      <div><div class="muted" style="font-size:11.5px;">Folder</div><strong>/backup &amp; /dokumen</strong></div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+      ${(typeof dbxIsConnected==="function"&&dbxIsConnected())
+        ? `<button class="btn btn-primary" onclick="dbxBackupNow()">${ic("download",15)} Backup ke Dropbox</button>
+           <button class="btn" onclick="dbxRefreshList()">${ic("search",15)} Segarkan</button>
+           <button class="btn btn-danger" onclick="dbxLogout()">Putuskan</button>`
+        : `<button class="btn btn-primary" onclick="dbxLogin()">${ic("lock",15)} Hubungkan Dropbox</button>
+           <span class="muted">Login sekali via popup resmi Dropbox — token tersimpan di perangkat ini.</span>`}
+    </div>
+    <div id="dbxListHolder" style="margin-top:12px;"><p class="muted">Hubungkan Dropbox untuk melihat daftar backup.</p></div>
   </div>
 
   <div class="card" style="margin-bottom:16px;">
