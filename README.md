@@ -32,6 +32,9 @@ yang dipakai situs resmi. Salinan katalog tetap dapat dicari saat API gagal.
 
 - Sampul, filter jenjang/kelas/mapel/jenis, pencarian judul/penulis/ISBN,
   pagination, favorit, lanjut baca, dan rak catatan.
+- Ejaan mapel disatukan untuk filter. Panduan guru yang bertipe generik atau
+  salah label pada metadata dikenali dari judul; jenis yang belum pasti
+  ditampilkan sebagai Buku PDF.
 - Pembaca PDF.js 5.6.205 dimuat hanya saat buku dibuka. Satu halaman dirender
   setiap kali, dengan pembatasan sekitar enam juta piksel untuk penggunaan memori.
 - Zoom, sesuai layar, layar penuh, kertas/sepia/gelap, nomor halaman PDF,

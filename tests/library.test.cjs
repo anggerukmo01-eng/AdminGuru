@@ -19,6 +19,13 @@ test('Catalogue rejects untrusted URLs, executable protocols and non-PDF items',
   assert.throws(()=>library.normalizedList([]),/kosong/);
   assert.equal(library.normalizedList([rows[0],rows[0]]).length,1);
 });
+test('Inconsistent SIBI subjects and generic/incorrect book types remain filterable',()=>{
+  for(const subject of ['Bahasa Inggris','Bahasa-inggris','Bahasa_Inggris'])assert.equal(library.canonicalSubject(subject),'bahasa_inggris');
+  assert.equal(library.canonicalSubject('pkn'),'pendidikan_pancasila');
+  for(const type of ['Buku PDF','buku_siswa'])assert.equal(library.bookKind({title:'Buku Panduan Guru Matematika untuk SD/MI Kelas I',book_type:type}),'guru');
+  assert.equal(library.bookKind({title:'Buku Kurikulum Merdeka',book_type:'Buku PDF'}),'umum');
+  const guides=library.normalizedList(rows).filter(book=>/panduan guru/i.test(book.title));assert(guides.length>200);assert(guides.every(book=>book.kind==='guru'));
+});
 test('Backup validation preserves normalized coordinates and separates PDF versions',()=>{
   const clean=library.validateRecord(record());assert.equal(clean.id,'3257@a1b2c3');assert.deepEqual(clean.pages['1'].annotations[1].points,[[.2,.4],[.5,.4]]);
   assert.notEqual(clean.id,library.editionKey('3257','newVersion'));
