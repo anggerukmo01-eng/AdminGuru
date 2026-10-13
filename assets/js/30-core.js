@@ -285,6 +285,7 @@ function toggleSidebar(force){
 }
 function navigate(page){
   if(!PAGES[page]){ toast("Halaman belum tersedia."); return; }
+  if(typeof BookReader!=='undefined') BookReader.close();
   if(typeof cancelAiRequests==="function") cancelAiRequests();
   currentPage = page;
   markActiveNav(page);

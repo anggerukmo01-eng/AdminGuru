@@ -37,6 +37,7 @@ function pinPress(d){
 function pinDelete(){ pinBuffer = pinBuffer.slice(0,-1); renderPinDots(); }
 
 function showLockScreen(){
+  if(typeof BookReader!=='undefined') BookReader.close();
   if(typeof cancelAiRequests==='function') cancelAiRequests();
   closeModal();
   document.getElementById("lockScreen").classList.remove("hidden");
