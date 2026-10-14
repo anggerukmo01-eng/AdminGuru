@@ -11,10 +11,16 @@ function safeDocumentHtml(html){
       if(blocked.has(node.tagName)){ node.remove(); return; }
       clean(node);
       if(!allowed.has(node.tagName)){ node.replaceWith(...node.childNodes); return; }
+      const textAlign=node.style.textAlign,breakBefore=node.style.pageBreakBefore,breakAfter=node.style.pageBreakAfter;
       Array.from(node.attributes).forEach(attr=>{
-        const numeric = ["colspan","rowspan","span","start"].includes(attr.name) && /^\d{1,3}$/.test(attr.value);
-        if(!numeric) node.removeAttribute(attr.name);
+        const numeric = ["colspan","rowspan","span","start","value"].includes(attr.name) && /^\d{1,4}$/.test(attr.value) && Number(attr.value)>0;
+        const listType=node.tagName==='OL'&&attr.name==='type'&&/^[1aAiI]$/.test(attr.value);
+        const alignment=attr.name==='align'&&/^(left|center|right|justify)$/.test(attr.value);
+        if(!numeric&&!listType&&!alignment) node.removeAttribute(attr.name);
       });
+      if(['left','center','right','justify'].includes(textAlign))node.style.textAlign=textAlign;
+      if(breakBefore==='always')node.style.pageBreakBefore='always';
+      if(breakAfter==='always')node.style.pageBreakAfter='always';
     });
   }
   clean(template.content);

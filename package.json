@@ -1,11 +1,11 @@
 {
   "name": "adminguru",
   "private": true,
-  "version": "2.2.0",
+  "version": "2.3.0",
   "description": "Offline-first workspace for SD teachers",
   "scripts": {
     "test": "node --test tests/*.test.cjs",
-    "test:browser": "node tests/browser.cjs && node tests/library-browser.cjs"
+    "test:browser": "node tests/browser.cjs && node tests/library-browser.cjs && node tests/word-browser.cjs"
   },
   "devDependencies": {
     "pdfjs-dist": "5.6.205",

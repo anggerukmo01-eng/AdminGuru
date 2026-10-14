@@ -343,21 +343,21 @@ function aiViewHistory(id){
   if(!h) return;
   openModal({
     title: h.title,
-    bodyHtml: `<div class="ai-result-content" id="aiViewContent">${safeDocumentHtml(h.content)}</div>
+    bodyHtml: `<div class="ai-result-content" id="aiViewContent" data-finish-reason="${escapeHtml(h.finishReason||'')}" data-doc-type="${escapeHtml(h.type||'')}">${AIDocumentFormat.normalize(h.content)}</div>
       <div class="ai-toolbar" style="margin-top:14px;">
-        <button class="btn" onclick="aiExportWordAuto(${htmlJsArg(h.type)},'aiViewContent',${htmlJsArg(h.title)})">${ic("download",15)} Export Word</button>
+        <button class="btn" onclick="aiExportWordAuto(${htmlJsArg(h.type)},'aiViewContent',${htmlJsArg(h.title)})">${ic("download",15)} Word DOCX</button>
         <button class="btn" onclick="aiExportExcel(document.getElementById('aiViewContent').innerHTML,${htmlJsArg(h.title)})">${ic("download",15)} Export Excel</button>
         <button class="btn" onclick="aiExportPDF(document.getElementById('aiViewContent').innerHTML,${htmlJsArg(h.title)},${htmlJsArg(h.type)})">${ic("download",15)} Export PDF</button>
         <button class="btn" onclick="aiExportMarkdown(document.getElementById('aiViewContent'),${htmlJsArg(h.title)})">${ic("download",15)} Export Markdown</button>
         <button class="btn" onclick="aiCopyElement('aiViewContent')">${ic("doc",15)} Salin</button>
-      </div>`
+      </div>${AIGuruWord.settingsHtml('aiViewContent')}`,onMount:()=>AIGuruWord.applyPreview('aiViewContent')
   });
 }
 function aiDuplicateAsNewDoc(id){
   const h = loadAiHistory().find(x=>x.id===id);
   if(!h) return;
   db.aiDocs = db.aiDocs||[];
-  db.aiDocs.unshift({id:uid("aidoc"), type:h.type, title:h.title+" (Duplikat)", content:safeDocumentHtml(h.content), createdAt:new Date().toISOString()});
+  db.aiDocs.unshift({id:uid("aidoc"), type:h.type, title:h.title+" (Duplikat)", content:AIDocumentFormat.normalize(h.content), finishReason:h.finishReason, createdAt:new Date().toISOString()});
   saveDB();
   toast("Disalin ke Dokumen Tersimpan.");
 }
@@ -488,7 +488,7 @@ function aiResultHtml(title, contentHtml, docType, saveId){
   return `<div class="card ai-result-box">
     <div class="ai-toolbar">
       <button class="btn btn-primary" onclick="aiSaveDoc(${typeArg},'${saveId}')">${ic("check",15)} Simpan Dokumen</button>
-      <button class="btn" onclick="aiExportWordAuto(${typeArg},'${saveId}',${titleArg})">${ic("download",15)} Export Word</button>
+      <button class="btn" onclick="aiExportWordAuto(${typeArg},'${saveId}',${titleArg})">${ic("download",15)} Word DOCX</button>
       <button class="btn" onclick="dbxSaveAiDoc(${typeArg},'${saveId}',${titleArg})">${ic("upload",15)} Simpan ke Dropbox</button>
       <button class="btn" onclick="aiExportExcel(document.getElementById('${saveId}').innerHTML,${titleArg})">${ic("download",15)} Export Excel</button>
       <button class="btn" onclick="aiExportPDF(document.getElementById('${saveId}').innerHTML,${titleArg},${typeArg})">${ic("download",15)} Export PDF</button>
@@ -496,16 +496,17 @@ function aiResultHtml(title, contentHtml, docType, saveId){
       <button class="btn" onclick="aiCopyElement('${saveId}')">${ic("doc",15)} Salin</button>
       <button class="btn" onclick="document.getElementById('${saveId}').contentEditable=true;document.getElementById('${saveId}').focus();toast('Mode edit aktif - klik di dalam teks untuk mengubah.')">${ic("pen",15)} Edit</button>
     </div>
-    <div class="ai-result-content" id="${saveId}">${safeDocumentHtml(contentHtml)}</div>
+    ${AIGuruWord.settingsHtml(saveId)}
+    <div class="ai-result-content" id="${saveId}">${AIDocumentFormat.normalize(contentHtml)}</div>
   </div>`;
 }
 let _aiLastDoc = {};
 function aiSaveDoc(type, saveId){
   const el = document.getElementById(saveId);
-  const content = el ? safeDocumentHtml(el.innerHTML) : "";
+  const content = el ? AIDocumentFormat.normalize(el.innerHTML) : "";
   const title = el && el.dataset.title || _aiLastDoc.title || (type+" - "+new Date().toLocaleDateString("id-ID"));
   db.aiDocs = db.aiDocs||[];
-  db.aiDocs.unshift({id:uid("aidoc"), type, title, content, createdAt:new Date().toISOString()});
+  db.aiDocs.unshift({id:uid("aidoc"), type, title, content, finishReason:el?.dataset.finishReason, createdAt:new Date().toISOString()});
   saveDB();
   toast("Dokumen tersimpan ke Riwayat & Dokumen Tersimpan.");
 }
@@ -524,23 +525,26 @@ async function aiRunGenerate(resultElId, {type, title, systemPrompt, userPrompt}
   const active=()=>aiRequests.get(resultElId)===request && holder.isConnected && activeClassId===request.classId;
   holder.innerHTML=aiLoadingHtml('AI sedang menyusun '+type+'...')+`<button class="btn btn-sm" onclick="aiCancelGenerate('${resultElId}')">Batal</button>`;
   try{
-    const messages=[{role:'system',content:systemPrompt||aiSettings.systemPrompt},{role:'user',content:userPrompt}];
+    const messages=[{role:'system',content:systemPrompt||aiSettings.systemPrompt},{role:'user',content:userPrompt+'\n\n'+AIDocumentFormat.FORMAT_RULES}];
     let lastPaint=0;
     const res=await openRouterChat(messages,{signal:request.controller.signal,onDelta:full=>{
       if(!active()||Date.now()-lastPaint<180)return; lastPaint=Date.now();
-      holder.innerHTML=`<div class="card"><div class="ai-loading-panel" role="status">Menyusun draf… <button class="btn btn-sm" onclick="aiCancelGenerate('${resultElId}')">Batal</button></div><div class="ai-result-content">${safeDocumentHtml(full)}</div></div>`;
+      holder.innerHTML=`<div class="card"><div class="ai-loading-panel" role="status">Menyusun draf… <button class="btn btn-sm" onclick="aiCancelGenerate('${resultElId}')">Batal</button></div><div class="ai-result-content">${AIDocumentFormat.normalize(full,{streaming:true})}</div></div>`;
     }});
     if(!active() || request.controller.signal.aborted) return;
-    const content=safeDocumentHtml(res.text);
+    const content=AIDocumentFormat.normalize(res.text);
+    if(!content)throw new Error('AI belum menghasilkan isi dokumen yang dapat digunakan. Coba buat ulang.');
     const truncated=res.finishReason==='length';
-    const warning=truncated?`<div class="card" role="status"><span class="badge badge-red">Terpotong</span><p class="hint">Batas token tercapai. Naikkan Max Tokens di AI Settings lalu buat ulang.</p></div>`:'';
+    const warning=truncated?`<div class="card" role="status"><span class="badge badge-red">Terpotong</span><p class="hint">Batas token tercapai. Naikkan Max Tokens di AI Settings lalu buat ulang. Word otomatis ditunda; ekspor manual tersedia sebagai draf dengan peringatan.</p></div>`:'';
     holder.innerHTML=warning+aiResultHtml(title,content,type,saveId);
     document.getElementById(saveId).dataset.title=title;
+    document.getElementById(saveId).dataset.finishReason=res.finishReason||'';
+    document.getElementById(saveId).dataset.docType=type;AIGuruWord.applyPreview(saveId);
     _aiLastDoc={title};
     addAiHistory({id:uid('aihist'),type,title,content,model:aiSettings.model,usage:res.usage,createdAt:new Date().toISOString(),classId:request.classId,finishReason:res.finishReason});
     toast(truncated?'Hasil terpotong — naikkan batas token.':'Draf selesai. Tinjau sebelum digunakan.');
-    if(aiSettings.autoWord){
-      try{aiExportWordAuto(type,saveId,title,truncated?'<p>PERINGATAN: dokumen terpotong karena batas token.</p>':'');}catch(e){console.warn('Auto Word gagal:',e);}
+    if(aiSettings.autoWord&&!truncated){
+      await aiExportWordAuto(type,saveId,title);
     }
   }catch(error){
     if(!active())return;
@@ -550,26 +554,12 @@ async function aiRunGenerate(resultElId, {type, title, systemPrompt, userPrompt}
 }
 
 /* ---------- 8. EXPORT SERVICE ---------- */
-function aiBuildWordDoc(html, title){
-  html=safeDocumentHtml(html);
-  return `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
-  <head><meta charset="utf-8"><title>${escapeHtml(title)}</title>
-  <style>body{font-family:Calibri,Arial,sans-serif;font-size:12pt;} table{border-collapse:collapse;width:100%;} td,th{border:1px solid #333;padding:5px;}</style>
-  </head><body>${letterheadHtml()}<h1 style="font-size:15pt;">${escapeHtml(title)}</h1>${html}</body></html>`;
-}
-function aiExportWord(html, title){
-  const doc = aiBuildWordDoc(html, title);
-  const blob = new Blob(['\ufeff', doc], {type:"application/msword"});
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = (title||"dokumen").replace(/[^\w\-]+/g,"_")+".doc";
-  document.body.appendChild(a); a.click(); a.remove();
-  toast("File Word (.doc) diunduh.");
-}
+function aiBuildWordDoc(html,title){return AIGuruWord.buildBlob(html,title,'Dokumen AI');}
+async function aiExportWord(html,title){try{await AIGuruWord.download(html,title,'Dokumen AI');toast('Dokumen Word DOCX diunduh.');return true;}catch(error){toast('Ekspor DOCX gagal: '+error.message);return false;}}
 /* Export Excel: HTML berisi tabel dibuka langsung oleh MS Excel / LibreOffice
    sebagai spreadsheet (.xls). Tanpa library tambahan, offline-friendly. */
 function aiExportExcel(html, title){
-  html=safeDocumentHtml(html);
+  html=AIDocumentFormat.normalize(html);
   const doc = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:x='urn:schemas-microsoft-com:office:excel' xmlns='http://www.w3.org/TR/REC-html40'>
   <head><meta charset="utf-8"><title>${escapeHtml(title)}</title>
   <style>table{border-collapse:collapse;} td,th{border:1px solid #333;padding:5px;vertical-align:top;} body{font-family:Calibri,Arial,sans-serif;}</style>
@@ -597,44 +587,21 @@ function kopSoalHtml(){
     + `</tr></table>`
     + `<div style="border-top:3px solid #000;margin-top:6px;"></div></div>`;
 }
-/* Export Word KHUSUS naskah soal/asesmen: kop soal persis format cetak sekolah,
-   kertas F4, margin 2,5 cm, Times New Roman 12, spasi 1,5.
-   Blok identitas naskah dibuat oleh AI di dalam konten (bukan di sini). */
-function aiBuildWordSoalDoc(html, title){
-  html=safeDocumentHtml(html);
-  return `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
-  <head><meta charset="utf-8"><title>${escapeHtml(title)}</title>
-  <style>
-    @page{size:21cm 33cm;margin:2.5cm;}
-    body{font-family:"Times New Roman",serif;font-size:12pt;line-height:1.5;}
-    h1{font-size:14pt;text-align:center;} h2{font-size:13pt;} h3{font-size:12pt;}
-    table{border-collapse:collapse;width:100%;font-size:11pt;}
-    td,th{border:1px solid #333;padding:5px;vertical-align:top;}
-    p,li{line-height:1.5;}
-    .soal-ident{text-align:center;}
-    .soal-sep{text-align:center;letter-spacing:3px;margin:8px 0;}
-  </style>
-  </head><body>${kopSoalHtml()}${html}</body></html>`;
-}
-function aiExportWordSoal(html, title){
-  const doc = aiBuildWordSoalDoc(html, title);
-  const blob = new Blob(['\ufeff', doc], {type:"application/msword"});
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = (title||"naskah-soal").replace(/[^\w\-]+/g,"_")+".doc";
-  document.body.appendChild(a); a.click(); a.remove();
-  toast("Naskah soal (.doc, format F4) diunduh.");
-}
-/* Dispatcher: naskah soal/asesmen memakai format khusus F4; lainnya format standar.
-   prefixHtml opsional: disisipkan sebelum konten (mis. peringatan terpotong). */
-function aiExportWordAuto(docType, elId, title, prefixHtml){
-  const el = document.getElementById(elId);
-  const html = (prefixHtml||"") + (el ? el.innerHTML : "");
-  if(docType==="Bank Soal" || docType==="Asesmen Formatif") aiExportWordSoal(html, title);
-  else aiExportWord(html, title);
+/* Native DOCX keeps F4 for examinations and separates the school header from AI content. */
+function aiBuildWordSoalDoc(html,title){return AIGuruWord.buildBlob(html,title,'Bank Soal');}
+async function aiExportWordSoal(html,title){try{await AIGuruWord.download(html,title,'Bank Soal');toast('Naskah soal DOCX diunduh.');return true;}catch(error){toast('Ekspor DOCX gagal: '+error.message);return false;}}
+const aiWordExports=new Set();
+async function aiExportWordAuto(docType,elId,title,prefixHtml){
+  const el=document.getElementById(elId);if(!el){toast('Dokumen belum tersedia untuk diekspor.');return false;}if(aiWordExports.has(elId))return false;
+  const truncated=el.dataset.finishReason==='length',prefix=prefixHtml||(truncated?'<p><strong>PERINGATAN DRAF TERPOTONG</strong> Dokumen ini belum lengkap karena batas token. Lengkapi sebelum digunakan.</p>':'');
+  const html=prefix+el.innerHTML,format=AIGuruWord.readSettings(elId),school=structuredClone(db.sekolah||{}),status=document.getElementById('word_status_'+elId);
+  aiWordExports.add(elId);if(status)status.textContent='Menyiapkan dokumen Word DOCX…';
+  try{await AIGuruWord.download(html,title,docType,{format,school});if(status)status.textContent='DOCX selesai: paragraf, daftar, tabel, dan ukuran halaman sudah ditetapkan.';toast('Word DOCX diunduh.');return true;}
+  catch(error){if(status)status.textContent='Ekspor gagal: '+error.message;toast('Ekspor DOCX gagal: '+error.message);return false;}
+  finally{aiWordExports.delete(elId);}
 }
 function aiExportPDF(html, title, docType){
-  html=safeDocumentHtml(html);
+  html=AIDocumentFormat.normalize(html);
   const isSoal = (docType==="Bank Soal" || docType==="Asesmen Formatif");
   const kop = isSoal ? kopSoalHtml() : letterheadHtml();
   const judul = isSoal ? "" : `<div class="doc-title">${escapeHtml(title)}</div>`;

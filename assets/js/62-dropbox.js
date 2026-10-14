@@ -230,16 +230,17 @@ async function dbxRefreshAccount(){
 async function dbxSaveDoc(filename, contentStr, mimeType){
   if(!dbxIsConnected()){ toast("Hubungkan Dropbox dulu di menu Backup & Sinkron Data."); return; }
   try{
-    const r = await dbxUpload(DBX_DOC_DIR+"/"+filename, new Blob(["\ufeff", contentStr], {type:mimeType||"application/msword"}));
+    const binary=contentStr instanceof Blob?contentStr:contentStr instanceof ArrayBuffer||ArrayBuffer.isView(contentStr)?new Blob([contentStr],{type:mimeType}):new Blob(["\ufeff",contentStr],{type:mimeType||"application/msword"});
+    const r = await dbxUpload(DBX_DOC_DIR+"/"+filename, binary);
     toast("Tersimpan di Dropbox: "+(r.name||filename));
   }catch(e){ toast("Gagal menyimpan ke Dropbox: "+e.message); }
 }
-function dbxSaveAiDoc(docType, saveId, title){
+async function dbxSaveAiDoc(docType, saveId, title){
+  if(!dbxIsConnected()){toast("Hubungkan Dropbox dulu di menu Backup & Sinkron Data.");return;}
   const el = document.getElementById(saveId);
-  const html = el ? el.innerHTML : "";
-  const safe = (title||"dokumen").replace(/[^\w\-]+/g,"_")+".doc";
-  const doc = (docType==="Bank Soal"||docType==="Asesmen Formatif") ? aiBuildWordSoalDoc(html, title) : aiBuildWordDoc(html, title);
-  dbxSaveDoc(safe, doc, "application/msword");
+  if(!el){toast('Dokumen belum tersedia.');return;}
+  const warning=el.dataset.finishReason==='length'?'<p><strong>PERINGATAN DRAF TERPOTONG</strong> Lengkapi dokumen sebelum digunakan.</p>':'';
+  try{const blob=await AIGuruWord.buildBlob(warning+el.innerHTML,title,docType,{format:AIGuruWord.readSettings(saveId)});await dbxSaveDoc(AIDocumentFormat.fileName(title),blob,AIGuruWord.MIME);}catch(error){toast('Pembuatan DOCX gagal: '+error.message);}
 }
 
 /* Tangani kembalian OAuth saat aplikasi dimuat. */
