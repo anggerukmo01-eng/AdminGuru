@@ -79,6 +79,10 @@ menampilkan status gagal dan menyediakan cadangan JSON.
 | `assets/js/50-pages2.js` | Administrasi tambahan |
 | `assets/js/60-cloud.js`, `62-dropbox.js` | Sinkronisasi opsional |
 | `assets/js/70-shell.js` | PIN dan tema |
+| `assets/js/76-document-format.js` | Normalisasi HTML/Markdown, daftar, dan bagian dokumen |
+| `assets/js/77-word-docx.js` | Ekspor DOCX native, gaya Word, halaman, tabel, dan penomoran |
+| `assets/css/word-document.css` | Tipografi pratinjau hasil AI dan kontrol format Word |
+| `assets/vendor/docx/`, `assets/vendor/marked/` | Mesin lokal yang dipatok versinya, beserta lisensi MIT |
 | `assets/js/80-ai.js` | Layanan AI, settings, riwayat, Modul/ATP/LKPD |
 | `assets/js/82-ai-tools.js` | Absensi, ekspor, generator AI tambahan |
 | `assets/js/cp-data.js` | Dataset CP dari lampiran handoff |
@@ -118,10 +122,52 @@ terpisah oleh pemilik akun. CI berjalan pada pull request dan main.
 
 ## Ekspor dan penyimpanan
 
-Ekspor Word/Excel menggunakan HTML yang dapat dibaca aplikasi Office; berkas
-tersebut bukan DOCX/XLSX native. PDF menggunakan print-to-PDF browser. Backup
+**Word hasil AI kini DOCX native**, termasuk unduhan otomatis, tombol Word DOCX,
+riwayat, dan simpan ke Dropbox. Ekspor ini menggunakan docx 9.6.1 yang dibundel
+lokal; tidak memerlukan layanan konversi pihak ketiga. HTML yang disamarkan
+sebagai `.doc` telah diganti khusus pada alur AI. Ekspor Word administrasi lama
+dan Excel masih menggunakan HTML `.doc` / `.xls`. PDF menggunakan print-to-PDF browser. Backup
 lokal tersedia pada menu Backup & Sinkron Data. Kunci penyimpanan lama dan
 pemisahan data kelas tidak dimigrasikan oleh pembaruan UI ini.
+
+Pembaruan format 14 Oktober 2026 menangani penyebab berikut:
+
+- HTML lama tidak menetapkan seluruh gaya paragraf/halaman; Word menafsirkan
+  HTML secara berbeda. DOCX kini menetapkan style, spasi, indentasi, ukuran
+  kertas, margin, kop, logo tertanam, serta nomor halaman.
+- Pagar kode/Markdown dan label nomor ganda dari model dinormalisasi sebelum
+  pratinjau, penyimpanan, dan ekspor. Instruksi pengetikan ditambahkan pada
+  pesan pengguna; prompt sistem kustom serta SP-V3 tetap dipertahankan.
+- Sanitasi tetap menghapus kode aktif, gambar/tautan eksternal dan CSS bebas,
+  sambil mempertahankan perataan, jenis daftar, nomor awal, dan sel tergabung.
+- Tabel memakai lebar kolom yang memperhitungkan isi, border ringan, padding,
+  kepala berulang, dan orientasi otomatis. Matriks lebar dapat memakai
+  landscape; pada dokumen campuran orientasi berpindah per bagian.
+- Naskah soal mempertahankan F4 21 × 33 cm. Kisi-kisi, lembar murid, kunci
+  jawaban, dan pedoman penskoran dipisah; soal serta opsi dijaga berdekatan.
+- Respons yang terpotong tidak diunduh otomatis sebagai hasil lengkap.
+  Ekspor manual dari respons itu diberi peringatan draf terpotong.
+
+Preset Word adalah Times New Roman 12 pt, spasi paragraf 1,5, margin 2,5 cm,
+A4 untuk administrasi dan F4 untuk naskah soal. Ini preset aplikasi, bukan
+klaim satu format wajib untuk seluruh instansi. **Format Word DOCX** pada
+hasil/riwayat dapat mengubah font, ukuran, spasi paragraf, kertas dan orientasi.
+Tabel memakai spasi 1,15 agar terbaca dengan baik. Preferensi disimpan terpisah
+di `adminguru_word_format_v1`. Pecahan, akar, pangkat dan subskrip LaTeX sederhana
+diubah menjadi persamaan Word native yang dapat diedit; sintaks rumus yang
+belum didukung menghasilkan pesan yang jelas, bukan berkas dengan kode mentah.
+
+Mesin Word dan Markdown dimuat dari aset aplikasi; seluruh folder `assets`
+harus disertakan bila menjalankan salinan lokal. Berkas Word yang sudah
+diunduh sebelumnya tidak berubah; buka riwayat dan ekspor ulang untuk memakai
+format baru. Perapian format mempertahankan isi; ketepatan materi, sumber,
+CP/TP, kunci jawaban dan kelengkapan tetap memerlukan telaah guru.
+
+`tests/word-browser.cjs` menguji ZIP/OOXML nyata, font/spasi, nomor daftar,
+gabungan sel, logo, orientasi, draf terpotong, unduhan otomatis/manual, riwayat,
+ponsel, kegagalan mesin dan payload Dropbox tanpa unggah nyata. Empat kasus
+DOCX (modul, ATP lebar, naskah soal, gabungan sel/rumus) juga dirender dan
+diperiksa secara visual dalam pengembangan.
 
 ## Batasan privasi yang perlu ditangani
 
