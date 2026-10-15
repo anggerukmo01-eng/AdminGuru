@@ -148,6 +148,22 @@ Pembaruan format 14 Oktober 2026 menangani penyebab berikut:
 - Respons yang terpotong tidak diunduh otomatis sebagai hasil lengkap.
   Ekspor manual dari respons itu diberi peringatan draf terpotong.
 
+Penyempurnaan 15 Oktober 2026:
+
+- Perataan pada elemen induk diteruskan ke paragraf pratinjau dan Word;
+  `justify` diterjemahkan menjadi nilai OOXML `both` yang valid.
+- Tebal, miring, garis bawah, coretan, superskrip dan subskrip dari CSS aman
+  dipertahankan, termasuk pengembalian teks ke gaya normal.
+- Paragraf di dalam kutipan tidak lagi menyatu. Judul bagian yang ditulis
+  sebagai paragraf, termasuk nomor Romawi, dikenali secara terbatas agar
+  kunci jawaban/penskoran terpisah dari lembar murid.
+- Baris soal/opsi di dalam teks tebal dipecah tanpa kehilangan format.
+  Opsi a–d menjadi penomoran asli; jumlah opsi dari sumber dipertahankan.
+  Batang soal dan opsi memakai aturan keep-next/keep-lines Word.
+- Markdown tebal yang bercampur HTML serta pembungkus HTML setelah kalimat
+  pembuka model dirapikan. Pemisah baris pada paragraf justify tidak dipaksa
+  melebar sampai margin oleh Word.
+
 Preset Word adalah Times New Roman 12 pt, spasi paragraf 1,5, margin 2,5 cm,
 A4 untuk administrasi dan F4 untuk naskah soal. Ini preset aplikasi, bukan
 klaim satu format wajib untuk seluruh instansi. **Format Word DOCX** pada
@@ -165,9 +181,11 @@ CP/TP, kunci jawaban dan kelengkapan tetap memerlukan telaah guru.
 
 `tests/word-browser.cjs` menguji ZIP/OOXML nyata, font/spasi, nomor daftar,
 gabungan sel, logo, orientasi, draf terpotong, unduhan otomatis/manual, riwayat,
-ponsel, kegagalan mesin dan payload Dropbox tanpa unggah nyata. Empat kasus
-DOCX (modul, ATP lebar, naskah soal, gabungan sel/rumus) juga dirender dan
-diperiksa secara visual dalam pengembangan.
+ponsel, kegagalan mesin dan payload Dropbox tanpa unggah nyata. Lima kasus
+DOCX (modul, ATP lebar, naskah soal, gabungan sel/rumus, dan format campuran)
+juga dirender dan diperiksa secara visual dalam pengembangan. Tes tambahan
+memeriksa pewarisan format, sanitasi CSS, normalisasi berulang, judul Romawi,
+pemisahan paragraf serta struktur keep-next/keep-lines.
 
 ## Batasan privasi yang perlu ditangani
 
