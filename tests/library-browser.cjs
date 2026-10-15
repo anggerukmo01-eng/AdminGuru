@@ -21,7 +21,8 @@ async function intercept(page){await page.route('https://**/*',async route=>{
   if(url.hostname==='api.buku.cloudapp.web.id'){await route.abort();return;}await route.abort();
 });}
 async function ready(page,url){await intercept(page);await page.goto(url,{waitUntil:'domcontentloaded'});await page.getByRole('button',{name:'Buka Aplikasi'}).click();await page.waitForFunction(()=>document.querySelectorAll('.library-book').length>0);}
-async function opened(page){await page.waitForFunction(()=>document.querySelector('#readerPageTotal')?.textContent==='/ 2'&&document.querySelector('#readerSaveStatus')?.textContent==='Tersimpan di perangkat',{},{timeout:30000});}
+// Saving and PDF rendering finish independently; wait for the matching notes panel too.
+async function opened(page){await page.waitForFunction(()=>document.querySelector('#readerPageTotal')?.textContent==='/ 2'&&document.querySelector('#readerSaveStatus')?.textContent==='Tersimpan di perangkat'&&document.querySelector('#readerNotes h3')?.textContent==='Halaman '+document.querySelector('#readerPage')?.value,{},{timeout:30000});}
 async function saved(page){await page.waitForFunction(()=>document.querySelector('#readerSaveStatus')?.textContent==='Tersimpan di perangkat');}
 async function record(page){await saved(page);return page.evaluate(()=>BookLibrary.recordFor('3257'));}
 async function stroke(page,kind,start,end){await page.getByRole('button',{name:kind,exact:true}).click();const box=await page.locator('#readerAnnotations').boundingBox();await page.mouse.move(box.x+box.width*start[0],box.y+box.height*start[1]);await page.mouse.down();await page.mouse.move(box.x+box.width*end[0],box.y+box.height*end[1],{steps:12});await page.mouse.up();await saved(page);}
