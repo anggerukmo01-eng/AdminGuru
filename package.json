@@ -1,7 +1,7 @@
 {
   "name": "adminguru",
   "private": true,
-  "version": "2.3.0",
+  "version": "2.3.1",
   "description": "Offline-first workspace for SD teachers",
   "scripts": {
     "test": "node --test tests/*.test.cjs",

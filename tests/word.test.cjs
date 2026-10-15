@@ -25,3 +25,15 @@ test('Local Word and Markdown engines are pinned with licenses; no HTML masquera
   const ai=fs.readFileSync(path.join(__dirname,'../assets/js/80-ai.js'),'utf8');assert.doesNotMatch(ai,/a\.download.*\+"\.doc"/);assert.match(ai,/autoWord&&!truncated/);assert.match(ai,/AIDocumentFormat.FORMAT_RULES/);
   const cloud=fs.readFileSync(path.join(__dirname,'../assets/js/62-dropbox.js'),'utf8');assert.match(cloud,/contentStr instanceof Blob\?contentStr/);assert.match(cloud,/AIDocumentFormat.fileName/);
 });
+
+test('Roman section labels, document wrappers and native justification retain their meaning',()=>{
+  assert.equal(format.headingKind('III. KUNCI JAWABAN:'),'answers');
+  assert.equal(format.headingKind('IV) PEDOMAN PENSKORAN'),'scoring');
+  assert.equal(format.headingKind('I. KISI–KISI'),'blueprint');
+  assert.equal(format.sectionHeading('II Tujuan Pembelajaran'),true);
+  assert.equal(format.sectionHeading('Murid membaca teks berikut.'),false);
+  assert.equal(word.wordAlignment('justify'),'both');
+  assert.equal(word.wordAlignment('right'),'right');
+  assert.equal(word.wordAlignment('invalid','both'),'both');
+  assert.equal(format.stripWrapper('Berikut dokumen yang disusun.\n```html\n<p>Isi dokumen.</p>\n```'),'<p>Isi dokumen.</p>');
+});
