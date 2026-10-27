@@ -694,251 +694,252 @@ const NI_JENIS_OPTS = [
 ];
 const NI_JENIS_DEFAULT_BAB = {STS:"STS", SAS:"SAS", FASE:"Sumatif Akhir Fase"};
 function inputNilaiJenisLabel(jenis){ const o = NI_JENIS_OPTS.find(x=>x.value===jenis); return o?o.label:jenis; }
-function inputNilaiDraftKey(ctx){
-  return "tpsd2026_draftnilai_"+[activeClassId, ctx.mapel, ctx.jenis, ctx.bab, ctx.semester].map(s=>String(s||"").replace(/[^a-zA-Z0-9]/g,"_")).join("__");
-}
-function inputNilaiGetCtx(){
-  const ctx = window._inputNilaiCtx || {mapel:MAPEL_LIST[0], jenis:"LM", bentuk:BENTUK_PENILAIAN[0], bab:"", semester:"1"};
-  // Migrasi ctx lama ("Sumatif" generik -> LM)
-  if(ctx.jenis==="Sumatif") ctx.jenis = "LM";
-  if(!ctx.bentuk) ctx.bentuk = BENTUK_PENILAIAN[0];
-  window._inputNilaiCtx = ctx;
+/* ================================================================
+   INPUT NILAI MASSAL — FORMAT DAFTAR NILAI KERTAS (REVISI 27 Okt 2026)
+   Satu tabel lebar per mapel + semester, persis standar kertas:
+     FORMATIF : LM1..LM4 x TP1..TP4  (16 sel)
+     SUMATIF  : LM1..LM4, NR (hitung otomatis), STS, SAS, Nilai Raport (hitung otomatis)
+   Rumus kertas : NR = rata-rata nilai Sumatif LM yang terisi (kosong BUKAN 0).
+   Nilai Raport = (2*NR + 1*STS + 2*SAS) / 5, hanya bila NR, STS, SAS ketiganya ada.
+   Formatif TIDAK masuk hitungan rapor (kualitatif, bahan deskripsi).
+   Penyimpanan memakai store lama (db.asesmenFormatif / db.asesmenSumatif)
+   sehingga Daftar Nilai, Analisis Nilai, dan Rapor membaca data yang sama.
+   ================================================================ */
+const DN_LM = ["Lingkup Materi 1","Lingkup Materi 2","Lingkup Materi 3","Lingkup Materi 4"];
+const DN_TP = ["TP1","TP2","TP3","TP4"];
+function dnCtx(){
+  const ctx = window._dnCtx || {mapel:MAPEL_LIST[0], semester:"1"};
+  window._dnCtx = ctx;
   return ctx;
 }
-function inputNilaiExistingMap(ctx){
-  const store = inputNilaiJenisStore(ctx.jenis);
+function dnDraftKey(ctx){
+  return "tpsd2026_draftdaftarnilai_"+[activeClassId, ctx.mapel, ctx.semester].map(s=>String(s||"").replace(/[^a-zA-Z0-9]/g,"_")).join("__");
+}
+function dnLoadDraft(ctx){ try{ return JSON.parse(localStorage.getItem(dnDraftKey(ctx))||"{}"); }catch(e){ return {}; } }
+function dnSaveDraft(ctx, d){ try{ localStorage.setItem(dnDraftKey(ctx), JSON.stringify(d)); }catch(e){} }
+function dnClearDraft(ctx){ try{ localStorage.removeItem(dnDraftKey(ctx)); }catch(e){} }
+function dnExistingMap(ctx){
   const map = {};
-  (db[store]||[]).forEach(r=>{
-    if(r.mapel!==ctx.mapel) return;
-    if(String(r.lingkupMateri||"")!==String(ctx.bab||"")) return;
-    if(String(r.semester||"")!==String(ctx.semester||"")) return;
-    if(store==="asesmenSumatif"){
-      const rj = r.jenisSumatif || jenisSumatifOf(r);
-      if(rj!==ctx.jenis && !( !r.jenisSumatif && ctx.jenis==="LM" )) return;
+  (db.asesmenFormatif||[]).forEach(r=>{
+    if(r.mapel!==ctx.mapel || String(r.semester||"")!==String(ctx.semester)) return;
+    const li = DN_LM.indexOf(String(r.lingkupMateri||"").trim());
+    if(li<0) return;
+    let ti = DN_TP.indexOf(String(r.tp||""));
+    if(ti<0){
+      if(map["F|"+li+"|0|"+r.siswaId]!=null) return; // rekaman lama tanpa TP: hanya TP1
+      ti = 0;
     }
-    map[r.siswaId] = r;
+    map["F|"+li+"|"+ti+"|"+r.siswaId] = r.nilai;
+  });
+  (db.asesmenSumatif||[]).forEach(r=>{
+    if(r.mapel!==ctx.mapel || String(r.semester||"")!==String(ctx.semester)) return;
+    const j = jenisSumatifOf(r);
+    if(j==="LM"){
+      const li = DN_LM.indexOf(String(r.lingkupMateri||"").trim());
+      if(li>=0) map["S|"+li+"|"+r.siswaId] = r.nilai;
+    } else if(j==="STS"){ map["STS|"+r.siswaId] = r.nilai; }
+    else if(j==="SAS"){ map["SAS|"+r.siswaId] = r.nilai; }
   });
   return map;
 }
-function inputNilaiLoadDraft(ctx){
-  try{ return JSON.parse(localStorage.getItem(inputNilaiDraftKey(ctx))||"{}"); }catch(e){ return {}; }
+function dnFmt(v){ return v==null? "—" : String(Math.round(v*10)/10); }
+function dnHitungBaris(siswaId, skipStats){
+  const els = document.querySelectorAll('.dn-input[data-siswaid="'+siswaId+'"]');
+  const get = col=>{
+    for(let i=0;i<els.length;i++){ if(els[i].dataset.col===col && els[i].value!=="") return Number(els[i].value); }
+    return null;
+  };
+  const lmVals = [0,1,2,3].map(li=>get("S"+li)).filter(v=>v!=null);
+  const nr = lmVals.length? lmVals.reduce((a,b)=>a+b,0)/lmVals.length : null;
+  const sts = get("STS"), sas = get("SAS");
+  const rap = (nr==null||sts==null||sas==null)? null : (2*nr+sts+2*sas)/5;
+  const nrEl = document.getElementById("dnNR_"+siswaId), rapEl = document.getElementById("dnRap_"+siswaId);
+  if(nrEl) nrEl.textContent = dnFmt(nr);
+  if(rapEl) rapEl.textContent = dnFmt(rap);
+  if(!skipStats) dnRenderStats();
 }
-function inputNilaiSaveDraft(ctx, draftObj){
-  try{ localStorage.setItem(inputNilaiDraftKey(ctx), JSON.stringify(draftObj)); }catch(e){}
-}
-function inputNilaiClearDraft(ctx){
-  try{ localStorage.removeItem(inputNilaiDraftKey(ctx)); }catch(e){}
+function dnRenderStats(){
+  const holder = document.getElementById("dnStatsHolder");
+  if(!holder) return;
+  const siswa = siswaSortedAlpha();
+  let lengkap = 0; const rapVals = [];
+  siswa.forEach(s=>{
+    const rapEl = document.getElementById("dnRap_"+s.id);
+    if(rapEl && rapEl.textContent!=="—"){ lengkap++; rapVals.push(Number(rapEl.textContent)); }
+  });
+  const avg = rapVals.length? (rapVals.reduce((a,b)=>a+b,0)/rapVals.length).toFixed(1) : "0.0";
+  holder.innerHTML = `<div class="grid grid-4" style="margin-bottom:16px;">
+    <div class="card stat-card"><div class="num">${siswa.length}</div><div class="lbl">Jumlah Siswa</div></div>
+    <div class="card stat-card"><div class="num" style="color:var(--accent);">${lengkap}</div><div class="lbl">Nilai Raport Lengkap</div></div>
+    <div class="card stat-card"><div class="num" style="color:var(--warn);">${siswa.length-lengkap}</div><div class="lbl">Belum Lengkap</div></div>
+    <div class="card stat-card"><div class="num">${avg}</div><div class="lbl">Rata-rata Raport (yang lengkap)</div></div>
+  </div>`;
 }
 PAGES.inputnilai = function(){
-  const ctx = inputNilaiGetCtx();
-  setTimeout(()=>inputNilaiRenderTable(), 0);
+  const ctx = dnCtx();
+  setTimeout(()=>dnRenderTable(), 0);
   return `
-  <div class="section-head"><div><h1>Input Nilai Massal</h1><div class="desc">${escapeHtml(classInfo(activeClassId).label)} &middot; Pilih Mapel, Jenis Penilaian, Lingkup Materi/Bab, dan Semester, lalu isi nilai seluruh siswa langsung dari daftar di bawah. Data tersimpan ke tempat yang sama dengan menu Asesmen Formatif/Sumatif.</div></div></div>
+  <div class="section-head"><div><h1>Input Nilai Massal</h1><div class="desc">${escapeHtml(classInfo(activeClassId).label)} &middot; Format Daftar Nilai kertas: satu tabel per mapel &amp; semester — Formatif (4 Lingkup Materi &times; 4 TP), Sumatif (LM1&ndash;LM4), NR, STS, SAS, dan Nilai Raport otomatis. Data tersimpan ke tempat yang sama dengan menu Asesmen Formatif/Sumatif, Daftar Nilai, Analisis, dan Rapor.</div></div></div>
   <div class="card" style="margin-bottom:16px;">
     <div class="form-grid">
-      <div class="field"><label>Mata Pelajaran</label><select id="niMapel" onchange="inputNilaiUpdateCtxAndRender()">
+      <div class="field"><label>Mata Pelajaran</label><select id="dnMapel" onchange="dnUpdateCtxAndRender()">
         ${MAPEL_LIST.map(m=>`<option value="${escapeHtml(m)}" ${m===ctx.mapel?"selected":""}>${escapeHtml(m)}</option>`).join("")}
       </select></div>
-      <div class="field"><label>Jenis Penilaian</label><select id="niJenis" onchange="inputNilaiUpdateCtxAndRender()">
-        ${NI_JENIS_OPTS.map(o=>`<option value="${o.value}" ${o.value===ctx.jenis?"selected":""}>${o.label}</option>`).join("")}
-      </select></div>
-      <div class="field" id="niBentukWrap" style="display:${ctx.jenis==="Formatif"?"none":""};"><label>Bentuk / Teknik Penilaian</label><select id="niBentuk" onchange="inputNilaiUpdateCtxAndRender()">
-        ${BENTUK_PENILAIAN.map(b=>`<option value="${escapeHtml(b)}" ${b===ctx.bentuk?"selected":""}>${escapeHtml(b)}</option>`).join("")}
-      </select></div>
-      <div class="field"><label>Lingkup Materi / Bab</label><input type="text" id="niBab" value="${escapeHtml(ctx.bab)}" placeholder="cth: Bab 3 - Pecahan" onchange="inputNilaiUpdateCtxAndRender()"></div>
-      <div class="field"><label>Semester</label><select id="niSemester" onchange="inputNilaiUpdateCtxAndRender()">
+      <div class="field"><label>Semester</label><select id="dnSemester" onchange="dnUpdateCtxAndRender()">
         <option value="1" ${ctx.semester==="1"?"selected":""}>Semester 1</option>
         <option value="2" ${ctx.semester==="2"?"selected":""}>Semester 2</option>
       </select></div>
     </div>
   </div>
-  <div id="niStatsHolder"></div>
+  <div id="dnStatsHolder"></div>
   <div class="card" style="margin-bottom:16px;">
     <div class="toolbar" style="margin-bottom:0;">
-      <button class="btn btn-primary" onclick="inputNilaiSimpanSemua()">${ic("check",15)} Simpan Semua</button>
-      <button class="btn" onclick="inputNilaiIsiSemua()">${ic("edit",15)} Isi Semua</button>
-      <button class="btn" onclick="inputNilaiCopyPrevious()">${ic("layers",15)} Copy Nilai dari Penilaian Sebelumnya</button>
+      <button class="btn btn-primary" onclick="dnSimpanSemua()">${ic("check",15)} Simpan Semua</button>
+      <button class="btn" onclick="dnPrint()">${ic("print",15)} Cetak</button>
+      <button class="btn" onclick="dnExportExcel()">${ic("download",15)} Excel</button>
       <div class="grow"></div>
-      <span class="hint" id="niAutosaveLabel">Draf tersimpan otomatis di perangkat ini.</span>
+      <span class="hint" id="dnAutosaveLabel">Draf tersimpan otomatis di perangkat ini.</span>
     </div>
-    <div class="hint" id="niFormatifHint" style="display:${ctx.jenis==="Formatif"?"":"none"};margin-top:10px;">ℹ️ Asesmen formatif bersifat kualitatif untuk umpan balik &amp; bahan deskripsi rapor — <strong>tidak masuk hitungan nilai rapor</strong> (Panduan Pembelajaran dan Asesmen).</div>
+    <div class="hint" style="margin-top:10px;">ℹ️ Klik <strong>judul kolom</strong> untuk mengisi satu kolom sekaligus (hanya sel yang masih kosong). Asesmen formatif bersifat kualitatif — <strong>tidak masuk hitungan nilai rapor</strong>. Kosong = belum dinilai (bukan 0).</div>
   </div>
-  <div id="niTableHolder"><p class="muted">Memuat daftar siswa...</p></div>`;
+  <div id="dnTableHolder"><p class="muted">Memuat daftar siswa...</p></div>
+  <div class="card" style="margin-top:16px;"><p class="hint" style="margin:0;"><strong>Keterangan (standar kertas):</strong> Nilai Raport = (2 &times; Nilai Rata-Rata LM + 1 &times; Nilai STS + 2 &times; Nilai SAS) / 5. NR = rata-rata nilai Sumatif Lingkup Materi 1&ndash;4 yang sudah terisi. Nilai Raport baru muncul bila NR, STS, dan SAS sudah terisi semua.</p></div>`;
 };
-function inputNilaiUpdateCtxAndRender(){
-  const ctx = inputNilaiGetCtx();
-  ctx.mapel = document.getElementById("niMapel").value;
-  ctx.jenis = document.getElementById("niJenis").value;
-  const bentukEl = document.getElementById("niBentuk");
-  if(bentukEl) ctx.bentuk = bentukEl.value;
-  const autoBab = NI_JENIS_DEFAULT_BAB[ctx.jenis];
-  const babEl = document.getElementById("niBab");
-  let babVal = babEl ? babEl.value.trim() : "";
-  const autoVals = Object.values(NI_JENIS_DEFAULT_BAB);
-  if(autoBab && (babVal==="" || autoVals.indexOf(babVal)>=0)){
-    babVal = autoBab;
-    if(babEl) babEl.value = autoBab;
-  }
-  ctx.bab = babVal || "Umum";
-  ctx.semester = document.getElementById("niSemester").value;
-  const hint = document.getElementById("niFormatifHint");
-  if(hint) hint.style.display = ctx.jenis==="Formatif" ? "" : "none";
-  const bentukWrap = document.getElementById("niBentukWrap");
-  if(bentukWrap) bentukWrap.style.display = ctx.jenis==="Formatif" ? "none" : "";
-  inputNilaiRenderTable();
+function dnUpdateCtxAndRender(){
+  const ctx = dnCtx();
+  ctx.mapel = document.getElementById("dnMapel").value;
+  ctx.semester = document.getElementById("dnSemester").value;
+  dnRenderTable();
 }
-function inputNilaiComputeRowValue(ctx, siswaId, existingMap, draft){
-  if(Object.prototype.hasOwnProperty.call(draft, siswaId)) return draft[siswaId];
-  if(existingMap[siswaId]) return existingMap[siswaId].nilai;
-  return "";
-}
-function inputNilaiRenderTable(){
-  const ctx = inputNilaiGetCtx();
-  const holder = document.getElementById("niTableHolder");
+function dnRenderTable(){
+  const ctx = dnCtx();
+  const holder = document.getElementById("dnTableHolder");
   if(!holder) return;
-  const existingMap = inputNilaiExistingMap(ctx);
-  const draft = inputNilaiLoadDraft(ctx);
+  const existing = dnExistingMap(ctx);
+  const draft = dnLoadDraft(ctx);
   const siswaList = siswaSortedAlpha();
-  const rows = siswaList.map((s,i)=>{
-    const val = inputNilaiComputeRowValue(ctx, s.id, existingMap, draft);
-    const filled = val!=="" && val!=null;
-    return `<tr id="niRow_${s.id}" class="${filled?'ni-row-filled':''}">
-      <td>${i+1}</td>
-      <td><strong>${escapeHtml(s.nama)}</strong></td>
-      <td><input type="number" min="0" max="100" step="1" class="ni-input" id="niInput_${s.id}" data-siswaid="${s.id}" data-index="${i}"
-        value="${escapeHtml(val)}" placeholder="0-100"
-        oninput="inputNilaiOnInput('${s.id}', this)"
-        onkeydown="inputNilaiHandleKeydown(event, ${i})"></td>
-    </tr>`;
+  const val = (key, siswaId)=>{
+    if(Object.prototype.hasOwnProperty.call(draft, key+"|"+siswaId)) return draft[key+"|"+siswaId];
+    return existing[key+"|"+siswaId]!=null ? existing[key+"|"+siswaId] : "";
+  };
+  const inp = (col, s, v)=>{
+    return `<input type="number" min="0" max="100" step="1" class="dn-input" data-siswaid="${s.id}" data-col="${col}" value="${escapeHtml(v)}" placeholder="—" style="width:52px;padding:6px 3px;text-align:center;" oninput="dnOnInput(this)" onkeydown="dnKeydown(event)">`;
+  };
+  const thFill = (col, label, extra)=>`<th title="Klik untuk isi kolom ${label}" style="cursor:pointer;"${extra||""} onclick="dnIsiKolom('${col}','${label}')">${label}</th>`;
+  let head = `<tr><th rowspan="3" style="position:sticky;left:0;z-index:3;">No</th><th rowspan="3" style="position:sticky;left:44px;z-index:3;">NISN</th><th rowspan="3" style="position:sticky;left:134px;z-index:3;">Nama Peserta Didik</th><th colspan="16">FORMATIF</th><th colspan="7">SUMATIF</th><th rowspan="3" style="background:var(--primary-ghost);">Nilai Raport</th></tr>`;
+  head += `<tr>${DN_LM.map((lm,li)=>`<th colspan="4">${lm.replace("Lingkup Materi ","LM ")}</th>`).join("")}${[0,1,2,3].map(li=>thFill("S"+li, "LM"+(li+1), ' rowspan="2"')).join("")}<th rowspan="2">NR</th>${thFill("STS","STS", ' rowspan="2"')}${thFill("SAS","SAS", ' rowspan="2"')}</tr>`;
+  head += `<tr>${DN_LM.map((lm,li)=>DN_TP.map((tp,ti)=>thFill("F"+li+"-"+ti, tp)).join("")).join("")}</tr>`;
+  const body = siswaList.map((s,i)=>{
+    let tds = "";
+    DN_LM.forEach((lm,li)=>{ DN_TP.forEach((tp,ti)=>{ tds += `<td>${inp("F"+li+"-"+ti, s, val("F|"+li+"|"+ti, s.id))}</td>`; }); });
+    DN_LM.forEach((lm,li)=>{ tds += `<td>${inp("S"+li, s, val("S|"+li, s.id))}</td>`; });
+    tds += `<td id="dnNR_${s.id}" style="font-weight:700;text-align:center;">—</td>`;
+    tds += `<td>${inp("STS", s, val("STS", s.id))}</td>`;
+    tds += `<td>${inp("SAS", s, val("SAS", s.id))}</td>`;
+    tds += `<td id="dnRap_${s.id}" style="font-weight:800;text-align:center;background:var(--primary-ghost);">—</td>`;
+    return `<tr id="dnRow_${s.id}"><td style="position:sticky;left:0;background:var(--surface);">${i+1}</td><td style="position:sticky;left:44px;background:var(--surface);">${escapeHtml(s.nis||"—")}</td><td style="position:sticky;left:134px;background:var(--surface);"><strong>${escapeHtml(s.nama)}</strong></td>${tds}</tr>`;
   }).join("");
-  holder.innerHTML = `<div class="table-wrap"><table><thead><tr><th style="width:50px;">No</th><th>Nama Siswa</th><th style="width:140px;">Nilai (0-100)</th></tr></thead>
-    <tbody>${rows || `<tr><td colspan="3" class="empty-state">Belum ada data siswa.</td></tr>`}</tbody></table></div>`;
-  inputNilaiRenderStats();
+  holder.innerHTML = `<div id="dnTableWrap" class="table-wrap"><table><thead>${head}</thead><tbody>${body || `<tr><td colspan="27" class="empty-state">Belum ada data siswa.</td></tr>`}</tbody></table></div>`;
+  siswaList.forEach(s=>dnHitungBaris(s.id, true));
+  dnRenderStats();
 }
-function inputNilaiOnInput(siswaId, inputEl){
-  const ctx = inputNilaiGetCtx();
-  let val = inputEl.value;
-  if(val!==""){
-    let num = Number(val);
+function dnOnInput(el){
+  const ctx = dnCtx();
+  let v = el.value;
+  if(v!==""){
+    let num = Number(v);
     if(isNaN(num)) num = 0;
-    if(num<0) num = 0;
-    if(num>100) num = 100;
-    if(String(num)!==val) inputEl.value = num;
-    val = num;
+    if(num<0) num = 0; if(num>100) num = 100;
+    if(String(num)!==v) el.value = num;
+    v = num;
   }
-  const draft = inputNilaiLoadDraft(ctx);
-  if(val==="") delete draft[siswaId]; else draft[siswaId] = val;
-  inputNilaiSaveDraft(ctx, draft);
-  const row = document.getElementById("niRow_"+siswaId);
-  if(row) row.classList.toggle("ni-row-filled", val!=="" && val!=null);
-  inputNilaiRenderStats();
+  const draft = dnLoadDraft(ctx);
+  const key = el.dataset.col+"|"+el.dataset.siswaid;
+  if(v==="") delete draft[key]; else draft[key] = v;
+  dnSaveDraft(ctx, draft);
+  el.style.fontWeight = (v!=="") ? "700" : "";
+  dnHitungBaris(el.dataset.siswaid);
 }
-function inputNilaiHandleKeydown(e, index){
+function dnKeydown(e){
   if(e.key==="Enter"){
     e.preventDefault();
-    const next = document.querySelector(`.ni-input[data-index="${index+1}"]`);
-    if(next) next.focus();
+    const all = Array.prototype.slice.call(document.querySelectorAll(".dn-input"));
+    const idx = all.indexOf(e.target);
+    if(idx>=0 && idx+1<all.length) all[idx+1].focus();
   }
 }
-function inputNilaiRenderStats(){
-  const ctx = inputNilaiGetCtx();
-  const statsHolder = document.getElementById("niStatsHolder");
-  if(!statsHolder) return;
-  const inputs = document.querySelectorAll(".ni-input");
-  const values = [];
-  inputs.forEach(inp=>{ if(inp.value!=="") values.push(Number(inp.value)); });
-  const total = inputs.length;
-  const terisi = values.length;
-  const belum = total - terisi;
-  const tertinggi = values.length ? Math.max(...values) : 0;
-  const terendah = values.length ? Math.min(...values) : 0;
-  const rata = values.length ? (values.reduce((a,b)=>a+b,0)/values.length).toFixed(1) : "0.0";
-  statsHolder.innerHTML = `<div class="grid grid-4" style="margin-bottom:16px;">
-    <div class="card stat-card"><div class="num">${total}</div><div class="lbl">Jumlah Siswa</div></div>
-    <div class="card stat-card"><div class="num" style="color:var(--accent);">${terisi}</div><div class="lbl">Sudah Diisi</div></div>
-    <div class="card stat-card"><div class="num" style="color:var(--warn);">${belum}</div><div class="lbl">Belum Diisi</div></div>
-    <div class="card stat-card"><div class="num">${rata}</div><div class="lbl">Rata-rata (Tertinggi ${tertinggi} / Terendah ${terendah})</div></div>
-  </div>`;
-}
-function inputNilaiIsiSemua(){
-  const val = prompt("Isi nilai untuk SELURUH siswa pada daftar ini (0-100):", "80");
-  if(val===null) return;
-  let num = Number(val);
+function dnIsiKolom(col, label){
+  const v = prompt("Isi nilai untuk kolom "+label+" (0-100). Hanya sel yang masih kosong yang akan diisi:", "80");
+  if(v===null) return;
+  const num = Number(v);
   if(isNaN(num) || num<0 || num>100){ toast("Nilai harus berupa angka 0-100."); return; }
-  document.querySelectorAll(".ni-input").forEach(inp=>{
-    inp.value = num;
-    inputNilaiOnInput(inp.dataset.siswaid, inp);
+  let n = 0;
+  document.querySelectorAll('.dn-input[data-col="'+col+'"]').forEach(inp=>{
+    if(inp.value===""){ inp.value = num; dnOnInput(inp); n++; }
   });
-  toast("Seluruh nilai diisi "+num+". Jangan lupa klik \"Simpan Semua\".");
+  toast(n+" sel pada kolom "+label+" diisi "+num+". Jangan lupa klik \"Simpan Semua\".");
 }
-function inputNilaiCopyPrevious(){
-  const ctx = inputNilaiGetCtx();
-  const store = inputNilaiJenisStore(ctx.jenis);
-  const candidates = (db[store]||[]).filter(r=>r.mapel===ctx.mapel && !(String(r.lingkupMateri||"")===String(ctx.bab||"") && String(r.semester||"")===String(ctx.semester||"")));
-  if(!candidates.length){ toast("Belum ada data penilaian sebelumnya untuk mapel ini."); return; }
-  const combos = {};
-  candidates.forEach(r=>{
-    const key = (r.lingkupMateri||"Umum")+"__"+(r.semester||"-");
-    if(!combos[key]) combos[key] = {label:(r.lingkupMateri||"Umum")+" (Semester "+(r.semester||"-")+")", tanggal:r.tanggal, entries:[]};
-    combos[key].entries.push(r);
-    if(r.tanggal > combos[key].tanggal) combos[key].tanggal = r.tanggal;
-  });
-  const comboList = Object.values(combos).sort((a,b)=>String(b.tanggal).localeCompare(String(a.tanggal)));
-  const optionsHtml = comboList.map((c,i)=>`<option value="${i}">${escapeHtml(c.label)} - terakhir ${fmtDate(c.tanggal)}</option>`).join("");
-  openModal({
-    title:"Copy Nilai dari Penilaian Sebelumnya",
-    bodyHtml:`<div class="field"><label>Pilih penilaian sumber</label><select id="niCopySrc">${optionsHtml}</select></div>
-      <p class="hint">Nilai akan disalin ke kolom yang MASIH KOSONG saja. Nilai yang sudah diisi tidak akan tertimpa.</p>`,
-    footHtml:`<button class="btn" onclick="closeModal()">Batal</button><button class="btn btn-primary" id="niCopyBtn">${ic("check",15)} Salin</button>`
-  });
-  document.getElementById("niCopyBtn").onclick = ()=>{
-    const idx = Number(document.getElementById("niCopySrc").value);
-    const chosen = comboList[idx];
-    let count = 0;
-    chosen.entries.forEach(r=>{
-      const inp = document.getElementById("niInput_"+r.siswaId);
-      if(inp && inp.value===""){ inp.value = r.nilai; inputNilaiOnInput(r.siswaId, inp); count++; }
-    });
-    closeModal();
-    toast(count+" nilai disalin ke kolom yang masih kosong. Jangan lupa klik \"Simpan Semua\".");
-  };
+function dnFindFormatif(siswaId, ctx, lm, tp){
+  const arr = db.asesmenFormatif||[];
+  let r = arr.find(x=>x.siswaId===siswaId && x.mapel===ctx.mapel && String(x.semester||"")===String(ctx.semester) && String(x.lingkupMateri||"").trim()===lm && x.tp===tp);
+  if(!r && tp==="TP1") r = arr.find(x=>x.siswaId===siswaId && x.mapel===ctx.mapel && String(x.semester||"")===String(ctx.semester) && String(x.lingkupMateri||"").trim()===lm && !x.tp);
+  return r||null;
 }
-function inputNilaiSimpanSemua(){
-  const ctx = inputNilaiGetCtx();
-  const store = inputNilaiJenisStore(ctx.jenis);
-  const existingMap = inputNilaiExistingMap(ctx);
-  const inputs = document.querySelectorAll(".ni-input");
-  let tersimpan = 0;
+function dnFindSumatif(siswaId, ctx, jenis, lm){
+  return (db.asesmenSumatif||[]).find(x=>x.siswaId===siswaId && x.mapel===ctx.mapel && String(x.semester||"")===String(ctx.semester) && jenisSumatifOf(x)===jenis && (jenis==="LM" ? String(x.lingkupMateri||"").trim()===lm : true)) || null;
+}
+function dnSimpanSemua(){
+  const ctx = dnCtx();
+  const inputs = document.querySelectorAll(".dn-input");
+  let n = 0;
   inputs.forEach(inp=>{
-    const siswaId = inp.dataset.siswaid;
-    if(inp.value===""){
-      // Jika sebelumnya ada data namun sekarang dikosongkan, biarkan data lama (tidak menghapus otomatis demi keamanan data).
-      return;
-    }
+    if(inp.value==="") return;
+    const siswaId = inp.dataset.siswaid, col = inp.dataset.col;
     let nilai = Number(inp.value);
     if(isNaN(nilai)) return;
-    if(nilai<0) nilai=0; if(nilai>100) nilai=100;
-    if(existingMap[siswaId]){
-      existingMap[siswaId].nilai = nilai;
-      existingMap[siswaId].tanggal = existingMap[siswaId].tanggal || todayISO();
-      if(store==="asesmenSumatif"){
-        existingMap[siswaId].jenisSumatif = ctx.jenis;
-        existingMap[siswaId].bentuk = ctx.bentuk;
-      }
-    } else {
-      db[store].push(Object.assign({
-        id: uid(store), siswaId, mapel: ctx.mapel, tanggal: todayISO(),
-        nilai, lingkupMateri: ctx.bab, semester: ctx.semester, catatan: "",
-      }, store==="asesmenSumatif" ? {jenisSumatif: ctx.jenis, bentuk: ctx.bentuk} : {jenisSumatif: "Formatif"}));
+    nilai = Math.min(100, Math.max(0, nilai));
+    if(/^F\d+-\d+$/.test(col)){
+      const mm = col.match(/^F(\d+)-(\d+)$/), li = Number(mm[1]), ti = Number(mm[2]);
+      const lm = DN_LM[li], tp = DN_TP[ti];
+      const r = dnFindFormatif(siswaId, ctx, lm, tp);
+      if(r){ r.nilai = nilai; if(!r.tanggal) r.tanggal = todayISO(); if(!r.tp) r.tp = tp; }
+      else db.asesmenFormatif.push({id:uid("asesmenFormatif"), siswaId, mapel:ctx.mapel, tanggal:todayISO(), nilai, lingkupMateri:lm, tp, semester:ctx.semester, catatan:"", jenisSumatif:"Formatif"});
+    } else if(col==="STS" || col==="SAS"){
+      const r = dnFindSumatif(siswaId, ctx, col, null);
+      if(r){ r.nilai = nilai; if(!r.tanggal) r.tanggal = todayISO(); }
+      else db.asesmenSumatif.push({id:uid("asesmenSumatif"), siswaId, mapel:ctx.mapel, tanggal:todayISO(), nilai, lingkupMateri:col, semester:ctx.semester, catatan:"", jenisSumatif:col, bentuk:"Tes Tulis"});
+    } else if(/^S\d+$/.test(col)){
+      const li = Number(col.slice(1)), lm = DN_LM[li];
+      const r = dnFindSumatif(siswaId, ctx, "LM", lm);
+      if(r){ r.nilai = nilai; if(!r.tanggal) r.tanggal = todayISO(); }
+      else db.asesmenSumatif.push({id:uid("asesmenSumatif"), siswaId, mapel:ctx.mapel, tanggal:todayISO(), nilai, lingkupMateri:lm, semester:ctx.semester, catatan:"", jenisSumatif:"LM", bentuk:"Tes Tulis"});
     }
-    tersimpan++;
+    n++;
   });
   saveDB();
-  inputNilaiClearDraft(ctx);
-  toast(tersimpan+" nilai berhasil disimpan ke "+(ctx.jenis==="Formatif"?"Asesmen Formatif":"Asesmen Sumatif ("+inputNilaiJenisLabel(ctx.jenis)+")")+".");
-  inputNilaiRenderTable();
+  dnClearDraft(ctx);
+  toast(n+" nilai berhasil disimpan (Formatif + Sumatif LM + STS + SAS).");
+  dnRenderTable();
 }
-
+function dnKop(){
+  const s = db.sekolah, ctx = dnCtx();
+  return `<table style="margin-bottom:10px;"><tbody>
+    <tr><td style="width:180px;"><strong>Satuan Pendidikan</strong></td><td>: ${escapeHtml(s.namaSekolah||"")}</td></tr>
+    <tr><td style="width:180px;"><strong>Kelas / Semester</strong></td><td>: ${escapeHtml(classInfo(activeClassId).label)} / ${ctx.semester==="1"?"1 (Ganjil)":"2 (Genap)"}</td></tr>
+    <tr><td style="width:180px;"><strong>Mata Pelajaran</strong></td><td>: ${escapeHtml(ctx.mapel)}</td></tr>
+    <tr><td style="width:180px;"><strong>Tahun Pelajaran</strong></td><td>: ${escapeHtml(s.tahunAjaran||"")}</td></tr>
+  </tbody></table>`;
+}
+function dnPrint(){
+  const holder = document.getElementById("dnTableWrap");
+  if(!holder){ toast("Tidak ada data untuk dicetak"); return; }
+  printDocument("DAFTAR NILAI - "+dnCtx().mapel.toUpperCase(), dnKop()+holder.outerHTML+daftarNilaiPengesahan());
+}
+function dnExportExcel(){
+  const holder = document.getElementById("dnTableWrap");
+  if(!holder){ toast("Tidak ada data untuk diekspor"); return; }
+  htmlToExcelXls(dnKop()+holder.outerHTML+daftarNilaiPengesahan(), "Daftar_Nilai_"+dnCtx().mapel.replace(/\s+/g,"_"), "Daftar Nilai");
+}
 PAGES.asesdiag = ()=>asesmenPage("asesmenDiagnostik","Asesmen Diagnostik","Pemetaan kondisi awal, kesiapan, dan gaya belajar peserta didik sebelum pembelajaran.", "diag");
 PAGES.asesform = ()=>asesmenPage("asesmenFormatif","Asesmen Formatif","Penilaian proses untuk memberi umpan balik selama pembelajaran berlangsung. Tidak diperhitungkan dalam nilai rapor.", "form");
 PAGES.asessum  = ()=>asesmenPage("asesmenSumatif","Asesmen Sumatif","Penilaian akhir lingkup materi/semester/fase sebagai dasar nilai rapor Kurikulum Merdeka.", "sum");
@@ -970,34 +971,39 @@ PAGES.asessum  = ()=>asesmenPage("asesmenSumatif","Asesmen Sumatif","Penilaian a
      dianggap Sumatif Lingkup Materi.
    ============================================================ */
 function daftarNilaiRows(mapelSel, semSel){
-  // Alur Kurikulum Merdeka (Panduan Pembelajaran dan Asesmen):
-  // NA Sumatif = rata-rata nilai sumatif per lingkup materi (TERMASUK STS);
-  // NA SAS = rata-rata nilai Sumatif Akhir Semester;
-  // Nilai Akhir (Rapor) = rata-rata NA Sumatif dan NA SAS (jika SAS ada).
-  // Nilai formatif TIDAK masuk hitungan (kualitatif, bahan deskripsi).
+  // Standar kertas Daftar Nilai (foto guru, Semester 1 2026/2027):
+  // NR = rata-rata nilai Sumatif LM yang terisi (kosong BUKAN 0).
+  // Nilai Raport = (2*NR + 1*STS + 2*SAS)/5, hanya bila NR, STS, SAS ketiganya ada.
+  // STS kini berdiri sendiri (tidak lagi dilebur ke rata-rata LM).
+  // Formatif TIDAK masuk hitungan. Sumatif Akhir Fase tampil tersendiri, tidak masuk Raport.
   const rows = (db.asesmenSumatif||[]).filter(r=>r.mapel===mapelSel && String(r.semester||"")===""+semSel);
   const lmSet = [];
   rows.forEach(r=>{
-    const j = jenisSumatifOf(r);
-    if(j!=="LM" && j!=="STS") return; // SAS & Sumatif Akhir Fase punya kolom tersendiri
+    if(jenisSumatifOf(r)!=="LM") return;
     const lm = String(r.lingkupMateri||"Umum").trim()||"Umum";
     if(lmSet.indexOf(lm)<0) lmSet.push(lm);
   });
+  lmSet.sort((a,b)=>{
+    const na = a.match(/^Lingkup Materi (\d+)/), nb = b.match(/^Lingkup Materi (\d+)/);
+    if(na && nb) return Number(na[1])-Number(nb[1]);
+    if(na) return -1; if(nb) return 1;
+    return a.localeCompare(b,"id");
+  });
   const bySiswa = {};
   rows.forEach(r=>{ (bySiswa[r.siswaId]=bySiswa[r.siswaId]||[]).push(r); });
+  const avgOf = a=> a.length? a.reduce((x,y)=>x+y,0)/a.length : null;
   const table = siswaSortedAlpha().map(s=>{
     const arr = bySiswa[s.id]||[];
     const lmVals = lmSet.map(lm=>{
-      const v = arr.filter(r=>{ const j=jenisSumatifOf(r); return (j==="LM"||j==="STS") && String(r.lingkupMateri||"Umum").trim()===lm; }).map(r=>Number(r.nilai)||0);
+      const v = arr.filter(r=>jenisSumatifOf(r)==="LM" && String(r.lingkupMateri||"Umum").trim()===lm).map(r=>Number(r.nilai)||0);
       return v.length? v.reduce((a,b)=>a+b,0)/v.length : null;
     });
-    const sasVals = arr.filter(r=>jenisSumatifOf(r)==="SAS").map(r=>Number(r.nilai)||0);
-    const sas = sasVals.length? sasVals.reduce((a,b)=>a+b,0)/sasVals.length : null;
-    const faseVals = arr.filter(r=>jenisSumatifOf(r)==="FASE").map(r=>Number(r.nilai)||0);
-    const fase = faseVals.length? faseVals.reduce((a,b)=>a+b,0)/faseVals.length : null;
+    const sts = avgOf(arr.filter(r=>jenisSumatifOf(r)==="STS").map(r=>Number(r.nilai)||0));
+    const sas = avgOf(arr.filter(r=>jenisSumatifOf(r)==="SAS").map(r=>Number(r.nilai)||0));
+    const fase = avgOf(arr.filter(r=>jenisSumatifOf(r)==="FASE").map(r=>Number(r.nilai)||0));
     const valid = lmVals.filter(v=>v!=null);
-    const naSumatif = valid.length? valid.reduce((a,b)=>a+b,0)/valid.length : null;
-    const nilaiAkhir = naSumatif==null? null : (sas==null? naSumatif : (naSumatif+sas)/2);
+    const naSumatif = valid.length? valid.reduce((a,b)=>a+b,0)/valid.length : null; // = NR
+    const nilaiAkhir = (naSumatif==null||sts==null||sas==null)? null : (2*naSumatif+sts+2*sas)/5;
     let deskripsi = "-";
     if(valid.length){
       let iMax=0, iMin=0, pertama=true;
@@ -1008,7 +1014,7 @@ function daftarNilaiRows(mapelSel, semSel){
         ? "Menunjukkan penguasaan yang baik dalam "+lmSet[iMax]+"."
         : "Menunjukkan penguasaan dalam "+lmSet[iMax]+". Perlu bimbingan dalam "+lmSet[iMin]+".";
     }
-    return {s:s, lmSet:lmSet, lmVals:lmVals, sas:sas, fase:fase, naSumatif:naSumatif, nilaiAkhir:nilaiAkhir, deskripsi:deskripsi};
+    return {s:s, lmSet:lmSet, lmVals:lmVals, sts:sts, sas:sas, fase:fase, naSumatif:naSumatif, nilaiAkhir:nilaiAkhir, deskripsi:deskripsi};
   });
   return {lmSet:lmSet, table:table};
 }
@@ -1018,20 +1024,24 @@ PAGES.rekapnilai = function(){
   const dn = daftarNilaiRows(mapelSel, semSel);
   const lmSet = dn.lmSet, table = dn.table;
   const fmt = v=> v==null? "-": String(Math.round(v*10)/10);
+  const hasFase = table.some(r=>r.fase!=null);
   const head = `<tr><th rowspan="2">No</th><th rowspan="2">NIS</th><th rowspan="2">Nama Peserta Didik</th><th rowspan="2">L/P</th>`
-    + (lmSet.length? `<th colspan="${lmSet.length}">Nilai Sumatif per Lingkup Materi (termasuk STS)</th>` : "")
-    + `<th rowspan="2">SAS</th><th rowspan="2">Sumatif Akhir Fase</th><th rowspan="2">NA Sumatif</th><th rowspan="2">Nilai Akhir (Rapor)</th><th rowspan="2">Deskripsi Capaian</th></tr>`
+    + (lmSet.length? `<th colspan="${lmSet.length}">Nilai Sumatif per Lingkup Materi</th>` : "")
+    + `<th rowspan="2">NR (Rata-rata LM)</th><th rowspan="2">STS</th><th rowspan="2">SAS</th>`
+    + (hasFase? `<th rowspan="2">Sumatif Akhir Fase</th>` : "")
+    + `<th rowspan="2">Nilai Akhir (Rapor)</th><th rowspan="2">Deskripsi Capaian</th></tr>`
     + (lmSet.length? `<tr>${lmSet.map(l=>`<th>${escapeHtml(l)}</th>`).join("")}</tr>` : "");
   const body = table.map((r,i)=>`<tr><td>${i+1}</td><td>${escapeHtml(r.s.nis||"-")}</td>`
     + `<td style="text-align:left;"><strong>${escapeHtml(r.s.nama)}</strong></td><td>${escapeHtml(r.s.jk||"-")}</td>`
     + r.lmVals.map(v=>`<td>${fmt(v)}</td>`).join("")
-    + `<td><strong>${fmt(r.sas)}</strong></td>`
-    + `<td>${fmt(r.fase)}</td>`
     + `<td><strong>${fmt(r.naSumatif)}</strong></td>`
+    + `<td>${fmt(r.sts)}</td>`
+    + `<td><strong>${fmt(r.sas)}</strong></td>`
+    + (hasFase? `<td>${fmt(r.fase)}</td>` : "")
     + `<td style="background:var(--primary-ghost);"><strong>${fmt(r.nilaiAkhir)}</strong></td>`
     + `<td style="text-align:left;min-width:230px;font-size:12px;">${escapeHtml(r.deskripsi)}</td></tr>`).join("");
   return `
-  <div class="section-head"><div><h1>Daftar Nilai</h1><div class="desc">Ledger formal per mata pelajaran &amp; semester — alur Kurikulum Merdeka: sumatif per lingkup materi (termasuk STS) &rarr; NA Sumatif &rarr; Nilai Akhir (rata-rata NA Sumatif &amp; SAS). Nilai formatif bersifat kualitatif (arsip) dan tidak masuk hitungan rapor.</div></div>
+  <div class="section-head"><div><h1>Daftar Nilai</h1><div class="desc">Ledger formal per mata pelajaran &amp; semester — standar kertas: NR (rata-rata Sumatif LM) &rarr; Nilai Raport = (2&times;NR + STS + 2&times;SAS) / 5. Nilai formatif bersifat kualitatif (arsip) dan tidak masuk hitungan rapor.</div></div>
     <div class="grow"></div>
     <button class="btn" onclick="exportDaftarNilaiExcel()">${ic("download",15)} Excel</button>
     <button class="btn btn-primary" onclick="printDaftarNilai()">${ic("print",15)} Cetak</button></div>
@@ -1066,7 +1076,7 @@ function daftarNilaiPengesahan(){
     <td style="width:50%;text-align:center;">Mengetahui,<br>Kepala Sekolah<br><br><br><br><br><strong><u>${escapeHtml(s.kepalaSekolah||"")}</u></strong><br>NIP. ${escapeHtml(s.nipKepsek||"")}</td>
     <td style="width:50%;text-align:center;">${escapeHtml(s.desa||"")}, ${fmtDate(todayISO())}<br>Wali Kelas<br><br><br><br><br><strong><u>${escapeHtml(wali?wali.nama:"")}</u></strong><br>NIP. ${escapeHtml(wali?(wali.nip||""):"")}</td>
   </tr></tbody></table>
-  <p style="font-size:10pt;margin-top:10px;"><strong>Keterangan:</strong> Komponen sumatif: Sumatif Lingkup Materi, STS, SAS (STS &amp; SAS bersifat pilihan), dan Sumatif Akhir Fase. NA Sumatif = rata-rata nilai sumatif per lingkup materi (termasuk STS). Nilai Akhir (Rapor) = rata-rata NA Sumatif dan SAS (apabila SAS dilaksanakan). Sumatif Akhir Fase ditampilkan tersendiri dan tidak masuk Nilai Akhir semester. Nilai formatif bersifat kualitatif sebagai bahan deskripsi dan <strong>tidak</strong> diperhitungkan dalam nilai rapor. Acuan: Permendikbudristek No. 21/2022 tentang Standar Penilaian &amp; Panduan Pembelajaran dan Asesmen (Edisi Revisi 2025). Catatan: panduan memberi 3 opsi pengolahan nilai akhir (rata-rata / pembobotan / persentase ketercapaian) — tabel ini memakai opsi rata-rata; sesuaikan dengan kebijakan satuan pendidikan.</p>`;
+  <p style="font-size:10pt;margin-top:10px;"><strong>Keterangan:</strong> Nilai Raport = (2 &times; Nilai Rata-Rata LM + 1 &times; Nilai STS + 2 &times; Nilai SAS) / 5. NR = rata-rata nilai Sumatif Lingkup Materi yang sudah terisi (kosong = belum dinilai, bukan 0); Nilai Raport baru terhitung bila NR, STS, dan SAS sudah terisi. Sumatif Akhir Fase ditampilkan tersendiri dan tidak masuk Nilai Akhir semester. Nilai formatif bersifat kualitatif sebagai bahan deskripsi dan <strong>tidak</strong> diperhitungkan dalam nilai rapor. Acuan: Permendikbudristek No. 21/2022 tentang Standar Penilaian &amp; Panduan Pembelajaran dan Asesmen (Edisi Revisi 2025); panduan memberi 3 opsi pengolahan nilai akhir — tabel ini memakai opsi pembobotan sesuai standar kertas sekolah (2-1-2).</p>`;
 }
 function exportDaftarNilaiExcel(){
   const holder = document.getElementById("daftarNilaiHolder");
@@ -1119,11 +1129,12 @@ function raporKop(semSel){
 function raporNilaiTable(semSel){
   const siswa = siswaSortedAlpha();
   const perMapel = MAPEL_LIST.map(m=>{
+    const hasNilai = (db.asesmenSumatif||[]).some(r=>r.mapel===m && String(r.semester||"")===""+semSel);
     const dn = daftarNilaiRows(m, semSel);
     const map = {};
     dn.table.forEach(r=>{ map[r.s.id] = r.nilaiAkhir; });
-    return {mapel:m, map:map};
-  });
+    return {mapel:m, map:map, hasNilai:hasNilai};
+  }).filter(p=>p.hasNilai); // rekap hanya memunculkan mapel yang sudah ada nilainya
   const fmt1 = v=> v==null? "-": String(Math.round(v*10)/10);
   const head = `<tr><th>No</th><th>Nama Peserta Didik</th>${perMapel.map(p=>`<th>${escapeHtml(p.mapel)}</th>`).join("")}<th>Rata-rata</th></tr>`;
   const body = siswa.map((s,i)=>{
@@ -1134,7 +1145,7 @@ function raporNilaiTable(semSel){
       + vals.map(v=>`<td>${fmt1(v)}</td>`).join("")
       + `<td style="background:var(--primary-ghost);"><strong>${fmt1(avg)}</strong></td></tr>`;
   }).join("");
-  return {head:head, body:body, count:siswa.length};
+  return {head:head, body:body, count:siswa.length, mapelCount:perMapel.length};
 }
 function printRekapRapor(){
   const semSel = window._raporSemester || String(db.sekolah.semester||"1");
@@ -1174,10 +1185,12 @@ PAGES.rapor = function(){
       <option value="2" ${semSel==="2"?"selected":""}>Semester 2</option>
     </select></div>
     <div class="grow"></div>
-    <span class="hint">Nilai Akhir = rata-rata NA Sumatif &amp; SAS per mapel (lihat Daftar Nilai).</span>
+    <span class="hint">Nilai Akhir = (2&times;NR + STS + 2&times;SAS) / 5 per mapel (lihat Daftar Nilai). Hanya mapel yang sudah ada nilainya yang ditampilkan.</span>
   </div>
-  <div class="card" style="margin-bottom:16px;"><h3 style="font-size:14px;margin-bottom:10px;">${ic("bar",16)} Rekap Nilai Akhir per Mata Pelajaran</h3>
-    <div class="table-wrap"><table><thead>${nt.head}</thead><tbody>${nt.body}</tbody></table></div></div>
+  ${nt.mapelCount
+    ? `<div class="card" style="margin-bottom:16px;"><h3 style="font-size:14px;margin-bottom:10px;">${ic("bar",16)} Rekap Nilai Akhir per Mata Pelajaran</h3>
+    <div class="table-wrap"><table><thead>${nt.head}</thead><tbody>${nt.body}</tbody></table></div></div>`
+    : `<div class="empty-state">${illus("nilai",130)}<p>Belum ada nilai sumatif pada semester ini.<br>Isi dulu melalui menu <strong>Input Nilai Massal</strong>.</p></div>`}
   <h2 style="font-size:15px;margin:18px 0 10px;">${ic("reportcard",16)} Deskripsi Capaian per Siswa</h2>
   ${rows}`;
 };

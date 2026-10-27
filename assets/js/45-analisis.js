@@ -22,7 +22,7 @@ function analisisCompute(mapelSel, semSel){
     r.lmVals.forEach((v,i)=>{ if(v==null) return;
       if(iMin<0 || v<r.lmVals[iMin]) iMin=i;
       if(iMax<0 || v>r.lmVals[iMax]) iMax=i; });
-    return {s:r.s, lmSet:r.lmSet, lmVals:r.lmVals, sas:r.sas, naSumatif:r.naSumatif,
+    return {s:r.s, lmSet:r.lmSet, lmVals:r.lmVals, sts:r.sts, sas:r.sas, naSumatif:r.naSumatif,
       nilaiAkhir:na, tuntas:tuntas, predikat:predikatNilai(na),
       lmTerlemah: iMin>=0 ? r.lmSet[iMin] : "-",
       lmTerkuat:  iMax>=0 ? r.lmSet[iMax] : "-"};
@@ -49,14 +49,14 @@ function analisisTableHtml(comp){
   const fmt1 = v=> v==null? "-": String(Math.round(v*10)/10);
   const head = `<tr><th>No</th><th>Nama Peserta Didik</th>`
     + (comp.dn.lmSet.length? comp.dn.lmSet.map(l=>`<th>${escapeHtml(l)}</th>`).join("") : "")
-    + `<th>SAS</th><th>NA Sumatif</th><th>Nilai Akhir</th><th>Ketuntasan</th><th>Predikat</th></tr>`;
+    + `<th>STS</th><th>SAS</th><th>NR (Rata-rata LM)</th><th>Nilai Akhir</th><th>Ketuntasan</th><th>Predikat</th></tr>`;
   const body = comp.rows.map((x,i)=>{
     const badge = x.nilaiAkhir==null
       ? `<span class="badge">-</span>`
       : x.tuntas ? `<span class="badge badge-green">Tuntas</span>` : `<span class="badge badge-orange">Belum</span>`;
     return `<tr><td>${i+1}</td><td style="text-align:left;"><strong>${escapeHtml(x.s.nama)}</strong></td>`
       + x.lmVals.map(v=>`<td>${fmt1(v)}</td>`).join("")
-      + `<td>${fmt1(x.sas)}</td><td>${fmt1(x.naSumatif)}</td>`
+      + `<td>${fmt1(x.sts)}</td><td>${fmt1(x.sas)}</td><td>${fmt1(x.naSumatif)}</td>`
       + `<td style="background:var(--primary-ghost);"><strong>${fmt1(x.nilaiAkhir)}</strong></td>`
       + `<td>${badge}</td><td style="font-size:12px;">${escapeHtml(x.predikat)}</td></tr>`;
   }).join("");
