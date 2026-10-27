@@ -72,6 +72,11 @@ const AIGuruWord=(function(){
   }
   function allTables(blocks){return blocks.flatMap(b=>b.kind==='table'?[b]:b.kind==='list'?b.items.flatMap(item=>allTables(item.blocks)):[]);}
   function widths(table,total){
+    // Six-month Promes matrix: reserve room for full TP text, compact numeric months.
+    const labels=(table.rows.find(r=>r.header)||table.rows[0]).cells.map(c=>c.text.trim());
+    if(table.columns===9 && /tujuan pembelajaran/i.test(labels[1]||'') && labels.slice(3).length===6 && labels.slice(3).every(s=>/^(Jan|Feb|Mar|Apr|Mei|Jun|Jul|Agu|Sep|Okt|Nov|Des) (\d{4}|—)$/.test(s))){
+      const result=[.04,.42,.06,.08,.08,.08,.08,.08,.08].map(n=>Math.floor(total*n));result[1]+=total-result.reduce((a,b)=>a+b,0);return result;
+    }
     const weights=Array(table.columns).fill(1.8),minimum=Array(table.columns).fill(720);
     const header=table.rows.find(r=>r.header)||table.rows[0];header.cells.forEach(cell=>{if(cell.span!==1)return;const label=cell.text.toLowerCase().replace(/[.\s]+/g,' ').trim(),short=/^(no|nomor|kode|kelas|semester|smt|jp|skor|bobot|nilai|level)$/.test(label);weights[cell.start]=short?.65:/tujuan|rumusan|indikator|kegiatan|deskripsi|kriteria|catatan|validasi|konsep|asesmen|materi|kk?tp/.test(label)?3.2:1.8;minimum[cell.start]=short?620:1100;});
     for(let col=0;col<table.columns;col++){if(weights[col]<1)continue;const lengths=table.rows.filter(r=>!r.header).slice(0,30).flatMap(r=>r.cells.filter(c=>c.start===col&&c.span===1).map(c=>c.text.length));const average=lengths.length?lengths.reduce((a,b)=>a+b,0)/lengths.length:0;weights[col]=Math.max(weights[col],Math.min(7,Math.sqrt(average/20)*1.8));}
