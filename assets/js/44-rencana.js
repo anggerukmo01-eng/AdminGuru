@@ -3,6 +3,13 @@
    Semester Gasal T.A. 2026/2027 (periode 12 Okt – 20 Nov 2026)
    ------------------------------------------------------------
    v3 (11 Okt 2026): dihitung penuh dari JJM & kalender semester gasal.
+   v4 (27 Okt 2026): koreksi posisi nyata kelas — B.Indo Bab 4 (gerak hewan,
+   27 Okt) + menulis huruf L (29 Okt); MTK Bab 3 Pengurangan penguatan
+   (28 & 30 Okt, siswa belum paham konsep) lalu Bab 4 Mengenal Bentuk
+   (4-20 Nov); Pancasila Bab 2 urutan buku (aturan keluarga -> rumah ->
+   nilai Pancasila -> tempat tinggal -> kerja sama lingkungan).
+   Materi Kelas 2 (waktu/jam, posisi benda) DIHAPUS dari Semester 1.
+   Total tetap 178 entri; PAI/PJOK/Mulok/Seni/Kokurikuler tidak diubah.
    MPLS 13-17 Jul 2026 -> Bab 1: 20 Jul-2 Okt (11 minggu; 17 Agu libur,
    Senin off) -> STS 5-9 Okt -> Bab 2: 12 Okt-20 Nov (6 minggu) ->
    Review 23-27 Nov -> SAS mulai 1 Des 2026 (semua dari SEED_KALENDER
@@ -27,9 +34,9 @@
    atau hapus manual entri berjenis "Rencana Pembelajaran" / berjudul
    "[Kelas 1]" melalui menu Kalender & Jurnal.
    ============================================================ */
-const RENCANA_PBL_FLAG = "tpsd2026_rencana_pbl_k1_2426_v3";
-const RENCANA_PBL_TAG = "pbl-k1-2426-v3";
-const RENCANA_PBL_TAG_LAMA = ["pbl-k1-2426","pbl-k1-2426-v2"];
+const RENCANA_PBL_FLAG = "tpsd2026_rencana_pbl_k1_2426_v4";
+const RENCANA_PBL_TAG = "pbl-k1-2426-v4";
+const RENCANA_PBL_TAG_LAMA = ["pbl-k1-2426","pbl-k1-2426-v2","pbl-k1-2426-v3"];
 function rencanaHari(tglISO){
   const d = new Date(tglISO+"T00:00:00").getDay();
   return ["Minggu","Senin","Selasa","Rabu","Kamis","Jumat","Sabtu"][d]||"";
@@ -42,6 +49,7 @@ const RENCANA_CP = {
   PAI_AKHLAK:{elemen:"Akhlak", teks:"Menerapkan akhlak terhadap Allah Swt. dengan menyucikan dan memuji-Nya, serta akhlak terhadap diri sendiri melalui pembiasaan perilaku terpuji (mahmudah) sehari-hari, sebagai wujud akhlak mulia (makarim al-akhlaq)."},
   PP_UUD:{elemen:"UUD NRI Tahun 1945", teks:"Mengenal aturan di lingkungan keluarga; menunjukkan dan menceritakan sikap mematuhi aturan di lingkungan keluarga."},
   PP_BHINNEKA:{elemen:"Bhinneka Tunggal Ika", teks:"Mengenal semboyan Bhinneka Tunggal Ika; mengidentifikasi dan menghargai identitas dirinya sesuai jenis kelamin, hobi, bahasa, serta agama dan kepercayaan di lingkungan sekitar."},
+  PP_PANCASILA:{elemen:"Pancasila", teks:"Mengenal bendera negara, lagu kebangsaan, simbol dan sila-sila Pancasila dalam lambang negara Garuda Pancasila dan simbol Pancasila beserta sila-sila Pancasila; menerapkan nilai-nilai Pancasila di lingkungan keluarga."},
   PP_NKRI:{elemen:"NKRI", teks:"Mengenal karakteristik lingkungan tempat tinggal dan sekolah sebagai bagian dari wilayah NKRI; mempraktikkan kerja sama menjaga lingkungan sekitar dalam keberagaman."},
   BI_BACA:{elemen:"Membaca dan Memirsa", teks:"Membaca kata-kata sederhana dengan fasih tentang diri, keluarga, kesehatan, dan/atau lingkungan sekitar; memahami isi bacaan dan/atau tayangan yang dipirsa."},
   BI_TULIS:{elemen:"Menulis", teks:"Menulis permulaan dengan benar di atas kertas dan/atau media digital; mengembangkan tulisan tangan; menulis berbagai tipe teks sederhana tentang diri, keluarga, dan/atau lingkungan sekitar."},
@@ -59,7 +67,7 @@ const RENCANA_CP = {
   KOKURIKULER:{elemen:"Kokurikuler / Projek Penguatan Profil Pelajar Pancasila", teks:"Mengembangkan dimensi Profil Pelajar Pancasila (beriman-bertakwa dan berakhlak mulia, berkebinekaan global, bergotong royong, mandiri, bernalar kritis, kreatif) melalui projek kokurikuler."}
 };
 
-/* ---- 178 rencana v3: dihitung dari JJM & kalender semester gasal ---- */
+/* ---- 178 rencana v4 (27 Okt 2026): koreksi posisi nyata, lihat header ---- */
 const RENCANA_PBL = [
  {m:"Pendidikan Agama Islam dan Budi Pekerti",per:"Bab 1",t:"2026-07-20",mat:"Huruf hijaiyah berharakat fathah: mengenal, membaca & menulis",cp:"PAI_QURAN",tp:"Peserta didik mampu membaca dan menulis huruf hijaiyah berharakat fathah dengan benar.",n:"Formatif: observasi dan unjuk kerja"},
  {m:"Pendidikan Agama Islam dan Budi Pekerti",per:"Bab 1",t:"2026-07-27",mat:"Huruf hijaiyah berharakat kasrah dan dammah",cp:"PAI_QURAN",tp:"Peserta didik mampu membaca dan membedakan huruf hijaiyah berharakat kasrah dan dammah.",n:"Formatif: observasi dan unjuk kerja"},
@@ -90,11 +98,11 @@ const RENCANA_PBL = [
  {m:"Pendidikan Pancasila",per:"Bab 1",t:"2026-09-28",mat:"Kerja sama di kelas; review Bab 1",cp:"PP_NKRI",tp:"Peserta didik mampu mempraktikkan kerja sama dengan teman di kelas.",n:"Sumatif lingkup materi (persiapan STS)"},
  {m:"Pendidikan Pancasila",per:"Bab 2",t:"2026-10-12",mat:"Lingkungan rumah & sekolahku",cp:"PP_NKRI",tp:"Peserta didik mampu mengenali karakteristik lingkungan rumah dan sekolahnya.",n:"Formatif: observasi dan unjuk kerja"},
  {m:"Pendidikan Pancasila",per:"Bab 2",t:"2026-10-19",mat:"Menjaga kebersihan lingkungan",cp:"PP_NKRI",tp:"Peserta didik mampu menyebutkan cara menjaga kebersihan lingkungan.",n:"Formatif: observasi dan unjuk kerja"},
- {m:"Pendidikan Pancasila",per:"Bab 2",t:"2026-10-26",mat:"Kerja sama menjaga lingkungan sekitar",cp:"PP_NKRI",tp:"Peserta didik mampu mempraktikkan kerja sama menjaga kebersihan lingkungan.",n:"Formatif: observasi dan unjuk kerja"},
- {m:"Pendidikan Pancasila",per:"Bab 2",t:"2026-11-02",mat:"Aturan di sekolah",cp:"PP_UUD",tp:"Peserta didik mampu menyebutkan contoh aturan di sekolah.",n:"Formatif: observasi dan unjuk kerja"},
- {m:"Pendidikan Pancasila",per:"Bab 2",t:"2026-11-09",mat:"Mematuhi aturan di sekolah",cp:"PP_UUD",tp:"Peserta didik mampu menunjukkan sikap mematuhi aturan di sekolah.",n:"Formatif: observasi dan unjuk kerja"},
- {m:"Pendidikan Pancasila",per:"Bab 2",t:"2026-11-16",mat:"Peduli tempat tinggal; review Bab 2",cp:"PP_NKRI",tp:"Peserta didik mampu menunjukkan kepedulian terhadap tempat tinggalnya.",n:"Sumatif lingkup materi (persiapan SAS)"},
- {m:"Pendidikan Pancasila",per:"Review SAS",t:"2026-11-23",mat:"Review & persiapan SAS",cp:"PP_BHINNEKA",tp:"Peserta didik siap mengikuti SAS.",n:"Persiapan SAS"},
+ {m:"Pendidikan Pancasila",per:"Bab 2",t:"2026-10-26",mat:"Aturan dalam keluargaku",cp:"PP_UUD",tp:"Peserta didik mampu menyebutkan contoh aturan di lingkungan keluarga dan manfaatnya.",n:"Formatif: observasi dan unjuk kerja"},
+ {m:"Pendidikan Pancasila",per:"Bab 2",t:"2026-11-02",mat:"Mematuhi aturan di rumah",cp:"PP_UUD",tp:"Peserta didik mampu menunjukkan dan menceritakan sikap mematuhi aturan di rumah.",n:"Formatif: observasi dan unjuk kerja"},
+ {m:"Pendidikan Pancasila",per:"Bab 2",t:"2026-11-09",mat:"Nilai-nilai Pancasila di keluarga",cp:"PP_PANCASILA",tp:"Peserta didik mampu menerapkan nilai-nilai Pancasila dalam kehidupan keluarga sehari-hari.",n:"Formatif: observasi dan unjuk kerja"},
+ {m:"Pendidikan Pancasila",per:"Bab 2",t:"2026-11-16",mat:"Peduli dengan tempat tinggal",cp:"PP_NKRI",tp:"Peserta didik mampu mengenal lingkungan tempat tinggalnya dan menunjukkan kepedulian terhadap tempat tinggal.",n:"Formatif: observasi dan unjuk kerja"},
+ {m:"Pendidikan Pancasila",per:"Review SAS",t:"2026-11-23",mat:"Kerja sama menjaga lingkungan; review Bab 2 & persiapan SAS",cp:"PP_NKRI",tp:"Peserta didik mampu mempraktikkan kerja sama menjaga lingkungan serta siap mengikuti SAS.",n:"Persiapan SAS"},
  {m:"PJOK",per:"Bab 1",t:"2026-07-21",mat:"Gerak lokomotor: berjalan & berlari",cp:"PJOK_GERAK",tp:"Peserta didik mampu mempraktikkan gerak berjalan dan berlari dengan benar.",n:"Formatif: observasi dan unjuk kerja"},
  {m:"PJOK",per:"Bab 1",t:"2026-07-28",mat:"Gerak lokomotor: melompat & meloncat",cp:"PJOK_GERAK",tp:"Peserta didik mampu mempraktikkan gerak melompat dan meloncat.",n:"Formatif: observasi dan unjuk kerja"},
  {m:"PJOK",per:"Bab 1",t:"2026-08-04",mat:"Gerak non-lokomotor: membungkuk & memutar",cp:"PJOK_GERAK",tp:"Peserta didik mampu mempraktikkan gerak membungkuk dan memutar.",n:"Formatif: observasi dan unjuk kerja"},
@@ -139,14 +147,14 @@ const RENCANA_PBL = [
  {m:"Bahasa Indonesia",per:"Bab 2",t:"2026-10-15",mat:"Menjawab pertanyaan isi teks",cp:"BI_BACA",tp:"Peserta didik mampu menjawab pertanyaan tentang isi teks.",n:"Formatif: observasi dan unjuk kerja"},
  {m:"Bahasa Indonesia",per:"Bab 2",t:"2026-10-20",mat:"Kosakata baru dari bacaan",cp:"BI_BACA",tp:"Peserta didik mampu menyebutkan arti kosakata baru dari bacaan.",n:"Formatif: observasi dan unjuk kerja"},
  {m:"Bahasa Indonesia",per:"Bab 2",t:"2026-10-22",mat:"Menulis kalimat dari kosakata",cp:"BI_TULIS",tp:"Peserta didik mampu menulis kalimat sederhana menggunakan kosakata baru.",n:"Formatif: observasi dan unjuk kerja"},
- {m:"Bahasa Indonesia",per:"Bab 2",t:"2026-10-27",mat:"Teks deskripsi sederhana",cp:"BI_BACA",tp:"Peserta didik mampu membaca teks deskripsi sederhana.",n:"Formatif: observasi dan unjuk kerja"},
- {m:"Bahasa Indonesia",per:"Bab 2",t:"2026-10-29",mat:"Menulis deskripsi teman",cp:"BI_TULIS",tp:"Peserta didik mampu menulis deskripsi singkat tentang temannya.",n:"Formatif: observasi dan unjuk kerja"},
- {m:"Bahasa Indonesia",per:"Bab 2",t:"2026-11-03",mat:"Membaca puisi anak sederhana",cp:"BI_BACA",tp:"Peserta didik mampu membaca puisi anak dengan intonasi tepat.",n:"Formatif: observasi dan unjuk kerja"},
- {m:"Bahasa Indonesia",per:"Bab 2",t:"2026-11-05",mat:"Mendeklamasikan puisi",cp:"BI_BICARA",tp:"Peserta didik mampu mendeklamasikan puisi anak dengan percaya diri.",n:"Formatif: observasi dan unjuk kerja"},
- {m:"Bahasa Indonesia",per:"Bab 2",t:"2026-11-10",mat:"Berbicara: menyampaikan pesan",cp:"BI_BICARA",tp:"Peserta didik mampu menyampaikan pesan secara lisan dengan jelas.",n:"Formatif: observasi dan unjuk kerja"},
- {m:"Bahasa Indonesia",per:"Bab 2",t:"2026-11-12",mat:"Bermain peran: dialog sederhana",cp:"BI_BICARA",tp:"Peserta didik mampu bermain peran dialog sederhana dengan santun.",n:"Formatif: observasi dan unjuk kerja"},
- {m:"Bahasa Indonesia",per:"Bab 2",t:"2026-11-17",mat:"Review Bab 2",cp:"BI_BACA",tp:"Peserta didik mampu menunjukkan pemahaman materi Bab 2.",n:"Formatif: observasi dan unjuk kerja"},
- {m:"Bahasa Indonesia",per:"Bab 2",t:"2026-11-19",mat:"Persiapan SAS",cp:"BI_BICARA",tp:"Peserta didik siap mengikuti SAS.",n:"Sumatif lingkup materi (persiapan SAS)"},
+ {m:"Bahasa Indonesia",per:"Bab 4",t:"2026-10-27",mat:"Gerak hewan: mengenal gerak hewan (berjalan, berlari, melompat, berenang, terbang)",cp:"BI_BACA",tp:"Peserta didik mampu mengenal dan menyebutkan gerak hewan melalui teks dan gambar.",n:"Formatif: observasi dan unjuk kerja"},
+ {m:"Bahasa Indonesia",per:"Bab 4",t:"2026-10-29",mat:"Latihan menulis huruf L",cp:"BI_TULIS",tp:"Peserta didik mampu menulis huruf L dengan benar dan rapi.",n:"Formatif: observasi dan unjuk kerja"},
+ {m:"Bahasa Indonesia",per:"Bab 4",t:"2026-11-03",mat:"Gerak hewan: membaca teks sederhana tentang gerak hewan",cp:"BI_BACA",tp:"Peserta didik mampu membaca teks sederhana tentang gerak hewan dengan lancar.",n:"Formatif: observasi dan unjuk kerja"},
+ {m:"Bahasa Indonesia",per:"Bab 4",t:"2026-11-05",mat:"Gerak hewan: menulis kata dan kalimat sederhana tentang gerak hewan",cp:"BI_TULIS",tp:"Peserta didik mampu menulis kata dan kalimat sederhana tentang gerak hewan.",n:"Formatif: observasi dan unjuk kerja"},
+ {m:"Bahasa Indonesia",per:"Bab 4",t:"2026-11-10",mat:"Gerak hewan: bercerita lisan tentang hewan dan gerakannya",cp:"BI_BICARA",tp:"Peserta didik mampu menceritakan hewan dan gerakannya secara lisan dengan percaya diri.",n:"Formatif: observasi dan unjuk kerja"},
+ {m:"Bahasa Indonesia",per:"Bab 4",t:"2026-11-12",mat:"Penguatan Bab 4: gerak hewan dan literasi",cp:"BI_BACA",tp:"Peserta didik mampu menunjukkan pemahaman Bab 4 tentang gerak hewan.",n:"Formatif: observasi dan unjuk kerja"},
+ {m:"Bahasa Indonesia",per:"Bab 4",t:"2026-11-17",mat:"Review Bab 4 & persiapan SAS",cp:"BI_BACA",tp:"Peserta didik mampu menunjukkan pemahaman materi Bab 4.",n:"Formatif: observasi dan unjuk kerja"},
+ {m:"Bahasa Indonesia",per:"Review SAS",t:"2026-11-19",mat:"Persiapan SAS",cp:"BI_BICARA",tp:"Peserta didik siap mengikuti SAS.",n:"Sumatif lingkup materi (persiapan SAS)"},
  {m:"Bahasa Indonesia",per:"Review SAS",t:"2026-11-24",mat:"Review membaca permulaan",cp:"BI_BACA",tp:"Peserta didik siap mengikuti SAS.",n:"Persiapan SAS"},
  {m:"Bahasa Indonesia",per:"Review SAS",t:"2026-11-26",mat:"Review menulis & berbicara",cp:"BI_TULIS",tp:"Peserta didik siap mengikuti SAS.",n:"Persiapan SAS"},
  {m:"Matematika",per:"Bab 1",t:"2026-07-22",mat:"Bilangan 11-15: membaca & menulis",cp:"MTK_BIL",tp:"Peserta didik mampu membaca dan menulis lambang bilangan 11-15.",n:"Formatif: observasi dan unjuk kerja"},
@@ -175,16 +183,16 @@ const RENCANA_PBL = [
  {m:"Matematika",per:"Bab 2",t:"2026-10-16",mat:"Mengukur dengan jengkal (satuan tidak baku)",cp:"MTK_UKUR",tp:"Peserta didik mampu mengukur panjang dengan satuan tidak baku (jengkal).",n:"Formatif: observasi dan unjuk kerja"},
  {m:"Matematika",per:"Bab 2",t:"2026-10-21",mat:"Mengukur dengan langkah & pensil",cp:"MTK_UKUR",tp:"Peserta didik mampu mengukur dengan satuan tidak baku lainnya.",n:"Formatif: observasi dan unjuk kerja"},
  {m:"Matematika",per:"Bab 2",t:"2026-10-23",mat:"Membandingkan berat dua benda",cp:"MTK_UKUR",tp:"Peserta didik mampu membandingkan berat dua benda.",n:"Formatif: observasi dan unjuk kerja"},
- {m:"Matematika",per:"Bab 2",t:"2026-10-28",mat:"Waktu: pagi, siang, sore, malam; nama-nama hari",cp:"MTK_UKUR",tp:"Peserta didik mampu menyebutkan bagian waktu sehari dan nama hari.",n:"Formatif: observasi dan unjuk kerja"},
- {m:"Matematika",per:"Bab 2",t:"2026-10-30",mat:"Membaca jam tepat",cp:"MTK_UKUR",tp:"Peserta didik mampu membaca jam tepat.",n:"Formatif: observasi dan unjuk kerja"},
- {m:"Matematika",per:"Bab 2",t:"2026-11-04",mat:"Bangun datar: segitiga & segiempat",cp:"MTK_GEO",tp:"Peserta didik mampu mengenali bangun datar segitiga dan segiempat.",n:"Formatif: observasi dan unjuk kerja"},
- {m:"Matematika",per:"Bab 2",t:"2026-11-06",mat:"Bangun datar: lingkaran; mengelompokkan",cp:"MTK_GEO",tp:"Peserta didik mampu mengenali lingkaran dan mengelompokkan bangun datar.",n:"Formatif: observasi dan unjuk kerja"},
- {m:"Matematika",per:"Bab 2",t:"2026-11-11",mat:"Bangun ruang: kubus & balok",cp:"MTK_GEO",tp:"Peserta didik mampu mengenali bangun ruang kubus dan balok.",n:"Formatif: observasi dan unjuk kerja"},
- {m:"Matematika",per:"Bab 2",t:"2026-11-13",mat:"Posisi benda: kanan-kiri, depan-belakang, atas-bawah",cp:"MTK_GEO",tp:"Peserta didik mampu menentukan posisi benda relatif.",n:"Formatif: observasi dan unjuk kerja"},
- {m:"Matematika",per:"Bab 2",t:"2026-11-18",mat:"Review Bab 2",cp:"MTK_UKUR",tp:"Peserta didik mampu menunjukkan pemahaman materi Bab 2.",n:"Formatif: observasi dan unjuk kerja"},
- {m:"Matematika",per:"Bab 2",t:"2026-11-20",mat:"Persiapan SAS",cp:"MTK_GEO",tp:"Peserta didik siap mengikuti SAS.",n:"Sumatif lingkup materi (persiapan SAS)"},
+ {m:"Matematika",per:"Bab 3",t:"2026-10-28",mat:"Pengurangan sampai 10: penguatan konsep dengan benda konkret",cp:"MTK_BIL",tp:"Peserta didik mampu melakukan pengurangan sampai 10 menggunakan benda konkret (penguatan konsep).",n:"Formatif: observasi dan unjuk kerja"},
+ {m:"Matematika",per:"Bab 3",t:"2026-10-30",mat:"Pengurangan sampai 10: penguatan lanjutan dan soal cerita sederhana",cp:"MTK_BIL",tp:"Peserta didik mampu menyelesaikan soal cerita pengurangan sederhana dengan benda konkret dan gambar.",n:"Formatif: observasi dan unjuk kerja"},
+ {m:"Matematika",per:"Bab 4",t:"2026-11-04",mat:"Mengenal Bentuk: bangun datar segitiga & segiempat",cp:"MTK_GEO",tp:"Peserta didik mampu mengenali bangun datar segitiga dan segiempat.",n:"Formatif: observasi dan unjuk kerja"},
+ {m:"Matematika",per:"Bab 4",t:"2026-11-06",mat:"Mengenal Bentuk: lingkaran; mengelompokkan bangun datar",cp:"MTK_GEO",tp:"Peserta didik mampu mengenali lingkaran dan mengelompokkan bangun datar.",n:"Formatif: observasi dan unjuk kerja"},
+ {m:"Matematika",per:"Bab 4",t:"2026-11-11",mat:"Mengenal Bentuk: bangun ruang sederhana (balok, kubus, bola)",cp:"MTK_GEO",tp:"Peserta didik mampu mengenali bangun ruang sederhana (balok, kubus, bola).",n:"Formatif: observasi dan unjuk kerja"},
+ {m:"Matematika",per:"Bab 4",t:"2026-11-13",mat:"Mengenal Bentuk: menemukan contoh bangun di kelas; mengelompokkan bangun datar & ruang",cp:"MTK_GEO",tp:"Peserta didik mampu menemukan contoh bangun di kelas dan mengelompokkan bangun datar dan bangun ruang.",n:"Formatif: observasi dan unjuk kerja"},
+ {m:"Matematika",per:"Bab 4",t:"2026-11-18",mat:"Review Bab 4: mengenal bentuk",cp:"MTK_GEO",tp:"Peserta didik mampu menunjukkan pemahaman materi Bab 4 (mengenal bentuk).",n:"Formatif: observasi dan unjuk kerja"},
+ {m:"Matematika",per:"Bab 4",t:"2026-11-20",mat:"Penguatan Bab 4 & persiapan SAS",cp:"MTK_GEO",tp:"Peserta didik siap mengikuti SAS.",n:"Sumatif lingkup materi (persiapan SAS)"},
  {m:"Matematika",per:"Review SAS",t:"2026-11-25",mat:"Review bilangan & operasi hitung",cp:"MTK_BIL",tp:"Peserta didik siap mengikuti SAS.",n:"Persiapan SAS"},
- {m:"Matematika",per:"Review SAS",t:"2026-11-27",mat:"Review pengukuran & geometri",cp:"MTK_GEO",tp:"Peserta didik siap mengikuti SAS.",n:"Persiapan SAS"},
+ {m:"Matematika",per:"Review SAS",t:"2026-11-27",mat:"Review mengenal bentuk & persiapan SAS",cp:"MTK_GEO",tp:"Peserta didik siap mengikuti SAS.",n:"Persiapan SAS"},
  {m:"Muatan Lokal",per:"Bab 1",t:"2026-07-22",mat:"Salam & perkenalan diri nganggo basa Jawa ngoko",cp:"MULOK",tp:"Peserta didik mampu mengucapkan salam dan memperkenalkan diri nganggo basa Jawa ngoko.",n:"Formatif: observasi dan unjuk kerja"},
  {m:"Muatan Lokal",per:"Bab 1",t:"2026-07-29",mat:"Jeneng anggota kulawarga",cp:"MULOK",tp:"Peserta didik mampu menyebutkan nama anggota keluarga nganggo basa Jawa.",n:"Formatif: observasi dan unjuk kerja"},
  {m:"Muatan Lokal",per:"Bab 1",t:"2026-08-05",mat:"Wilangan 1-10",cp:"MULOK",tp:"Peserta didik mampu menyebutkan wilangan 1-10 nganggo basa Jawa.",n:"Formatif: observasi dan unjuk kerja"},
@@ -261,15 +269,15 @@ function rencanaCPText(it){
 }
 
 /* ---- Penanaman data (idempoten) ----
-   v3 (11 Okt 2026): 178 entri dihitung dari JJM & kalender semester gasal
-   2026/2027 — MPLS 13-17 Jul, Bab 1: 20 Jul-2 Okt (11 minggu; 17 Agu libur,
-   Senin off), STS 5-9 Okt, Bab 2: 12 Okt-20 Nov (6 minggu),
-   Review: 23-27 Nov, SAS mulai 1 Des 2026.
-   Migrasi: entri v1/v2 otomatis diganti v3. */
+   v3 (11 Okt 2026): 178 entri (lihat header file).
+   v4 (27 Okt 2026): koreksi posisi nyata kelas (B.Indo Bab 4, MTK Bab 3->4,
+   Pancasila Bab 2 urutan buku); materi Kelas 2 dihapus dari Semester 1.
+   Migrasi: entri v1/v2/v3 otomatis diganti v4. */
 function runRencanaPblSeedIfNeeded(){
   if(localStorage.getItem(RENCANA_PBL_FLAG)) return;
   if(localStorage.getItem("tpsd2026_rencana_pbl_k1_2426_v1")==="deleted" ||
-     localStorage.getItem("tpsd2026_rencana_pbl_k1_2426_v2")==="deleted"){
+     localStorage.getItem("tpsd2026_rencana_pbl_k1_2426_v2")==="deleted" ||
+     localStorage.getItem("tpsd2026_rencana_pbl_k1_2426_v3")==="deleted"){
     localStorage.setItem(RENCANA_PBL_FLAG, "deleted");
     return;
   }
@@ -310,7 +318,7 @@ function runRencanaPblSeedIfNeeded(){
     saveSharedDB(shared);
     saveClassDB("kelas-1", cls1);
     localStorage.setItem(RENCANA_PBL_FLAG, "1");
-    console.log("[RencanaPbl v3] lama dibersihkan ("+nKalLama+" kalender, "+nAgLama+" agenda); v3 ditanam "+RENCANA_PBL.length+" entri.");
+    console.log("[RencanaPbl v4] lama dibersihkan ("+nKalLama+" kalender, "+nAgLama+" agenda); v3 ditanam "+RENCANA_PBL.length+" entri.");
   }catch(e){ console.warn("Gagal menanam Rencana Pembelajaran Kelas 1.", e); }
 }
 
