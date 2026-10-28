@@ -26,6 +26,7 @@ function openMenuSearch(){
   if(!document.getElementById("app").classList.contains("ready")) return;
   openModal({title:"Temukan fitur",bodyHtml:`<div class="command-search">${ic("search",22)}<input type="search" id="commandQuery" aria-label="Cari fitur AdminGuru" placeholder="Contoh: nilai, rapor, CP, jurnal..." autocomplete="off" oninput="renderMenuResults(this.value)"></div><div id="commandResults" class="command-results"></div><p class="hint command-help">↑ ↓ Pilih &nbsp; Enter Buka &nbsp; Esc Tutup</p>`,onMount:()=>{
     renderMenuResults("");
+    document.getElementById("commandQuery").focus();
     document.getElementById("commandQuery").addEventListener("keydown", e=>{
       const buttons=Array.from(document.querySelectorAll(".command-result"));
       if(!buttons.length) return;
@@ -57,6 +58,9 @@ function workspaceHeroArt(){
 document.addEventListener("keydown", event=>{
   if((event.ctrlKey||event.metaKey) && event.key.toLowerCase()==="k"){
     event.preventDefault(); openMenuSearch();
+  }
+  if(event.key==="Escape" && document.getElementById("commandQuery")){
+    event.preventDefault(); closeModal(); return;
   }
   if(event.key==="Escape" && document.getElementById("sidebar").classList.contains("open")){
     toggleSidebar(false); document.getElementById("menuToggle").focus();
