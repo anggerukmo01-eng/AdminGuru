@@ -66,12 +66,12 @@ function attendanceGridHtml(bulan){
 }
 /* ============================================================
    HARI LIBUR & KUNCI ABSENSI (v2.4)
-   - LIBUR_NASIONAL: SKB 3 Menteri 2026 (17 libur + 8 cuti bersama).
+   - AI_TOOLS_LIBUR_NASIONAL: SKB 3 Menteri 2026 (17 libur + 8 cuti bersama).
      Untuk 2027 baru tanggal tetap; dilengkapi saat SKB 2027 terbit.
    - Sabtu & Minggu selalu dianggap libur.
    - Kunci bisa dibuka per-tanggal via tombol (tersimpan di db).
    ============================================================ */
-const LIBUR_NASIONAL = {
+const AI_TOOLS_LIBUR_NASIONAL = {
   "2026-01-01":"Tahun Baru 2026 Masehi",
   "2026-01-16":"Isra Mikraj Nabi Muhammad SAW",
   "2026-02-16":"Cuti Bersama Tahun Baru Imlek",
@@ -104,7 +104,7 @@ const LIBUR_NASIONAL = {
   "2027-12-25":"Hari Raya Natal"
 };
 function tanggalLiburInfo(iso){
-  if(LIBUR_NASIONAL[iso]) return {libur:true, ket:LIBUR_NASIONAL[iso]};
+  if(AI_TOOLS_LIBUR_NASIONAL[iso]) return {libur:true, ket:AI_TOOLS_LIBUR_NASIONAL[iso]};
   const d = new Date(iso+"T00:00:00");
   const day = d.getDay();
   if(day===0) return {libur:true, ket:"Hari Minggu"};
@@ -537,8 +537,8 @@ function aiJurnalAmbilRencana(){
 }
 
 /* ---- D3. GENERATOR ASESMEN FORMATIF ---- */
-const AI_BENTUK_SOAL = ["Pilihan Ganda","Pilihan Ganda Kompleks","Isian Singkat","Uraian/Esai","Menjodohkan","Unjuk Kerja/Praktik","Observasi/Ceklis"];
-const AI_LEVEL_KOGNITIF = ["C1 - Mengingat","C2 - Memahami","C3 - Mengaplikasikan","C4 - Menganalisis","C5 - Mengevaluasi","C6 - Mencipta (HOTS)"];
+const AI_TOOLS_AI_BENTUK_SOAL = ["Pilihan Ganda","Pilihan Ganda Kompleks","Isian Singkat","Uraian/Esai","Menjodohkan","Unjuk Kerja/Praktik","Observasi/Ceklis"];
+const AI_TOOLS_AI_LEVEL_KOGNITIF = ["C1 - Mengingat","C2 - Memahami","C3 - Mengaplikasikan","C4 - Menganalisis","C5 - Mengevaluasi","C6 - Mencipta (HOTS)"];
 
 function aiAsesmenFormBlock(prefix, kelasId, jenisLabel){
   return `<div class="field"><label>Kelas</label>${aiKelasSelect(prefix+"_kelas", kelasId)}</div>
@@ -547,8 +547,8 @@ function aiAsesmenFormBlock(prefix, kelasId, jenisLabel){
     <div class="field"><label>Tujuan Pembelajaran (TP) acuan</label><div id="${prefix}_tpHolder">${aiTpSelect(prefix+"_tpHolder_sel", kelasId, MAPEL_LIST[0])}</div></div>
     <div class="field"><label>Materi</label><input type="text" id="${prefix}_materi" placeholder="mis. Bangun Datar Sederhana"></div>
     <div class="field"><label>Jumlah Soal/Item</label><input type="number" id="${prefix}_jumlah" value="5" min="1" max="20"></div>
-    <div class="field"><label>Bentuk Soal/Instrumen</label>${aiCheckGrid(prefix+"_bentuk", AI_BENTUK_SOAL, false)}</div>
-    <div class="field"><label>Level Kognitif</label>${aiCheckGrid(prefix+"_level", AI_LEVEL_KOGNITIF, false)}</div>`;
+    <div class="field"><label>Bentuk Soal/Instrumen</label>${aiCheckGrid(prefix+"_bentuk", AI_TOOLS_AI_BENTUK_SOAL, false)}</div>
+    <div class="field"><label>Level Kognitif</label>${aiCheckGrid(prefix+"_level", AI_TOOLS_AI_LEVEL_KOGNITIF, false)}</div>`;
 }
 function aiAsesmenPromptCommon(prefix, jenis){
   const kelasId = document.getElementById(prefix+"_kelas").value;
@@ -613,7 +613,7 @@ Buat ${c.jumlah} soal/item${c.bentuk.length?" dalam bentuk: "+c.bentuk.join(", "
 Durasi pengerjaan: ${durasi}.
 
 ACUAN STANDAR: Permendikbudristek No. 21/2022 tentang Standar Penilaian; Panduan Pembelajaran dan Asesmen (Edisi Revisi 2025). Instrumen ini untuk UMPAN BALIK, bukan penentu nilai rapor.
-${AI_PANDUAN_2019_KAIDAH}
+${AI_TOOLS_AI_PANDUAN_2019_KAIDAH}
 FORMAT PENGETIKAN (siap cetak Word): akhiri soal isian dengan " …."; simbol matematika berspasi (3 x 4 = 12); opsi PG tiap baris dengan label huruf kecil (${pgOpsiAf.labelTitik}).
 KOP (baris Nama, logo, identitas sekolah, garis tebal) SUDAH ditambahkan otomatis oleh sistem — JANGAN membuat kop.
 
@@ -640,7 +640,7 @@ function aiApplyPresetAsesForm(key){
 }
 
 /* ---------- E1. AI: RUBRIK PENILAIAN ---------- */
-const AI_JENIS_RUBRIK = ["Sikap (Profil Lulusan)","Pengetahuan (Tes Tertulis)","Keterampilan (Unjuk Kerja/Praktik)","Produk/Karya","Proyek","Presentasi"];
+const AI_TOOLS_AI_JENIS_RUBRIK = ["Sikap (Profil Lulusan)","Pengetahuan (Tes Tertulis)","Keterampilan (Unjuk Kerja/Praktik)","Produk/Karya","Proyek","Presentasi"];
 PAGES.aiRubrik = function(){
   const kelasId = activeClassId;
   return `<div class="ai-layout"><div class="card">
@@ -650,7 +650,7 @@ PAGES.aiRubrik = function(){
       <div class="hint" style="margin-top:4px;"><button class="btn btn-sm" type="button" onclick="aiRefreshTp('ar_kelas','ar_mapel','ar_tpHolder')">${ic("check",13)} Muat TP dari ATP</button></div></div>
     <div class="field"><label>Tujuan Pembelajaran / Aktivitas yang dinilai</label><div id="ar_tpHolder">${aiTpSelect("ar_tpHolder_sel", kelasId, MAPEL_LIST[0])}</div></div>
     <div class="field"><label>Nama Tugas/Aktivitas (opsional)</label><input type="text" id="ar_tugas" placeholder="mis. Presentasi hasil pengamatan tumbuhan"></div>
-    <div class="field"><label>Jenis Rubrik</label><select id="ar_jenis">${AI_JENIS_RUBRIK.map(j=>`<option>${j}</option>`).join("")}</select></div>
+    <div class="field"><label>Jenis Rubrik</label><select id="ar_jenis">${AI_TOOLS_AI_JENIS_RUBRIK.map(j=>`<option>${j}</option>`).join("")}</select></div>
     <div class="field"><label>Kriteria yang dinilai (checklist, tambahkan sesuai kebutuhan di hasil AI)</label>${aiCheckGrid("ar_kriteria", ["Ketepatan konsep/isi","Kejelasan penyampaian","Kreativitas","Kerja sama","Kemandirian","Ketepatan waktu","Kerapian hasil kerja"], false)}</div>
     <div class="grid grid-2">
       <div class="field"><label>Jumlah Kriteria</label><input type="number" id="ar_jmlKriteria" value="4" min="3" max="6"></div>
@@ -710,7 +710,7 @@ function aiApplyPresetRubrik(key){
    Kemendikdasmen; repositori.kemendikdasmen.go.id/18344) — melengkapi kaidah di
    systemPrompt. Catatan adaptasi: panduan ini memakai istilah KD (era K13);
    untuk Kurikulum Merdeka dipetakan ke TP. */
-const AI_PANDUAN_2019_KAIDAH = `
+const AI_TOOLS_AI_PANDUAN_2019_KAIDAH = `
 KAIDAH TAMBAHAN (Panduan Penilaian Tertulis 2019, Pusat Penilaian Pendidikan):
 A. KISI-KISI — format matriks: IDENTITAS (jenjang SD, mata pelajaran, kurikulum, jumlah soal) + MATRIKS (TP, materi, indikator soal, level kognitif C1–C6, nomor soal, bentuk soal). Syarat kisi-kisi baik: mewakili isi kurikulum; komponen rinci & jelas; setiap indikator dapat dibuat soalnya.
 B. PILIHAN GANDA — (1) Satu butir memakai SATU kata kerja operasional. (2) Pokok soal + opsi hanya memuat pernyataan yang diperlukan (tidak bertele-tele). (3) Kata/frasa yang berulang di semua opsi dipindah ke pokok soal. (4) Stimulus (gambar/tabel/grafik/diagram) harus jelas, berfungsi, dan kontekstual; satu stimulus boleh dipakai untuk beberapa butir soal. (5) Bahasa baku sesuai kaidah Bahasa Indonesia.
@@ -866,7 +866,7 @@ KAIDAH PENULISAN SOAL (WAJIB dipatuhi):
 [Materi] (1) Soal harus sesuai indikator/TP. (2) Pilihan jawaban homogen & logis, pengecoh berfungsi. (3) Tepat satu jawaban benar.
 [Konstruksi] (4) Pokok soal jelas & tegas. (5) Hanya memuat pernyataan yang diperlukan. (6) Tidak memberi petunjuk ke jawaban benar. (7) Hindari pernyataan negatif ganda. (8) Panjang opsi relatif sama. (9) Tanpa opsi "semua jawaban benar/salah". (10) Opsi angka diurutkan kecil→besar. (11) Soal tidak bergantung pada jawaban soal lain.
 [Bahasa] (12) Bahasa Indonesia yang baik & komunikatif, sesuai jenjang SD. (13) Tanpa bahasa daerah/tabu. (14) Jumlah opsi pilihan ganda: kelas 1 = 3 opsi (a, b, c); kelas 2 ke atas = 4 opsi (a, b, c, d).
-${AI_PANDUAN_2019_KAIDAH}
+${AI_TOOLS_AI_PANDUAN_2019_KAIDAH}
 FORMAT PENGETIKAN NASKAH (siap cetak Word, kertas F4):
 - Akhiri pokok soal isian dengan " …." (spasi + empat titik); blank di tengah kalimat ditulis " … " (spasi + tiga titik + spasi).
 - Simbol matematika: beri spasi sebelum & sesudah operator (contoh: 3 x 4 = 12); gunakan × untuk perkalian, bukan huruf X.
@@ -962,13 +962,13 @@ function aiPengRemAmbilAnalisis(){
 }
 
 /* ---------- E4. AI: SURAT UNTUK ORANG TUA ---------- */
-const AI_JENIS_SURAT_ORTU = ["Undangan Pertemuan Orang Tua","Pemberitahuan Kegiatan Sekolah","Pemanggilan Orang Tua (Konsultasi)","Apresiasi Perkembangan Anak","Peringatan Ketidakhadiran/Kedisiplinan","Izin Kegiatan di Luar Sekolah (Study Tour dsb.)"];
+const AI_TOOLS_AI_JENIS_SURAT_ORTU = ["Undangan Pertemuan Orang Tua","Pemberitahuan Kegiatan Sekolah","Pemanggilan Orang Tua (Konsultasi)","Apresiasi Perkembangan Anak","Peringatan Ketidakhadiran/Kedisiplinan","Izin Kegiatan di Luar Sekolah (Study Tour dsb.)"];
 PAGES.aiSuratOrtu = function(){
   const kelasId = activeClassId;
   return `<div class="ai-layout"><div class="card">
     <h3>${ic("parent",18)} AI Generator: Surat untuk Orang Tua</h3>
     <div class="field"><label>Kelas</label>${aiKelasSelect("aso_kelas", kelasId)}</div>
-    <div class="field"><label>Jenis Surat</label><select id="aso_jenis">${AI_JENIS_SURAT_ORTU.map(j=>`<option>${j}</option>`).join("")}</select></div>
+    <div class="field"><label>Jenis Surat</label><select id="aso_jenis">${AI_TOOLS_AI_JENIS_SURAT_ORTU.map(j=>`<option>${j}</option>`).join("")}</select></div>
     <div class="field"><label>Ditujukan Kepada</label><select id="aso_target"><option value="">Seluruh Orang Tua/Wali Kelas</option>${siswaOpts().map(o=>`<option value="${o.value}">Orang Tua/Wali dari ${escapeHtml(o.label)}</option>`).join("")}</select></div>
     <div class="field"><label>Tanggal Surat</label><input type="date" id="aso_tanggal" value="${todayISO()}"></div>
     <div class="field"><label>Tanggal/Waktu Kegiatan (jika relevan)</label><input type="text" id="aso_waktuKegiatan" placeholder="mis. Sabtu, 20 September 2026 pukul 08.00 WIB"></div>
@@ -1209,7 +1209,7 @@ CATATAN: Hasil ini draf awal — guru wajib meninjau dan menyesuaikannya sebelum
 }
 
 /* ---------- F2. GENERATOR: BAHAN AJAR ---------- */
-const AI_JENIS_BAHAN = [
+const AI_TOOLS_AI_JENIS_BAHAN = [
   "Ringkasan materi 1 halaman",
   "Penjelasan konsep + analogi lokal",
   "Cerita edukatif",
@@ -1231,7 +1231,7 @@ PAGES.aiBahanAjar = function(){
       <div class="field"><label>Mata Pelajaran</label>${aiMapelSelect("abh_mapel", MAPEL_LIST[0])}</div>
     </div>
     <div class="field"><label>Materi / Topik</label><input type="text" id="abh_materi" placeholder="mis. Penjumlahan bilangan 1–20"></div>
-    <div class="field"><label>Jenis Bahan Ajar</label><select id="abh_jenis" onchange="aiBahanJenisOnChange()">${AI_JENIS_BAHAN.map(j=>`<option>${j}</option>`).join("")}</select></div>
+    <div class="field"><label>Jenis Bahan Ajar</label><select id="abh_jenis" onchange="aiBahanJenisOnChange()">${AI_TOOLS_AI_JENIS_BAHAN.map(j=>`<option>${j}</option>`).join("")}</select></div>
     <div class="field"><label>TP Acuan (opsional)</label><div id="abh_tpHolder">${aiTpSelect("abh_tpHolder_sel", kelasId, MAPEL_LIST[0])}</div>
       <div class="hint" style="margin-top:4px;"><button class="btn btn-sm" type="button" onclick="aiRefreshTp('abh_kelas','abh_mapel','abh_tpHolder')">${ic("check",13)} Muat TP dari ATP</button></div>
       <input type="text" id="abh_tpManual" placeholder="atau tulis TP manual…" style="margin-top:6px;"></div>
@@ -1285,7 +1285,7 @@ CATATAN: Hasil ini draf awal — guru wajib meninjau akurasi konten dan menyesua
 }
 
 /* ---------- F2. GENERATOR: KKTP ---------- */
-const AI_TEKNIK_KKTP = ["Tes tertulis","Unjuk kerja/praktik","Observasi","Produk/karya","Portofolio"];
+const AI_TOOLS_AI_TEKNIK_KKTP = ["Tes tertulis","Unjuk kerja/praktik","Observasi","Produk/karya","Portofolio"];
 PAGES.aiKktp = function(){
   const kelasId = activeClassId;
   return `<div class="ai-layout"><div class="card">
@@ -1308,7 +1308,7 @@ PAGES.aiKktp = function(){
       </select></div>
       <div class="field"><label>Ambang Ketuntasan Awal (usulan)</label><input type="number" id="akp_ambang" value="75" min="0" max="100"><div class="hint">Untuk skala 0–100; sekolah menetapkan final.</div></div>
     </div>
-    <div class="field"><label>Teknik/Bukti Ketercapaian</label>${aiCheckGrid("akp_teknik", AI_TEKNIK_KKTP, true)}</div>
+    <div class="field"><label>Teknik/Bukti Ketercapaian</label>${aiCheckGrid("akp_teknik", AI_TOOLS_AI_TEKNIK_KKTP, true)}</div>
     <div class="field"><label>Catatan Satuan Pendidikan (opsional)</label><textarea id="akp_catatan" placeholder="mis. KKTP ditetapkan dalam rapat dewan guru tanggal …"></textarea></div>
     <button class="btn btn-primary" style="width:100%;" onclick="generateAiKktp()">${ic("star",16)} Generate Usulan KKTP</button>
   </div><div id="akp_result"></div></div>`;
