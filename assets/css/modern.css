@@ -215,3 +215,67 @@
   @media(max-width:480px) { .metric-label { font-size:10px; }.metric-card small { font-size:9px; }.workspace-tool small { font-size:10px; }.dashboard-context { font-size:10px; }.mobile-nav button { font-size:10px; }.dashboard-card-head h2 { font-size:16px; } }
 }
 @media print { .mobile-nav,.skip-link,.workspace-search { display:none!important; } }
+
+/* Readable workspace typography and column cues; screen-only to preserve documents. */
+@media screen {
+  :root { --text:#182338; --text-soft:#46556d; --text-faint:#53627a; --font:"Segoe UI",Roboto,-apple-system,Arial,sans-serif; }
+  [data-theme="dark"] { --text:#f2f5fc; --text-soft:#c5cee2; --text-faint:#b4bfd5; }
+  body { font-size:16px; line-height:1.6; }
+  .section-head .desc,.hint,.meta,.stat-card .lbl,.stat-card .sub,
+  .dashboard-heading p,.dashboard-context,.quicknav-card .qn-desc { font-size:14px; line-height:1.6; }
+  .card h3,.dashboard-card-head h2 { font-size:18px; line-height:1.4; }
+  .navitem,.nav-item,.btn,.tab,.field label,.label,.quicknav-card .qn-label { font-size:15px; }
+  .btn { min-height:44px; white-space:normal; line-height:1.4; }
+  .btn-sm { font-size:14px; min-height:40px; }
+  .field input,.field select,.field textarea,input,select,textarea { font-size:16px; line-height:1.5; }
+  .hint,.meta { color:var(--text-faint); }
+  input::placeholder,textarea::placeholder { color:var(--text-faint); opacity:1; }
+  .navgroup-title,.navgroup-head,.crumb,.sidebar-school,.sidebar-shortcuts button { font-size:12px; letter-spacing:.025em; }
+  .metric-label,.metric-card small,.workspace-tool small,.hero-date,.hero-eyebrow { font-size:13px; }
+  .workspace-tool strong,.hero-actions .btn { font-size:15px; }
+  .workspace-tool { height:auto; min-height:140px; }
+  .dashboard-hero p { font-size:15px; line-height:1.65; }
+  .mobile-nav button { font-size:12px; }
+  .metric-card { min-width:0; }
+  .metric-label { white-space:normal; }
+  table { font-size:15px; line-height:1.5; }
+  thead th { font-size:13px; letter-spacing:.015em; text-transform:none; }
+  tbody td { padding:12px 13px; }
+  :where(button,a,input,select,textarea,[tabindex]):focus-visible { outline:3px solid var(--primary); outline-offset:3px; }
+  #dnTableWrap th,#dnTableWrap td { border-right:1px solid var(--border-strong); }
+  #dnTableWrap .dn-colored {
+    background:hsl(var(--dn-hue) 65% calc(95% - var(--dn-shade)*3%)) !important;
+    color:#172338;
+  }
+  #dnTableWrap th.dn-colored { background:hsl(var(--dn-hue) 60% calc(86% - var(--dn-shade)*4%)) !important; color:#172338; font-weight:750; }
+  #dnTableWrap .dn-group-start { border-left:2px solid var(--border-strong); }
+  #dnTableWrap .dn-input {
+    width:64px !important; min-height:44px; padding:8px 4px !important;
+    font-size:16px; font-weight:600; font-variant-numeric:tabular-nums;
+    color:var(--text); background:var(--surface); border:1px solid var(--border-strong); border-radius:7px;
+  }
+  #dnTableWrap td:focus-within { box-shadow:inset 0 0 0 2px var(--primary); }
+  #dnTableWrap .dn-pin { font-size:14px; }
+  #dnTableWrap thead .dn-pin { font-size:12px; }
+  #dnTableWrap tbody tr:hover .dn-pin { background:var(--surface-2); }
+  [data-theme="dark"] #dnTableWrap .dn-colored { background:hsl(var(--dn-hue) 30% calc(20% + var(--dn-shade)*4%)) !important; color:#f2f5fc; }
+  [data-theme="dark"] #dnTableWrap th.dn-colored { background:hsl(var(--dn-hue) 35% calc(29% + var(--dn-shade)*4%)) !important; color:#fff; }
+  @media(max-width:700px) {
+    .workspace-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .metric-card { flex-direction:column; align-items:flex-start; }
+    .topbar h2 { font-size:15px; }
+    .class-switcher { font-size:13px; }
+    .dashboard-hero p { max-width:100%; }
+    .section-head { flex-wrap:wrap; }
+    #dnTableWrap .dn-pin { font-size:13px; }
+    #dnTableWrap thead .dn-pin { font-size:11px; }
+  }
+}
+@media screen {
+  #dnTableWrap .dn-no { padding-left:6px; padding-right:6px; white-space:nowrap; text-align:center; }
+  #dnTableWrap .dn-nis { padding-left:6px; padding-right:6px; font-size:12px; white-space:nowrap; font-variant-numeric:tabular-nums; }
+  #dnTableWrap thead th.dn-colored { font-size:13px; }
+  @media(max-width:700px) {
+    .class-switcher { padding:6px 8px; min-width:92px; width:92px; height:44px; }
+  }
+}
