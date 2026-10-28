@@ -765,3 +765,38 @@ h3 .ai-chip{width:30px; height:30px; border-radius:10px;}
 h3 .ai-chip svg{width:15px; height:15px;}
 .ai-tool-btn{display:flex; align-items:center; gap:12px;}
 .ai-tool-btn:hover{border-color:var(--primary); background:var(--primary-ghost);}
+
+
+/* Keep student identity visible while the bulk grade ledger scrolls. */
+@media screen {
+  #dnTableWrap {
+    --dn-no: 44px;
+    --dn-nis: 112px;
+    --dn-name: 200px;
+    isolation: isolate;
+    scroll-padding-left: calc(var(--dn-no) + var(--dn-nis) + var(--dn-name));
+  }
+  #dnTableWrap table { border-collapse: separate; border-spacing: 0; }
+  #dnTableWrap .dn-pin {
+    position: sticky;
+    box-sizing: border-box;
+    z-index: 2;
+    background: var(--surface);
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  #dnTableWrap .dn-no { left: 0; width: var(--dn-no); min-width: var(--dn-no); max-width: var(--dn-no); }
+  #dnTableWrap .dn-nis { left: var(--dn-no); width: var(--dn-nis); min-width: var(--dn-nis); max-width: var(--dn-nis); }
+  #dnTableWrap .dn-name {
+    left: calc(var(--dn-no) + var(--dn-nis));
+    width: var(--dn-name); min-width: var(--dn-name); max-width: var(--dn-name);
+    box-shadow: 3px 0 0 var(--border), 6px 0 8px rgba(0,0,0,.08);
+  }
+  #dnTableWrap thead .dn-pin { z-index: 4; background: var(--surface-2); }
+  #dnTableWrap tbody tr:hover .dn-pin { background: var(--surface-2); }
+  @media (max-width: 600px) {
+    #dnTableWrap { --dn-no: 32px; --dn-nis: 86px; --dn-name: 120px; }
+    #dnTableWrap .dn-pin { padding: 10px 6px; font-size: 12px; }
+    #dnTableWrap thead .dn-pin { font-size: 10px; letter-spacing: 0; }
+  }
+}
