@@ -654,7 +654,7 @@ function dnRenderTable(){
     return `<input type="number" min="0" max="100" step="1" class="dn-input" data-siswaid="${s.id}" data-col="${col}" value="${escapeHtml(v)}" placeholder="—" style="width:52px;padding:6px 3px;text-align:center;" oninput="dnOnInput(this)" onkeydown="dnKeydown(event)">`;
   };
   const thFill = (col, label, extra)=>`<th title="Klik untuk isi kolom ${label}" style="cursor:pointer;"${extra||""} onclick="dnIsiKolom('${col}','${label}')">${label}</th>`;
-  let head = `<tr><th rowspan="3" style="position:sticky;left:0;z-index:3;">No</th><th rowspan="3" style="position:sticky;left:44px;z-index:3;">NISN</th><th rowspan="3" style="position:sticky;left:134px;z-index:3;">Nama Peserta Didik</th><th colspan="16">FORMATIF</th><th colspan="7">SUMATIF</th><th rowspan="3" style="background:var(--primary-ghost);">Nilai Raport</th></tr>`;
+  let head = `<tr><th rowspan="3" class="dn-pin dn-no">No</th><th rowspan="3" class="dn-pin dn-nis">NISN</th><th rowspan="3" class="dn-pin dn-name">Nama Peserta Didik</th><th colspan="16">FORMATIF</th><th colspan="7">SUMATIF</th><th rowspan="3" style="background:var(--primary-ghost);">Nilai Raport</th></tr>`;
   head += `<tr>${DN_LM.map((lm,li)=>`<th colspan="4">${lm.replace("Lingkup Materi ","LM ")}</th>`).join("")}${[0,1,2,3].map(li=>thFill("S"+li, "LM"+(li+1), ' rowspan="2"')).join("")}<th rowspan="2">NR</th>${thFill("STS","STS", ' rowspan="2"')}${thFill("SAS","SAS", ' rowspan="2"')}</tr>`;
   head += `<tr>${DN_LM.map((lm,li)=>DN_TP.map((tp,ti)=>thFill("F"+li+"-"+ti, tp)).join("")).join("")}</tr>`;
   const body = siswaList.map((s,i)=>{
@@ -665,7 +665,7 @@ function dnRenderTable(){
     tds += `<td>${inp("STS", s, val("STS", s.id))}</td>`;
     tds += `<td>${inp("SAS", s, val("SAS", s.id))}</td>`;
     tds += `<td id="dnRap_${s.id}" style="font-weight:800;text-align:center;background:var(--primary-ghost);">—</td>`;
-    return `<tr id="dnRow_${s.id}"><td style="position:sticky;left:0;background:var(--surface);">${i+1}</td><td style="position:sticky;left:44px;background:var(--surface);">${escapeHtml(s.nis||"—")}</td><td style="position:sticky;left:134px;background:var(--surface);"><strong>${escapeHtml(s.nama)}</strong></td>${tds}</tr>`;
+    return `<tr id="dnRow_${s.id}"><td class="dn-pin dn-no">${i+1}</td><td class="dn-pin dn-nis">${escapeHtml(s.nis||"—")}</td><td class="dn-pin dn-name"><strong>${escapeHtml(s.nama)}</strong></td>${tds}</tr>`;
   }).join("");
   holder.innerHTML = `<div id="dnTableWrap" class="table-wrap"><table><thead>${head}</thead><tbody>${body || `<tr><td colspan="27" class="empty-state">Belum ada data siswa.</td></tr>`}</tbody></table></div>`;
   siswaList.forEach(s=>dnHitungBaris(s.id, true));
