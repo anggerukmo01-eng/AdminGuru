@@ -875,7 +875,7 @@ function dnRenderTable(){
     return `<input type="number" min="0" max="100" step="1" class="dn-input" data-siswaid="${s.id}" data-col="${col}" value="${escapeHtml(v)}" placeholder="—" style="width:52px;padding:6px 3px;text-align:center;" oninput="dnOnInput(this)" onkeydown="dnKeydown(event)">`;
   };
   const thFill = (col, label, extra)=>`<th title="Klik untuk isi kolom ${label}" style="cursor:pointer;"${extra||""} onclick="dnIsiKolom('${col}','${label}')">${label}</th>`;
-  let head = `<tr><th rowspan="3" style="position:sticky;left:0;z-index:3;">No</th><th rowspan="3" style="position:sticky;left:44px;z-index:3;">NISN</th><th rowspan="3" style="position:sticky;left:134px;z-index:3;">Nama Peserta Didik</th><th colspan="16">FORMATIF</th><th colspan="7">SUMATIF</th><th rowspan="3" style="background:var(--primary-ghost);">Nilai Raport</th></tr>`;
+  let head = `<tr><th rowspan="3" class="dn-pin dn-no">No</th><th rowspan="3" class="dn-pin dn-nis">NISN</th><th rowspan="3" class="dn-pin dn-name">Nama Peserta Didik</th><th colspan="16">FORMATIF</th><th colspan="7">SUMATIF</th><th rowspan="3" style="background:var(--primary-ghost);">Nilai Raport</th></tr>`;
   head += `<tr>${DN_LM.map((lm,li)=>`<th colspan="4">${lm.replace("Lingkup Materi ","LM ")}</th>`).join("")}${[0,1,2,3].map(li=>thFill("S"+li, "LM"+(li+1), ' rowspan="2"')).join("")}<th rowspan="2">NR</th>${thFill("STS","STS", ' rowspan="2"')}${thFill("SAS","SAS", ' rowspan="2"')}</tr>`;
   head += `<tr>${DN_LM.map((lm,li)=>DN_TP.map((tp,ti)=>thFill("F"+li+"-"+ti, tp)).join("")).join("")}</tr>`;
   const body = siswaList.map((s,i)=>{
@@ -886,9 +886,39 @@ function dnRenderTable(){
     tds += `<td>${inp("STS", s, val("STS", s.id))}</td>`;
     tds += `<td>${inp("SAS", s, val("SAS", s.id))}</td>`;
     tds += `<td id="dnRap_${s.id}" style="font-weight:800;text-align:center;background:var(--primary-ghost);">—</td>`;
-    return `<tr id="dnRow_${s.id}"><td style="position:sticky;left:0;background:var(--surface);">${i+1}</td><td style="position:sticky;left:44px;background:var(--surface);">${escapeHtml(s.nis||"—")}</td><td style="position:sticky;left:134px;background:var(--surface);"><strong>${escapeHtml(s.nama)}</strong></td>${tds}</tr>`;
+    return `<tr id="dnRow_${s.id}"><td class="dn-pin dn-no">${i+1}</td><td class="dn-pin dn-nis">${escapeHtml(s.nis||"—")}</td><td class="dn-pin dn-name"><strong>${escapeHtml(s.nama)}</strong></td>${tds}</tr>`;
   }).join("");
   holder.innerHTML = `<div id="dnTableWrap" class="table-wrap"><table><thead>${head}</thead><tbody>${body || `<tr><td colspan="27" class="empty-state">Belum ada data siswa.</td></tr>`}</tbody></table></div>`;
+  // Match the multi-row headings and body cells to the same column palette.
+  const palette = [215,165,280,38];
+  const decorate = (cell, hue, shade=0)=>{
+    if(!cell) return;
+    cell.classList.add("dn-colored");
+    cell.style.setProperty("--dn-hue", hue);
+    cell.style.setProperty("--dn-shade", shade);
+  };
+  const table = holder.querySelector("table");
+  table.setAttribute("aria-label", "Input nilai massal per siswa");
+  const headers = table.tHead.rows;
+  decorate(headers[0].cells[3],215);
+  decorate(headers[0].cells[4],165);
+  decorate(headers[0].cells[5],275);
+  for(let lm=0;lm<4;lm++){
+    decorate(headers[1].cells[lm],palette[lm]);
+    for(let tp=0;tp<4;tp++) decorate(headers[2].cells[lm*4+tp],palette[lm]+tp*5,tp%2);
+  }
+  const summaryHues=[205,155,285,35,190,325,65,275];
+  for(let i=0;i<7;i++) decorate(headers[1].cells[4+i],summaryHues[i]);
+  Array.from(table.tBodies[0].rows).forEach((row,ri)=>{
+    if(row.cells.length!==27) return;
+    for(let i=3;i<27;i++){
+      const n=i-3, lm=Math.floor(n/4), tp=n%4;
+      decorate(row.cells[i], n<16?palette[lm]+tp*5:summaryHues[n-16],n<16?tp%2:0);
+      if(n===0 || n===4 || n===8 || n===12 || n===16 || n>=20) row.cells[i].classList.add("dn-group-start");
+      const input=row.cells[i].querySelector("input");
+      if(input) input.setAttribute("aria-label", siswaList[ri].nama+" — "+(n<16?"Formatif LM "+(lm+1)+" TP "+(tp+1):["Sumatif LM 1","Sumatif LM 2","Sumatif LM 3","Sumatif LM 4","NR","STS","SAS","Rapor"][n-16]));
+    }
+  });
   siswaList.forEach(s=>dnHitungBaris(s.id, true));
   dnRenderStats();
 }
