@@ -110,6 +110,7 @@ function agendaFields(){
   // materi/TP, kegiatan, penilaian, refleksi & tindak lanjut.
   return [
     {key:"tanggal",label:"Tanggal",type:"date",required:true},
+    {key:"jamKe",label:"Jam Ke-",placeholder:"mis. 1-2"},
     {key:"mapel",label:"Mata Pelajaran",type:"select",options:[...MAPEL_LIST,"Kokurikuler"]},
     {key:"materi",label:"Materi / Tujuan Pembelajaran"},
     {key:"kegiatan",label:"Kegiatan Pembelajaran (pembuka - inti - penutup)",type:"textarea",required:true},
@@ -127,12 +128,59 @@ function agendaFields(){
     ]},
   ];
 }
+/* ---------- JURNAL: KEHADIRAN PER TANGGAL (port ide Jurnal Harian GAS) ----------
+   Konvensi: mengikuti TAMPILAN grid absensi (siswa tanpa status = Hadir),
+   tapi hanya bila hari itu sudah ada minimal 1 status tersimpan — tanpa data
+   absensi, kembalikan null (jangan mengarang kehadiran untuk hari yang belum
+   diabsen). Absensi tetap sumber tunggal; jurnal TIDAK menyimpan hitungan
+   sendiri, supaya tidak ada dua versi kebenaran. */
+function jurnalKehadiran(tanggal){
+  const hari = (db.kehadiran||{})[tanggal];
+  if(!hari || !Object.keys(hari).length) return null;
+  let h=0, sk=0, iz=0, al=0;
+  siswaSortedAlpha().forEach(sw=>{
+    const st = hari[sw.id] || "H";
+    if(st==="S") sk++; else if(st==="I") iz++; else if(st==="A") al++; else h++;
+  });
+  const total = h+sk+iz+al;
+  return {h:h, s:sk, i:iz, a:al, total:total, persen: total? (h/total*100) : 0};
+}
+function jurnalKehadiranHtml(tanggal){
+  const k = jurnalKehadiran(tanggal);
+  if(!k) return `<span class="muted">-</span>`;
+  const pct = (Math.round(k.persen*10)/10).toString().replace(".", ",")+"%";
+  return `<span title="Dari absensi tersimpan ${fmtDate(tanggal)}; siswa tanpa status dihitung Hadir">H:${k.h} S:${k.s} I:${k.i} A:${k.a} (${pct})</span>`;
+}
+/* Ekspor jurnal format 14 kolom persis Sheet Jurnal Harian GAS — untuk laporan
+   ke kepala sekolah. Waktu Input = createdAt entri (kosong untuk entri lama
+   yang dibuat sebelum stempel waktu ada); hitungan kehadiran dihitung dari
+   grid absensi saat ekspor, bukan dari data tersimpan di jurnal. */
+function exportJurnalSheet(){
+  const rows = (db.agenda||[]).slice().sort((a,b)=>String(a.tanggal||"").localeCompare(String(b.tanggal||"")) || String(a.jamKe||"").localeCompare(String(b.jamKe||"")));
+  const kelasLabel = classInfo(activeClassId).label;
+  const fmtWaktu = (iso)=>{
+    if(!iso) return "";
+    try{ return new Date(iso).toLocaleString("id-ID", {day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit"}); }
+    catch(e){ return ""; }
+  };
+  let body = `<tr><th>Waktu Input</th><th>Tanggal</th><th>Kelas</th><th>Jam Ke-</th><th>Mata Pelajaran</th><th>Materi / Sub-Materi</th><th>Kegiatan Pembelajaran</th><th>Hadir</th><th>Sakit</th><th>Izin</th><th>Alpa</th><th>Total Siswa</th><th>% Kehadiran</th><th>Catatan / Refleksi</th></tr>`;
+  rows.forEach(r=>{
+    const k = jurnalKehadiran(r.tanggal);
+    const cat = [r.refleksi||"", r.catatan||""].filter(Boolean).join(" | ");
+    const cells = [fmtWaktu(r.createdAt), fmtDate(r.tanggal||""), kelasLabel, r.jamKe||"", r.mapel||"", r.materi||"", r.kegiatan||"",
+      k?k.h:"", k?k.s:"", k?k.i:"", k?k.a:"", k?k.total:"", k?((Math.round(k.persen*10)/10)+"%"):"", cat];
+    body += "<tr>"+cells.map(c=>`<td>${escapeHtml(c)}</td>`).join("")+"</tr>";
+  });
+  htmlToExcelXls(`<table>${body}</table>`, "Jurnal_Mengajar_Sheet", "Jurnal Mengajar");
+  toast("Jurnal diekspor (format 14 kolom Sheet).");
+}
+
 PAGES.agenda = function(){
   const crudHtml = crudSection({
     store:"agenda", title:"Agenda / Jurnal Harian Guru (Catatan Teks)",
     desc:"Catatan kegiatan mengajar harian sebagai bukti fisik jurnal mengajar.",
     fields: agendaFields(),
-    columns:[{key:"tanggal",label:"Tanggal",render:v=>fmtDate(v)},{key:"mapel",label:"Mapel"},{key:"materi",label:"Materi/TP"},{key:"kegiatan",label:"Kegiatan",render:v=>escapeHtml((v||"").slice(0,60))+((v||"").length>60?"...":"")}],
+    columns:[{key:"tanggal",label:"Tanggal",render:v=>fmtDate(v)},{key:"jamKe",label:"Jam Ke-"},{key:"mapel",label:"Mapel"},{key:"materi",label:"Materi/TP"},{key:"kegiatan",label:"Kegiatan",render:v=>escapeHtml((v||"").slice(0,60))+((v||"").length>60?"...":"")},{key:"__kehadiran",label:"Kehadiran",render:(v,r)=>jurnalKehadiranHtml(r.tanggal)}],
     searchKeys:["kegiatan","mapel","catatan"]
   });
 
@@ -154,6 +202,7 @@ PAGES.agenda = function(){
   return `
   <div class="section-head"><div><h1>Jurnal Mengajar</h1><div class="desc">Unggah scan/foto/PDF jurnal mengajar -- teks di dalamnya dapat dibaca otomatis dengan OCR agar mudah dicari, dan dokumen asli tetap tersimpan sebagai arsip.</div></div>
     <div class="grow"></div>
+    <button class="btn" onclick="exportJurnalSheet()">${ic("download",15)} Export Sheet (14 kolom)</button>
     <button class="btn btn-primary" onclick="uploadArsipFile({title:'Upload Scan Jurnal Mengajar', kategori:'Jurnal Mengajar', kelasId:activeClassId, showTanggalMengajar:true, enableOcr:true, onDone:window._arsipOnRefresh})">${ic("upload",15)} Upload Scan Jurnal</button>
   </div>
   ${remJurnalCard}
@@ -177,7 +226,179 @@ PAGES.agenda = function(){
   <div class="card"><h3 style="font-size:14px;margin-bottom:10px;">${ic("book",16)} Catatan Jurnal (Teks)</h3>${crudHtml}</div>`;
 };
 
-/* Program Tahunan/Semester implemented by 43-program-documents.js. Legacy stored prose is preserved there. */
+/* ---------- PROGRAM TAHUNAN & SEMESTER (dokumen naratif, auto-isi dari data kurikulum) ---------- */
+function docEditorPage(store, title, desc, templateFn){
+  db[store] = db[store] || {isi:""};
+  if(!db[store].isi) db[store].isi = templateFn();
+  return `
+  <div class="section-head"><div><h1>${title}</h1><div class="desc">${desc}</div></div>
+    <div class="grow"></div>
+    <button class="btn" onclick="regenerateDoc('${store}')">${ic("target",15)} Buat Ulang Otomatis</button>
+    <button class="btn" onclick="printDocGeneric('${store}','${title}')">${ic("print",15)} Cetak</button>
+    <button class="btn" onclick="exportDocWord('${store}','${title}')">${ic("doc",15)} Word</button>
+  </div>
+  <div class="card">
+    <div class="field"><label>Isi Dokumen (dapat disunting bebas)</label><textarea id="docText_${store}" style="min-height:460px;font-family:'Consolas',monospace;font-size:12.5px;">${escapeHtml(db[store].isi)}</textarea></div>
+    <button class="btn btn-primary" onclick="saveDocGeneric('${store}')">${ic("check",15)} Simpan</button>
+  </div>`;
+}
+window._docTemplateFn = {};
+function regenerateDoc(store){
+  confirmDialog("Ini akan MENGGANTI isi dokumen saat ini dengan hasil susunan otomatis terbaru berdasarkan data Sekolah, ATP, dan Kalender Pendidikan. Perubahan manual sebelumnya akan tertimpa. Lanjutkan?", ()=>{
+    db[store].isi = window._docTemplateFn[store]();
+    saveDB(); toast("Dokumen disusun ulang."); renderPage(store==="programTahunan"?"progtahunan":"progsemester");
+  });
+}
+function saveDocGeneric(store){
+  db[store].isi = document.getElementById("docText_"+store).value;
+  saveDB(); toast("Dokumen tersimpan.");
+}
+function printDocGeneric(store,title){
+  const html = "<pre style='white-space:pre-wrap;font-family:inherit;font-size:11.5px;line-height:1.55;'>"+escapeHtml(db[store].isi)+"</pre>";
+  printDocument(title.toUpperCase()+" - KELAS "+db.sekolah.kelas.toUpperCase()+" T.A. "+db.sekolah.tahunAjaran, html);
+}
+function exportDocWord(store,title){
+  const html = "<pre style='white-space:pre-wrap;font-family:Consolas,monospace;font-size:10.5pt;'>"+escapeHtml(db[store].isi)+"</pre>";
+  htmlToWordDoc(letterheadHtml()+`<div class="doc-title">${escapeHtml(title.toUpperCase())}</div>`+html, title.replace(/\s+/g,"_"), title);
+}
+
+// Hitung jumlah minggu efektif semester dari rentang tanggal Kalender
+// Pendidikan (dibatasi oleh entri "Libur Semester").
+function hitungMingguSemester(mulaiISO, akhirISO){
+  const a = new Date(mulaiISO+"T00:00:00"), b = new Date(akhirISO+"T00:00:00");
+  const hari = Math.round((b-a)/86400000);
+  return Math.max(1, Math.round(hari/7));
+}
+
+function buildProgramTahunanText(){
+  const s = db.sekolah;
+  const mingguGasal = hitungMingguSemester("2026-07-13","2026-12-18"); // s.d. penyerahan rapor gasal
+  const mingguGenap = hitungMingguSemester("2027-01-04","2027-06-18"); // s.d. penyerahan rapor genap
+  let jpTable = "No | Mata Pelajaran                              | Intrakurikuler | Kokurikuler | Total JP/Tahun | JP/Minggu\n";
+  jpTable += "---|-----------------------------------------------|----------------|-------------|-----------------|----------\n";
+  JP_STRUKTUR_KELAS1.filter(r=>r.total>0).forEach((r,i)=>{
+    jpTable += `${String(i+1).padEnd(2)} | ${r.mapel.padEnd(47)} | ${String(r.intra).padStart(6)} JP    | ${String(r.koku).padStart(5)} JP   | ${String(r.total).padStart(9)} JP   | ${String(r.jpMinggu).padStart(2)} JP\n`;
+  });
+  const atpBySem1 = db.atp.filter(a=>a.semester==="1");
+  const atpBySem2 = db.atp.filter(a=>a.semester==="2");
+  function ringkasTP(list){
+    const byMapel = {};
+    list.forEach(a=>{ (byMapel[a.mapel]=byMapel[a.mapel]||[]).push(a.tp); });
+    return Object.keys(byMapel).map(m=>` - ${m} (${byMapel[m].length} TP):\n   ${byMapel[m].map((t,i)=>`${i+1}. ${t}`).join("\n   ")}`).join("\n");
+  }
+  return `PROGRAM TAHUNAN
+================
+Satuan Pendidikan : ${s.namaSekolah}
+Kelas / Fase      : ${s.kelas} / Fase A
+Tahun Ajaran      : ${s.tahunAjaran}
+Wali Kelas        : ${(db.guru.find(g=>g.id===s.waliKelasId)||{}).nama || "[Diisi Guru]"}
+
+DASAR HUKUM
+1. Undang-Undang No. 20 Tahun 2003 tentang Sistem Pendidikan Nasional.
+2. Peraturan Pemerintah No. 57 Tahun 2021 jo. No. 4 Tahun 2022 tentang Standar Nasional Pendidikan.
+3. Permendikbudristek No. 12 Tahun 2024 tentang Kurikulum pada PAUD, Dikdas, dan Dikmen, sebagaimana diubah dengan Permendikdasmen No. 13 Tahun 2025 (pendekatan Pembelajaran Mendalam, berlaku 15 Juli 2025).
+4. Permendikdasmen No. 10 Tahun 2025 tentang Standar Kompetensi Lulusan (8 Dimensi Profil Lulusan).
+5. Keputusan Kepala BSKAP Kemendikdasmen No. 046/H/KR/2025 tentang Capaian Pembelajaran pada PAUD, Dikdas, dan Dikmen.
+6. Keputusan Kepala Dinas Pendidikan Provinsi Jawa Tengah No. 400.3/23862/2026 tentang Pedoman Penyusunan Kalender Pendidikan Tahun Ajaran 2026/2027.
+
+I. MINGGU EFEKTIF (mengacu Kalender Pendidikan Prov. Jawa Tengah T.A. 2026/2027)
+   Semester 1 (Ganjil) : 13 Juli 2026 s.d. 18 Desember 2026  (+/- ${mingguGasal} minggu, termasuk minggu penilaian & jeda)
+   Semester 2 (Genap)  : 4 Januari 2027 s.d. 18 Juni 2027   (+/- ${mingguGenap} minggu, termasuk minggu penilaian & jeda)
+   Catatan: rincian pekan efektif final agar dihitung ulang oleh satuan pendidikan menggunakan Kalender Pendidikan pada menu terkait (dikurangi hari libur, PTS/PAS/PAT, dan cadangan).
+
+II. ALOKASI WAKTU MATA PELAJARAN KELAS 1 (Struktur Kurikulum Permendikbudristek No. 12/2024 jo. Permendikdasmen No. 13/2025; asumsi 36 minggu/tahun, 1 JP = 35 menit)
+${jpTable}
+Catatan: Kokurikuler dilaksanakan dalam bentuk pembelajaran kolaboratif lintas disiplin/Gerakan 7 Kebiasaan Anak Indonesia Hebat (Pasal 16-19 Permendikdasmen No. 13/2025), bukan lagi bernama "P5". Muatan Lokal & jenis Seni menyesuaikan kebijakan satuan pendidikan/daerah.
+
+III. TUJUAN PEMBELAJARAN (TP) PER SEMESTER (diturunkan dari CP Fase A - lihat menu ATP untuk versi lengkap dan dapat disunting)
+
+SEMESTER 1 (GANJIL)
+${ringkasTP(atpBySem1) || " (Belum ada data ATP - buka menu ATP lalu klik 'Buat/Segarkan Ulang dari CP')"}
+
+SEMESTER 2 (GENAP)
+${ringkasTP(atpBySem2) || " (Belum ada data ATP - buka menu ATP lalu klik 'Buat/Segarkan Ulang dari CP')"}
+
+IV. PRINSIP PELAKSANAAN
+Pembelajaran dilaksanakan dengan pendekatan Pembelajaran Mendalam yang berkesadaran (mindful), bermakna (meaningful), dan menggembirakan (joyful), melalui pengalaman belajar Memahami - Mengaplikasi - Merefleksi, guna mewujudkan 8 Dimensi Profil Lulusan (Permendikdasmen No. 10/2025): keimanan & ketakwaan, kewargaan, penalaran kritis, kreativitas, kolaborasi, kemandirian, kesehatan, dan komunikasi.
+
+Mengetahui,                                          ${db.sekolah.desa}, ${fmtDate(todayISO())}
+Kepala Sekolah,                                       Guru Kelas ${s.kelas},
+
+
+${s.kepalaSekolah}                                    ${(db.guru.find(g=>g.id===s.waliKelasId)||{}).nama || "___________________"}
+NIP. ${s.nipKepsek}                                   NIP. ${(db.guru.find(g=>g.id===s.waliKelasId)||{}).nip || "___________________"}`;
+}
+
+function buildProgramSemesterText(){
+  const s = db.sekolah;
+  const isGanjil = (s.semester||"").includes("1");
+  const bulanList = isGanjil
+    ? [["Juli 2026","2026-07"],["Agustus 2026","2026-08"],["September 2026","2026-09"],["Oktober 2026","2026-10"],["November 2026","2026-11"],["Desember 2026","2026-12"]]
+    : [["Januari 2027","2027-01"],["Februari 2027","2027-02"],["Maret 2027","2027-03"],["April 2027","2027-04"],["Mei 2027","2027-05"],["Juni 2027","2027-06"]];
+  const semKey = isGanjil ? "1" : "2";
+  const atpSem = db.atp.filter(a=>a.semester===semKey);
+  const byMapel = {};
+  atpSem.forEach(a=>{ (byMapel[a.mapel]=byMapel[a.mapel]||[]).push(a); });
+
+  // Sebaran kegiatan penting bulan berjalan dari Kalender Pendidikan
+  const kalenderBulanIni = m => db.kalender.filter(k=>k.tanggal.startsWith(m)).map(k=>`${fmtDate(k.tanggal)}: ${k.judul}`);
+
+  let header = "No | Mata Pelajaran / TP".padEnd(58) + bulanList.map(b=>b[0].slice(0,3)).join(" | ") + "\n";
+  header += "-".repeat(58+bulanList.length*6) + "\n";
+  let body = "";
+  let no = 1;
+  Object.keys(byMapel).forEach(m=>{
+    body += `${String(no++).padEnd(2)} | ${m}\n`;
+    byMapel[m].forEach(tpRow=>{
+      const label = "   - "+tpRow.tp.slice(0,70)+(tpRow.tp.length>70?"...":"");
+      body += label.padEnd(58) + bulanList.map(()=>" .. ").join(" | ") + "\n";
+    });
+  });
+
+  let kalenderInfo = "";
+  bulanList.forEach(b=>{
+    const items = kalenderBulanIni(b[1]);
+    if(items.length) kalenderInfo += `\n${b[0]}:\n` + items.map(i=>"  - "+i).join("\n") + "\n";
+  });
+
+  return `PROGRAM SEMESTER
+================
+Satuan Pendidikan : ${s.namaSekolah}
+Kelas / Fase      : ${s.kelas} / Fase A
+Semester          : ${s.semester}
+Tahun Ajaran      : ${s.tahunAjaran}
+
+DASAR: Capaian Pembelajaran Fase A (Kepbadan BSKAP No. 046/H/KR/2025), Struktur Kurikulum (Permendikbudristek 12/2024 jo. Permendikdasmen 13/2025), dan Kalender Pendidikan Provinsi Jawa Tengah T.A. 2026/2027 (Kepdisdik Jateng No. 400.3/23862/2026).
+
+I. DISTRIBUSI TUJUAN PEMBELAJARAN PER BULAN
+(Tanda ".." pada kolom bulan agar diisi/disesuaikan guru sesuai kecepatan belajar rombel; gunakan menu ATP untuk detail lengkap tiap TP.)
+
+${header}${body || " (Belum ada data ATP untuk semester ini - buka menu ATP lalu klik 'Buat/Segarkan Ulang dari CP', lalu buat ulang dokumen ini.)"}
+
+II. AGENDA PENTING BULAN BERJALAN (dari menu Kalender Pendidikan)
+${kalenderInfo || " (Belum ada agenda tersimpan pada rentang bulan semester ini.)"}
+
+III. CATATAN
+- Asesmen formatif dilaksanakan menyatu dengan proses pembelajaran sepanjang semester.
+- Asesmen sumatif lingkup materi/tengah semester/akhir semester dijadwalkan menyesuaikan Kalender Pendidikan satuan pendidikan.
+- Kokurikuler (pembelajaran kolaboratif lintas disiplin / 7 Kebiasaan Anak Indonesia Hebat) dijadwalkan tersendiri di luar tabel intrakurikuler di atas.
+
+Mengetahui,                                          ${db.sekolah.desa}, ${fmtDate(todayISO())}
+Kepala Sekolah,                                       Guru Kelas ${s.kelas},
+
+
+${s.kepalaSekolah}                                    ${(db.guru.find(g=>g.id===s.waliKelasId)||{}).nama || "___________________"}
+NIP. ${s.nipKepsek}                                   NIP. ${(db.guru.find(g=>g.id===s.waliKelasId)||{}).nip || "___________________"}`;
+}
+
+PAGES.progtahunan = function(){
+  window._docTemplateFn.programTahunan = buildProgramTahunanText;
+  return docEditorPage("programTahunan","Program Tahunan","Disusun otomatis dari CP resmi, Struktur Kurikulum, ATP, dan Kalender Pendidikan Jateng 2026/2027. Klik \"Buat Ulang Otomatis\" kapan saja setelah data ATP/Kalender diperbarui.", buildProgramTahunanText);
+};
+PAGES.progsemester = function(){
+  window._docTemplateFn.programSemester = buildProgramSemesterText;
+  return docEditorPage("programSemester","Program Semester","Distribusi TP per bulan untuk semester berjalan (mengikuti field Semester pada Profil Sekolah), disusun otomatis dari ATP & Kalender Pendidikan.", buildProgramSemesterText);
+};
 
 /* ---------- CAPAIAN PEMBELAJARAN (CP) - referensi, hanya bisa difilter ---------- */
 PAGES.cp = function(){
@@ -654,7 +875,7 @@ function dnRenderTable(){
     return `<input type="number" min="0" max="100" step="1" class="dn-input" data-siswaid="${s.id}" data-col="${col}" value="${escapeHtml(v)}" placeholder="—" style="width:52px;padding:6px 3px;text-align:center;" oninput="dnOnInput(this)" onkeydown="dnKeydown(event)">`;
   };
   const thFill = (col, label, extra)=>`<th title="Klik untuk isi kolom ${label}" style="cursor:pointer;"${extra||""} onclick="dnIsiKolom('${col}','${label}')">${label}</th>`;
-  let head = `<tr><th rowspan="3" class="dn-pin dn-no">No</th><th rowspan="3" class="dn-pin dn-nis">NISN</th><th rowspan="3" class="dn-pin dn-name">Nama Peserta Didik</th><th colspan="16">FORMATIF</th><th colspan="7">SUMATIF</th><th rowspan="3" style="background:var(--primary-ghost);">Nilai Raport</th></tr>`;
+  let head = `<tr><th rowspan="3" style="position:sticky;left:0;z-index:3;">No</th><th rowspan="3" style="position:sticky;left:44px;z-index:3;">NISN</th><th rowspan="3" style="position:sticky;left:134px;z-index:3;">Nama Peserta Didik</th><th colspan="16">FORMATIF</th><th colspan="7">SUMATIF</th><th rowspan="3" style="background:var(--primary-ghost);">Nilai Raport</th></tr>`;
   head += `<tr>${DN_LM.map((lm,li)=>`<th colspan="4">${lm.replace("Lingkup Materi ","LM ")}</th>`).join("")}${[0,1,2,3].map(li=>thFill("S"+li, "LM"+(li+1), ' rowspan="2"')).join("")}<th rowspan="2">NR</th>${thFill("STS","STS", ' rowspan="2"')}${thFill("SAS","SAS", ' rowspan="2"')}</tr>`;
   head += `<tr>${DN_LM.map((lm,li)=>DN_TP.map((tp,ti)=>thFill("F"+li+"-"+ti, tp)).join("")).join("")}</tr>`;
   const body = siswaList.map((s,i)=>{
@@ -665,7 +886,7 @@ function dnRenderTable(){
     tds += `<td>${inp("STS", s, val("STS", s.id))}</td>`;
     tds += `<td>${inp("SAS", s, val("SAS", s.id))}</td>`;
     tds += `<td id="dnRap_${s.id}" style="font-weight:800;text-align:center;background:var(--primary-ghost);">—</td>`;
-    return `<tr id="dnRow_${s.id}"><td class="dn-pin dn-no">${i+1}</td><td class="dn-pin dn-nis">${escapeHtml(s.nis||"—")}</td><td class="dn-pin dn-name"><strong>${escapeHtml(s.nama)}</strong></td>${tds}</tr>`;
+    return `<tr id="dnRow_${s.id}"><td style="position:sticky;left:0;background:var(--surface);">${i+1}</td><td style="position:sticky;left:44px;background:var(--surface);">${escapeHtml(s.nis||"—")}</td><td style="position:sticky;left:134px;background:var(--surface);"><strong>${escapeHtml(s.nama)}</strong></td>${tds}</tr>`;
   }).join("");
   holder.innerHTML = `<div id="dnTableWrap" class="table-wrap"><table><thead>${head}</thead><tbody>${body || `<tr><td colspan="27" class="empty-state">Belum ada data siswa.</td></tr>`}</tbody></table></div>`;
   siswaList.forEach(s=>dnHitungBaris(s.id, true));
@@ -747,6 +968,7 @@ function dnSimpanSemua(){
   saveDB();
   dnClearDraft(ctx);
   toast(n+" nilai berhasil disimpan (Formatif + Sumatif LM + STS + SAS).");
+  playSuccessSoundIfEnabled();
   dnRenderTable();
 }
 function dnKop(){

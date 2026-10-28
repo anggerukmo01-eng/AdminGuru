@@ -429,8 +429,10 @@ function crudAdd(store){
     const missing = cfg.fields.find(f=>f.required && !data[f.key]);
     if(missing){ toast("Mohon isi: "+missing.label); return; }
     data.id = uid(store);
+    data.createdAt = new Date().toISOString();
     db[store].push(data);
     saveDB(); closeModal(); toast("Data tersimpan.");
+    if(store==="agenda") playSuccessSoundIfEnabled();
     if(window["crudRefresh_"+store]) window["crudRefresh_"+store]();
     if(window["dashRefresh"]) window.dashRefresh();
   };
@@ -448,6 +450,7 @@ function crudEdit(store, id){
     const data = readForm(cfg.fields);
     Object.assign(row, data);
     saveDB(); closeModal(); toast("Perubahan disimpan.");
+    if(store==="agenda") playSuccessSoundIfEnabled();
     if(window["crudRefresh_"+store]) window["crudRefresh_"+store]();
   };
 }
@@ -775,6 +778,36 @@ function htmlToExcelXls(tableHtml, filename, title){
   const fn = withClassTag(filename);
   downloadBlob(doc, fn.endsWith(".xls")?fn:fn+".xls", "application/vnd.ms-excel");
   toast("File Excel (.xls) diunduh.");
+}
+/* ============================================================
+   5G. MELODI SUKSES (port dari Jurnal Harian GAS)
+   ------------------------------------------------------------
+   Nada C5-E5-G5-C6 via Web Audio API, tanpa file suara.
+   Default NONAKTIF; diaktifkan lewat Pengaturan > Suara.
+   Dipanggil hanya pada aksi Simpan eksplisit (jurnal & nilai),
+   BUKAN pada setiap saveDB (yang berjalan otomatis di latar).
+   ============================================================ */
+function playSuccessSound(){
+  try{
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if(!AC) return;
+    const ctx = new AC();
+    [523.25, 659.25, 783.99, 1046.50].forEach((freq, index)=>{
+      const t = ctx.currentTime + index * 0.1;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.exponentialRampToValueAtTime(0.25, t + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.start(t); osc.stop(t + 0.4);
+    });
+  }catch(e){ /* abaikan bila audio tidak tersedia */ }
+}
+function playSuccessSoundIfEnabled(){
+  try{ if(typeof settings!=="undefined" && settings.bunyiSukses) playSuccessSound(); }catch(e){}
 }
 function tableHtmlFromRows(cols, rows){
   let h = "<table><thead><tr><th>No</th>"+cols.map(c=>`<th>${c.label}</th>`).join("")+"</tr></thead><tbody>";

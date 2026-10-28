@@ -408,6 +408,11 @@ PAGES.pengaturan = function(){
       <p class="muted">Mode saat ini: <strong>${settings.theme==="dark"?"Gelap":"Terang"}</strong></p>
       <button class="btn" onclick="toggleTheme()">Ganti ke Mode ${settings.theme==="dark"?"Terang":"Gelap"}</button>
     </div>
+    <div class="card">
+      <h3>${ic("check",16)} Suara</h3>
+      <label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;cursor:pointer;"><input type="checkbox" id="bunyiSukses" style="width:auto;margin-top:2px;" ${settings.bunyiSukses?"checked":""}> Mainkan melodi sukses (C5-E5-G5-C6) saat menyimpan jurnal &amp; nilai massal.</label>
+      <div style="margin-top:10px;"><button class="btn btn-primary" onclick="saveSuara()">${ic("check",15)} Simpan Pengaturan Suara</button></div>
+    </div>
   </div>
   <div class="card" style="margin-top:16px;">
     <h3>${ic("backup",16)} Cloud Storage</h3>
@@ -437,13 +442,17 @@ PAGES.pengaturan = function(){
       &bull; <strong>Naik Kelas / Pindah Kelas:</strong> memindahkan data siswa ke kelas tujuan dan mengosongkan roster kelas asal untuk tahun ajaran berikutnya. Data akademik (nilai, kehadiran, jurnal, dst.) kelas asal TETAP tersimpan sebagai arsip, tidak terhapus.<br>
       &bull; <strong>Penyimpanan:</strong> menggunakan localStorage pada browser perangkat ini. Data tidak tersinkron otomatis ke perangkat lain -- gunakan menu Backup &amp; Restore (Lokal atau Cloud Storage) untuk memindahkan data; backup selalu mencakup Kelas 1-6 sekaligus.<br>
       &bull; <strong>Backup Cloud (Supabase):</strong> fitur opsional yang butuh internet, project Supabase milik sendiri, dan hosting non-file:// (lihat panduan di atas). Tanpa itu, aplikasi tetap 100% offline seperti biasa.<br>
-      &bull; <strong>Word hasil AI (.docx):</strong> dokumen Word native dengan paragraf, penomoran, tabel, kop dan ukuran halaman yang terstruktur. Gunakan Format Word DOCX pada hasil atau riwayat untuk mengatur huruf, ukuran, spasi, kertas, dan orientasi. Mesin ekspor tersedia dalam berkas aplikasi. Ekspor Word administrasi lama (.doc) dan Excel (.xls) tetap memakai HTML.<br>
+      &bull; <strong>Ekspor Word (.doc) &amp; Excel (.xls):</strong> dibuat dengan format HTML yang dibaca native oleh Microsoft Word/Excel tanpa pustaka eksternal. Berkas akan terbuka dengan baik walau ikon file menunjukkan format lama (.doc/.xls, bukan .docx/.xlsx). Nama file otomatis menyertakan kelas aktif (mis. "..._Kelas-3").<br>
       &bull; <strong>Ekspor PDF:</strong> memakai dialog cetak bawaan browser (pilih "Simpan sebagai PDF").<br>
       &bull; <strong>Tulisan tangan ke teks (OCR):</strong> tidak tersedia offline murni HTML/JS; catatan tangan disimpan sebagai gambar.<br>
       &bull; <strong>Keamanan PIN:</strong> untuk mencegah akses tidak sengaja di perangkat bersama, bukan enkripsi tingkat industri.
     </p>
   </div>`;
 };
+function saveSuara(){
+  settings.bunyiSukses = !!document.getElementById("bunyiSukses").checked;
+  saveSettings(); toast(settings.bunyiSukses ? "Melodi sukses diaktifkan." : "Melodi sukses dinonaktifkan."); renderPage("pengaturan");
+}
 function saveSecurity(){
   const pin = document.getElementById("newPin").value.trim();
   const autoLockMin = Number(document.getElementById("autoLockMin").value);
