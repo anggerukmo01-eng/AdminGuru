@@ -19,5 +19,9 @@ function boot(){
   window.addEventListener("resize", ()=>{ if(window.innerWidth>960) toggleSidebar(false); });
   checkKalenderReminders();
   setInterval(checkKalenderReminders, 60*1000);
+  if(typeof checkAgendaReminders==="function"){
+    checkAgendaReminders();
+    setInterval(checkAgendaReminders, 60*1000);
+  }
 }
 document.addEventListener("DOMContentLoaded", boot);
