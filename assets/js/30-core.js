@@ -197,21 +197,18 @@ function buildSidebar(){
   }
   let h = `<div class="brand">
     <div class="logo logo-img"><img src="${LOGO_SEKOLAH}" alt="Logo SD Negeri 1 Gerduren"></div>
-    <div class="txt"><strong>Admin<span class="brand-accent">Guru</span></strong><span>Ruang kerja guru SD</span></div>
-    <button class="sidebar-close iconbtn" onclick="toggleSidebar(false)" aria-label="Tutup menu">${ic("x",18)}</button>
+    <div class="txt"><strong>Administrasi Guru</strong><span>SD Negeri 1 Gerduren</span></div>
   </div>
-  <div class="sidebar-school">${ic("school",16)}<span>${escapeHtml(db.sekolah.namaSekolah)}</span></div>
-  <div class="sidebar-shortcuts"><button onclick="navigate('kehadiran')">${ic("attendance",17)} Kehadiran</button><button onclick="navigate('aiDashboard')">${ic("star",17)} Pusat AI</button></div>
-  <div class="navsearch">${ic("search",16)}<input id="navSearch" aria-label="Cari menu" type="search" placeholder="Cari menu..." autocomplete="off" oninput="filterNav(this.value)"></div>
+  <div class="navsearch">${ic("search",16)}<input id="navSearch" type="search" placeholder="Cari menu..." autocomplete="off" oninput="filterNav(this.value)"></div>
   <div class="nav-empty" id="navEmpty">Tidak ada menu yang cocok.</div>`;
   NAV.forEach(g=>{
     const isCol = collapsed.includes(g.group);
     const items = g.items.map(it=>
-      `<button class="navitem" data-page="${it.id}" data-label="${it.label.toLowerCase()}" onclick="navigate('${it.id}')">${ic(it.icon,18)}<span>${it.label}</span></button>`
+      `<div class="navitem" data-page="${it.id}" data-label="${it.label.toLowerCase()}" onclick="navigate('${it.id}')">${ic(it.icon,18)}<span>${it.label}</span></div>`
     ).join("");
     const chev = ic("chevronRight",14).replace("<svg ", '<svg class="chev" ');
     h += `<div class="navgroup${isCol?" collapsed":""}" data-group="${g.group}">
-      <button class="navgroup-head" aria-expanded="${!isCol}" onclick="toggleNavGroup('${g.group}')" title="Buka/tutup grup">
+      <button class="navgroup-head" onclick="toggleNavGroup('${g.group}')" title="Buka/tutup grup">
         <span>${g.group}</span><span class="g-count">${g.items.length}</span>${chev}
       </button>
       <div class="navgroup-items"><div>${items}</div></div>
@@ -220,13 +217,11 @@ function buildSidebar(){
   el.innerHTML = h;
   buildClassSwitcher();
   markActiveNav(currentPage);
-  if(typeof buildMobileNav==="function") buildMobileNav();
 }
 function toggleNavGroup(group){
   const g = document.querySelector('.navgroup[data-group="'+group+'"]');
   if(!g) return;
   g.classList.toggle("collapsed");
-  g.querySelector(".navgroup-head").setAttribute("aria-expanded", !g.classList.contains("collapsed"));
   let c = navCollapsedGet()||[];
   c = c.filter(x=>x!==group);
   if(g.classList.contains("collapsed")) c.push(group);
@@ -243,24 +238,19 @@ function filterNav(q){
       if(hit){ gv++; visible++; }
     });
     g.style.display = gv ? "" : "none";
-    g.classList.toggle("collapsed", !q && (navCollapsedGet()||[]).includes(g.dataset.group));
-    g.querySelector(".navgroup-head").setAttribute("aria-expanded", !g.classList.contains("collapsed"));
+    if(q) g.classList.remove("collapsed"); // saat mencari, buka semua grup
   });
   const em = document.getElementById("navEmpty");
   if(em) em.classList.toggle("show", visible===0);
 }
 function markActiveNav(page){
-  document.querySelectorAll(".navitem, .mobile-nav [data-page]").forEach(n=>{
-    n.classList.toggle("active", n.dataset.page===page);
-    if(n.dataset.page===page) n.setAttribute("aria-current","page"); else n.removeAttribute("aria-current");
-  });
+  document.querySelectorAll(".navitem").forEach(n=>n.classList.toggle("active", n.dataset.page===page));
   // pastikan grup induk halaman aktif terbuka
   const grp = NAV.find(g=>g.items.some(i=>i.id===page));
   if(grp){
     const el = document.querySelector('.navgroup[data-group="'+grp.group+'"]');
     if(el && el.classList.contains("collapsed")){
       el.classList.remove("collapsed");
-      el.querySelector(".navgroup-head").setAttribute("aria-expanded","true");
       navCollapsedSet((navCollapsedGet()||[]).filter(x=>x!==grp.group));
     }
   }
@@ -278,15 +268,8 @@ function toggleSidebar(force){
   const open = force!==undefined ? force : !sb.classList.contains("open");
   sb.classList.toggle("open", open);
   mask.classList.toggle("show", open);
-  const mobile = window.innerWidth<=960;
-  sb.inert = mobile && !open;
-  document.body.classList.toggle("sidebar-visible", mobile && open);
-  document.getElementById("menuToggle").setAttribute("aria-expanded", String(open));
 }
 function navigate(page){
-  if(!PAGES[page]){ toast("Halaman belum tersedia."); return; }
-  if(typeof BookReader!=='undefined') BookReader.close();
-  if(typeof cancelAiRequests==="function") cancelAiRequests();
   currentPage = page;
   markActiveNav(page);
   const navItem = NAV.flatMap(g=>g.items).find(i=>i.id===page);
@@ -294,14 +277,11 @@ function navigate(page){
   renderPage(page);
   toggleSidebar(false);
   window.scrollTo(0,0);
-  if(typeof syncWorkspaceUi==="function") syncWorkspaceUi();
 }
 function renderPage(page){
   const c = document.getElementById("pageContent");
   const renderer = PAGES[page];
   c.innerHTML = renderer ? renderer() : "<p>Halaman tidak ditemukan.</p>";
-  c.dataset.page = page;
-  if(typeof enhanceFormLabels==="function") enhanceFormLabels(c);
 }
 
 /* ============================================================
@@ -318,45 +298,21 @@ function toast(msg){
 /* ============================================================
    5B. MODAL ENGINE
    ============================================================ */
-let modalReturnFocus = null;
 function openModal({title, bodyHtml, onMount, footHtml}){
   closeModal();
-  modalReturnFocus = document.activeElement;
   const mask = document.createElement("div");
   mask.className = "modal-mask show"; mask.id = "activeModal";
-  mask.innerHTML = `<div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" tabindex="-1">
-      <div class="modal-head"><h3 id="modalTitle">${escapeHtml(title)}</h3>
-        <button class="iconbtn" aria-label="Tutup dialog" onclick="closeModal()">${ic("x",18)}</button></div>
+  mask.innerHTML = `<div class="modal">
+      <div class="modal-head"><h3>${escapeHtml(title)}</h3>
+        <button class="iconbtn" onclick="closeModal()">${ic("x",18)}</button></div>
       <div class="modal-body" id="modalBody">${bodyHtml}</div>
       ${footHtml? `<div class="modal-foot">${footHtml}</div>` : ""}
     </div>`;
   mask.addEventListener("click", e=>{ if(e.target===mask) closeModal(); });
   document.body.appendChild(mask);
-  document.body.classList.add("modal-open");
-  document.getElementById("app").inert = true;
-  document.getElementById("mobileNav").inert = true;
-  enhanceFormLabels(mask);
-  mask.addEventListener("keydown", e=>{
-    if(e.key==="Escape"){ e.preventDefault(); closeModal(); return; }
-    if(e.key!=="Tab") return;
-    const focusable = Array.from(mask.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex="0"]')).filter(n=>n.getClientRects().length);
-    const first=focusable[0], last=focusable[focusable.length-1];
-    if(!first){ e.preventDefault(); return; }
-    if(e.shiftKey && document.activeElement===first){ e.preventDefault(); last.focus(); }
-    else if(!e.shiftKey && document.activeElement===last){ e.preventDefault(); first.focus(); }
-  });
   if(onMount) onMount();
-  const first = mask.querySelector("input, select, textarea") || mask.querySelector(".modal");
-  if(first) first.focus();
 }
-function closeModal(){
-  const m = document.getElementById("activeModal"); if(m) m.remove();
-  document.body.classList.remove("modal-open");
-  document.getElementById("app").inert = !document.getElementById("app").classList.contains("ready");
-  document.getElementById("mobileNav").inert = !document.getElementById("app").classList.contains("ready");
-  if(modalReturnFocus && modalReturnFocus.isConnected) modalReturnFocus.focus();
-  modalReturnFocus = null;
-}
+function closeModal(){ const m = document.getElementById("activeModal"); if(m) m.remove(); }
 
 function confirmDialog(msg, onYes){
   openModal({
@@ -428,13 +384,13 @@ function crudSection(cfg){
     const body = data.map(r=>{
       const tds = cfg.columns.map(c=>{
         let val = r[c.key];
-        if(c.render) val = c.render(val, r); else val = escapeHtml(val);
+        if(c.render) val = c.render(val, r);
         return `<td>${val==null?'':val}</td>`;
       }).join("");
       return `<tr><td>${data.indexOf(r)+1}</td>${tds}
         <td><div class="row-actions">
-          <button class="btn btn-sm btn-icon" aria-label="Ubah data" onclick="crudEdit('${cfg.store}',${htmlJsArg(r.id)})">${ic("edit",15)}</button>
-          <button class="btn btn-sm btn-icon btn-danger" aria-label="Hapus data" onclick="crudDelete('${cfg.store}',${htmlJsArg(r.id)})">${ic("trash",15)}</button>
+          <button class="btn btn-sm btn-icon" onclick="crudEdit('${cfg.store}','${r.id}')">${ic("edit",15)}</button>
+          <button class="btn btn-sm btn-icon btn-danger" onclick="crudDelete('${cfg.store}','${r.id}')">${ic("trash",15)}</button>
         </div></td></tr>`;
     }).join("");
     return `<div class="table-wrap"><table><thead><tr><th>No</th>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
@@ -547,6 +503,268 @@ function htmlToWordDoc(innerHtml, filename, title){
   downloadBlob(doc, fn.endsWith(".doc")?fn:fn+".doc", "application/msword");
   toast("File Word (.doc) diunduh.");
 }
+/* ============================================================
+   5F. EXPORT .docx ASLI (OOXML) — tanpa pustaka eksternal
+   ------------------------------------------------------------
+   Word modern memberi peringatan untuk .doc berisi HTML. Blok ini
+   membangun berkas .docx asli: arsip ZIP (entri STORED, tanpa kompresi,
+   jadi tidak butuh pustaka ZIP) berisi XML WordprocessingML.
+   Konverter menangani: p, h2/h3/h4, ul/ol/li, table, strong/em/b/i/u,
+   br, hr, div/span. Tag lain dibuka bungkusnya. Gambar (mis. logo kop)
+   tidak ikut — kop ditulis sebagai baris teks.
+   ============================================================ */
+/* --- BEGIN DOCX ENGINE (diuji otomatis; jangan ubah penanda ini) --- */
+function docxXmlEsc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function docxCrc32(bytes){
+  let table = docxCrc32._t;
+  if(!table){
+    table = docxCrc32._t = [];
+    for(let n=0;n<256;n++){
+      let c = n;
+      for(let k=0;k<8;k++) c = (c&1) ? (0xEDB88320 ^ (c>>>1)) : (c>>>1);
+      table[n] = c>>>0;
+    }
+  }
+  let crc = 0xFFFFFFFF;
+  for(let i=0;i<bytes.length;i++) crc = table[(crc ^ bytes[i]) & 0xFF] ^ (crc>>>8);
+  return (crc ^ 0xFFFFFFFF)>>>0;
+}
+function docxZipStored(files){
+  const enc = new TextEncoder();
+  const chunks = [];
+  const central = [];
+  let offset = 0;
+  const now = new Date();
+  const dosTime = ((now.getHours()&31)<<11) | ((now.getMinutes()&63)<<5) | ((now.getSeconds()>>1)&31);
+  const dosDate = (((now.getFullYear()-1980)&127)<<9) | (((now.getMonth()+1)&15)<<5) | (now.getDate()&31);
+  const push = (arr)=>{ chunks.push(arr); offset += arr.length; };
+  for(const f of files){
+    const nameBytes = enc.encode(f.name);
+    const dataBytes = enc.encode(f.data);
+    const crc = docxCrc32(dataBytes);
+    const local = new DataView(new ArrayBuffer(30));
+    local.setUint32(0, 0x04034b50, true);
+    local.setUint16(4, 20, true);
+    local.setUint16(6, 0x0800, true);
+    local.setUint16(8, 0, true);
+    local.setUint16(10, dosTime, true);
+    local.setUint16(12, dosDate, true);
+    local.setUint32(14, crc, true);
+    local.setUint32(18, dataBytes.length, true);
+    local.setUint32(22, dataBytes.length, true);
+    local.setUint16(26, nameBytes.length, true);
+    local.setUint16(28, 0, true);
+    const localOff = offset;
+    push(new Uint8Array(local.buffer)); push(nameBytes); push(dataBytes);
+    const cen = new DataView(new ArrayBuffer(46));
+    cen.setUint32(0, 0x02014b50, true);
+    cen.setUint16(4, 20, true);
+    cen.setUint16(6, 20, true);
+    cen.setUint16(8, 0x0800, true);
+    cen.setUint16(10, 0, true);
+    cen.setUint16(12, dosTime, true);
+    cen.setUint16(14, dosDate, true);
+    cen.setUint32(16, crc, true);
+    cen.setUint32(20, dataBytes.length, true);
+    cen.setUint32(24, dataBytes.length, true);
+    cen.setUint16(28, nameBytes.length, true);
+    cen.setUint16(30, 0, true);
+    cen.setUint16(32, 0, true);
+    cen.setUint16(34, 0, true);
+    cen.setUint16(36, 0, true);
+    cen.setUint32(38, 0, true);
+    cen.setUint32(42, localOff, true);
+    central.push(new Uint8Array(cen.buffer), nameBytes);
+  }
+  const cenOff = offset;
+  let cenSize = 0;
+  for(const c of central){ chunks.push(c); cenSize += c.length; }
+  offset += cenSize;
+  const eocd = new DataView(new ArrayBuffer(22));
+  eocd.setUint32(0, 0x06054b50, true);
+  eocd.setUint16(4, 0, true);
+  eocd.setUint16(6, 0, true);
+  eocd.setUint16(8, files.length, true);
+  eocd.setUint16(10, files.length, true);
+  eocd.setUint32(12, cenSize, true);
+  eocd.setUint32(16, cenOff, true);
+  eocd.setUint16(20, 0, true);
+  chunks.push(new Uint8Array(eocd.buffer));
+  const out = new Uint8Array(offset + 22);
+  let p = 0;
+  for(const c of chunks){ out.set(c, p); p += c.length; }
+  return out;
+}
+function docxRun(text, fmt){
+  if(!text) return "";
+  fmt = fmt||{};
+  const props = [];
+  if(fmt.b) props.push("<w:b/>");
+  if(fmt.i) props.push("<w:i/>");
+  if(fmt.u) props.push("<w:u w:val=\"single\"/>");
+  if(fmt.size) props.push("<w:sz w:val=\""+fmt.size+"\"/><w:szCs w:val=\""+fmt.size+"\"/>");
+  const rPr = props.length ? "<w:rPr>"+props.join("")+"</w:rPr>" : "";
+  return "<w:r>"+rPr+"<w:t xml:space=\"preserve\">"+docxXmlEsc(text)+"</w:t></w:r>";
+}
+function docxPara(inner, opts){
+  opts = opts||{};
+  const parts = [];
+  if(opts.center) parts.push("<w:jc w:val=\"center\"/>");
+  if(opts.indent!=null) parts.push("<w:ind w:left=\""+opts.indent+"\"/>");
+  if(opts.spaceBefore!=null || opts.spaceAfter!=null) parts.push("<w:spacing"+(opts.spaceBefore!=null?" w:before=\""+opts.spaceBefore+"\"":"")+(opts.spaceAfter!=null?" w:after=\""+opts.spaceAfter+"\"":"")+"/>");
+  if(opts.bdrBottom) parts.push("<w:pBdr><w:bottom w:val=\"single\" w:sz=\"6\" w:space=\"1\" w:color=\"auto\"/></w:pBdr>");
+  const pPr = parts.length ? "<w:pPr>"+parts.join("")+"</w:pPr>" : "";
+  return "<w:p>"+pPr+inner+"</w:p>";
+}
+function docxCellParas(cellEl, bold){
+  const paras = [];
+  let cur = [];
+  const pushPara = ()=>{ if(cur.length) paras.push(docxPara(cur.join(""), {})); cur = []; };
+  const walkInline = (node, fmt)=>{
+    for(const ch of Array.from(node.childNodes)){
+      if(ch.nodeType===3){ if(ch.textContent) cur.push(docxRun(ch.textContent, fmt)); }
+      else if(ch.nodeType===1){
+        const tag = ch.tagName;
+        if(tag==="SCRIPT"||tag==="STYLE"||tag==="IFRAME"||tag==="OBJECT") continue;
+        if(tag==="BR") cur.push("<w:r><w:br/></w:r>");
+        else if(tag==="STRONG"||tag==="B") walkInline(ch, Object.assign({}, fmt, {b:1}));
+        else if(tag==="EM"||tag==="I") walkInline(ch, Object.assign({}, fmt, {i:1}));
+        else if(tag==="P"){ pushPara(); walkInline(ch, fmt); pushPara(); }
+        else walkInline(ch, fmt);
+      }
+    }
+  };
+  walkInline(cellEl, bold?{b:1}:{});
+  pushPara();
+  return paras.length ? paras.join("") : docxPara("", {});
+}
+function docxTable(tableEl){
+  const rows = [];
+  const collect = (el, header)=>{
+    for(const ch of Array.from(el.children)){
+      if(ch.tagName==="TR") rows.push({el:ch, header:header});
+      else if(ch.tagName==="THEAD"||ch.tagName==="TBODY") collect(ch, el.tagName==="THEAD");
+    }
+  };
+  collect(tableEl, false);
+  if(!rows.length) return "";
+  let cols = 0;
+  rows.forEach(r=>{
+    const n = Array.from(r.el.children).filter(c=>c.tagName==="TD"||c.tagName==="TH").length;
+    if(n>cols) cols = n;
+  });
+  if(!cols) return "";
+  const cellBdr = "<w:top w:val=\"single\" w:sz=\"4\" w:color=\"auto\"/><w:left w:val=\"single\" w:sz=\"4\" w:color=\"auto\"/><w:bottom w:val=\"single\" w:sz=\"4\" w:color=\"auto\"/><w:right w:val=\"single\" w:sz=\"4\" w:color=\"auto\"/>";
+  let grid = "<w:tblGrid>";
+  for(let i=0;i<cols;i++) grid += "<w:gridCol w:w=\""+Math.floor(9360/cols)+"\"/>";
+  grid += "</w:tblGrid>";
+  let trs = "";
+  rows.forEach(r=>{
+    const cells = Array.from(r.el.children).filter(c=>c.tagName==="TD"||c.tagName==="TH");
+    let tcs = "";
+    for(const c of cells){
+      tcs += "<w:tc><w:tcPr><w:tcBorders>"+cellBdr+"</w:tcBorders></w:tcPr>"+docxCellParas(c, c.tagName==="TH"||r.header)+"</w:tc>";
+    }
+    trs += "<w:tr>"+tcs+"</w:tr>";
+  });
+  return "<w:tbl><w:tblPr><w:tblW w:w=\"0\" w:type=\"auto\"/><w:tblBorders>"+cellBdr+"<w:insideH w:val=\"single\" w:sz=\"4\" w:color=\"auto\"/><w:insideV w:val=\"single\" w:sz=\"4\" w:color=\"auto\"/></w:tblBorders></w:tblPr>"+grid+trs+"</w:tbl>";
+}
+function htmlToDocxWml(html){
+  const doc = new DOMParser().parseFromString("<div>"+(html||"")+"</div>", "text/html");
+  const root = doc.body.firstChild;
+  const paras = [];
+  let cur = null;
+  const flush = ()=>{ if(cur && cur.runs.length) paras.push(docxPara(cur.runs.join(""), cur.opts)); cur = null; };
+  const inline = (node, fmt)=>{
+    if(node.nodeType===1 && (node.tagName==="SCRIPT"||node.tagName==="STYLE"||node.tagName==="IFRAME"||node.tagName==="OBJECT")) return;
+    for(const ch of Array.from(node.childNodes)){
+      if(ch.nodeType===3){
+        if(ch.textContent){ if(!cur) cur = {runs:[], opts:{}}; cur.runs.push(docxRun(ch.textContent, fmt)); }
+      } else if(ch.nodeType===1){
+        const tag = ch.tagName;
+        if(tag==="SCRIPT"||tag==="STYLE"||tag==="IFRAME"||tag==="OBJECT") continue;
+        if(tag==="BR"){ if(!cur) cur = {runs:[], opts:{}}; cur.runs.push("<w:r><w:br/></w:r>"); }
+        else if(tag==="STRONG"||tag==="B") inline(ch, Object.assign({}, fmt, {b:1}));
+        else if(tag==="EM"||tag==="I") inline(ch, Object.assign({}, fmt, {i:1}));
+        else if(tag==="U") inline(ch, Object.assign({}, fmt, {u:1}));
+        else if(tag==="IMG"){ /* gambar dilewati */ }
+        else inline(ch, fmt);
+      }
+    }
+  };
+  const blocks = (node)=>{
+    for(const ch of Array.from(node.childNodes)){
+      if(ch.nodeType===3){
+        const t = ch.textContent;
+        if(t && t.trim()){ if(!cur) cur = {runs:[], opts:{}}; cur.runs.push(docxRun(t, {})); }
+        continue;
+      }
+      if(ch.nodeType!==1) continue;
+      const tag = ch.tagName;
+      if(tag==="P"){ flush(); cur = {runs:[], opts:{}}; inline(ch, {}); flush(); }
+      else if(tag==="H2"||tag==="H3"||tag==="H4"){
+        flush();
+        const size = tag==="H2"?28:(tag==="H3"?26:24);
+        cur = {runs:[], opts:{spaceBefore:240, spaceAfter:120}};
+        inline(ch, {b:1, size:size});
+        flush();
+      }
+      else if(tag==="UL"||tag==="OL"){
+        flush();
+        let n = 0;
+        for(const li of Array.from(ch.children)){
+          if(li.tagName!=="LI") continue;
+          n++;
+          cur = {runs:[], opts:{indent:360}};
+          cur.runs.push(docxRun(tag==="UL" ? "•  " : (n+".  "), {}));
+          inline(li, {});
+          flush();
+        }
+      }
+      else if(tag==="TABLE"){ flush(); paras.push(docxTable(ch)); }
+      else if(tag==="HR"){ flush(); cur = {runs:[], opts:{bdrBottom:1}}; flush(); }
+      else if(tag==="SCRIPT"||tag==="STYLE"||tag==="IFRAME"||tag==="OBJECT"){ /* dilewati total */ }
+      else if(tag==="DIV"||tag==="SECTION"||tag==="ARTICLE"){ blocks(ch); }
+      else if(tag==="BR"){ if(!cur) cur = {runs:[], opts:{}}; cur.runs.push("<w:r><w:br/></w:r>"); }
+      else inline(ch, {});
+    }
+  };
+  if(root) blocks(root);
+  flush();
+  return paras.join("");
+}
+function docxBuildPackage(bodyWml){
+  const contentTypes = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\"><Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/><Default Extension=\"xml\" ContentType=\"application/xml\"/><Override PartName=\"/word/document.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml\"/><Override PartName=\"/word/styles.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml\"/></Types>";
+  const rels = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"><Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"word/document.xml\"/></Relationships>";
+  const styles = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<w:styles xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\"><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii=\"Calibri\" w:hAnsi=\"Calibri\" w:cs=\"Calibri\"/><w:sz w:val=\"24\"/><w:szCs w:val=\"24\"/><w:lang w:val=\"id-ID\"/></w:rPr></w:rPrDefault></w:docDefaults><w:style w:type=\"paragraph\" w:default=\"1\" w:styleId=\"Normal\"><w:name w:val=\"Normal\"/><w:qFormat/></w:style></w:styles>";
+  const document = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<w:document xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\"><w:body>"+bodyWml+"<w:sectPr><w:pgSz w:w=\"11906\" w:h=\"16838\"/><w:pgMar w:top=\"1440\" w:right=\"1440\" w:bottom=\"1440\" w:left=\"1701\" w:header=\"720\" w:footer=\"720\" w:gutter=\"0\"/></w:sectPr></w:body></w:document>";
+  const docRels = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"></Relationships>";
+  return docxZipStored([
+    {name:"[Content_Types].xml", data:contentTypes},
+    {name:"_rels/.rels", data:rels},
+    {name:"word/document.xml", data:document},
+    {name:"word/styles.xml", data:styles},
+    {name:"word/_rels/document.xml.rels", data:docRels},
+  ]);
+}
+function htmlToDocx(innerHtml, filename, title){
+  const s = (typeof db!=="undefined" && db.sekolah) ? db.sekolah : {};
+  let kop = "";
+  if(s.namaSekolah) kop += docxPara(docxRun("PEMERINTAH KABUPATEN "+String(s.kabupaten||"").toUpperCase(), {b:1}), {center:1});
+  kop += docxPara(docxRun("DINAS PENDIDIKAN", {b:1}), {center:1});
+  if(s.namaSekolah) kop += docxPara(docxRun(String(s.namaSekolah).toUpperCase(), {b:1, size:28}), {center:1});
+  const alamat = [s.alamat, s.desa, s.kecamatan, s.kabupaten, s.provinsi].filter(Boolean).join(", ");
+  if(alamat) kop += docxPara(docxRun(alamat, {}), {center:1});
+  if(kop) kop += docxPara("", {bdrBottom:1, spaceAfter:240});
+  let judul = "";
+  if(title) judul = docxPara(docxRun(title, {b:1, size:28}), {center:1, spaceAfter:240});
+  const body = kop + judul + htmlToDocxWml(innerHtml);
+  const bytes = docxBuildPackage(body);
+  const fn = withClassTag(filename);
+  downloadBlob(bytes, fn.endsWith(".docx")?fn:fn+".docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+  toast("File Word (.docx) diunduh.");
+}
+/* --- END DOCX ENGINE --- */
 function htmlToExcelXls(tableHtml, filename, title){
   const doc = `<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8">
   <!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>
