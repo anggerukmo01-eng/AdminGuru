@@ -764,7 +764,23 @@ function dnCtx(){
 function dnDraftKey(ctx){
   return "tpsd2026_draftdaftarnilai_"+[activeClassId, ctx.mapel, ctx.semester].map(s=>String(s||"").replace(/[^a-zA-Z0-9]/g,"_")).join("__");
 }
-function dnLoadDraft(ctx){ try{ return JSON.parse(localStorage.getItem(dnDraftKey(ctx))||"{}"); }catch(e){ return {}; } }
+function dnDraftCellKey(col, siswaId){
+  const f=col.match(/^F(\d+)-(\d+)$/), sum=col.match(/^S(\d+)$/);
+  return (f ? "F|"+f[1]+"|"+f[2] : sum ? "S|"+sum[1] : col)+"|"+siswaId;
+}
+function dnLoadDraft(ctx){
+  try{
+    const raw=JSON.parse(localStorage.getItem(dnDraftKey(ctx))||"{}");
+    if(!raw || typeof raw!=="object" || Array.isArray(raw)) return {};
+    const draft={};
+    Object.keys(raw).forEach(key=>{
+      const split=key.indexOf("|"), col=key.slice(0,split);
+      const normalized=split>=0 && /^(F\d+-\d+|S\d+)$/.test(col) ? dnDraftCellKey(col,key.slice(split+1)) : key;
+      draft[normalized]=raw[key];
+    });
+    return draft;
+  }catch(e){ return {}; }
+}
 function dnSaveDraft(ctx, d){ try{ localStorage.setItem(dnDraftKey(ctx), JSON.stringify(d)); }catch(e){} }
 function dnClearDraft(ctx){ try{ localStorage.removeItem(dnDraftKey(ctx)); }catch(e){} }
 function dnExistingMap(ctx){
@@ -849,7 +865,7 @@ PAGES.inputnilai = function(){
       <div class="grow"></div>
       <span class="hint" id="dnAutosaveLabel">Draf tersimpan otomatis di perangkat ini.</span>
     </div>
-    <div class="hint" style="margin-top:10px;">ℹ️ Klik <strong>judul kolom</strong> untuk mengisi satu kolom sekaligus (hanya sel yang masih kosong). Asesmen formatif bersifat kualitatif — <strong>tidak masuk hitungan nilai rapor</strong>. Kosong = belum dinilai (bukan 0).</div>
+    <div class="hint" style="margin-top:10px;">ℹ️ Klik <strong>judul kolom</strong> untuk mengisi satu kolom sekaligus (hanya sel yang masih kosong). Asesmen formatif bersifat kualitatif — <strong>tidak masuk hitungan nilai rapor</strong>. Kosong = belum dinilai (bukan 0). Untuk menghapus nilai tersimpan, kosongkan sel lalu klik <strong>Simpan Semua</strong>.</div>
   </div>
   <div id="dnTableHolder"><p class="muted">Memuat daftar siswa...</p></div>
   <div class="card" style="margin-top:16px;"><p class="hint" style="margin:0;"><strong>Keterangan (standar kertas):</strong> Nilai Raport = (2 &times; Nilai Rata-Rata LM + 1 &times; Nilai STS + 2 &times; Nilai SAS) / 5. NR = rata-rata nilai Sumatif Lingkup Materi 1&ndash;4 yang sudah terisi. Nilai Raport baru muncul bila NR, STS, dan SAS sudah terisi semua.</p></div>`;
@@ -933,8 +949,8 @@ function dnOnInput(el){
     v = num;
   }
   const draft = dnLoadDraft(ctx);
-  const key = el.dataset.col+"|"+el.dataset.siswaid;
-  if(v==="") delete draft[key]; else draft[key] = v;
+  const key = dnDraftCellKey(el.dataset.col, el.dataset.siswaid);
+  draft[key] = v; // Empty is an intentional deletion, distinct from an untouched cell.
   dnSaveDraft(ctx, draft);
   el.style.fontWeight = (v!=="") ? "700" : "";
   dnHitungBaris(el.dataset.siswaid);
@@ -950,6 +966,7 @@ function dnKeydown(e){
 function dnIsiKolom(col, label){
   const v = prompt("Isi nilai untuk kolom "+label+" (0-100). Hanya sel yang masih kosong yang akan diisi:", "80");
   if(v===null) return;
+  if(v.trim()===""){ toast("Isi angka 0-100; kosong tidak diubah menjadi 0."); return; }
   const num = Number(v);
   if(isNaN(num) || num<0 || num>100){ toast("Nilai harus berupa angka 0-100."); return; }
   let n = 0;
@@ -967,12 +984,26 @@ function dnFindFormatif(siswaId, ctx, lm, tp){
 function dnFindSumatif(siswaId, ctx, jenis, lm){
   return (db.asesmenSumatif||[]).find(x=>x.siswaId===siswaId && x.mapel===ctx.mapel && String(x.semester||"")===String(ctx.semester) && jenisSumatifOf(x)===jenis && (jenis==="LM" ? String(x.lingkupMateri||"").trim()===lm : true)) || null;
 }
+function dnDeleteCell(siswaId, ctx, col){
+  const f=col.match(/^F(\d+)-(\d+)$/), sum=col.match(/^S(\d+)$/);
+  const same=r=>r.siswaId===siswaId && r.mapel===ctx.mapel && String(r.semester||"")===String(ctx.semester);
+  if(f){
+    db.asesmenFormatif=db.asesmenFormatif.filter(r=>!(same(r) && String(r.lingkupMateri||"").trim()===DN_LM[Number(f[1])] && (r.tp===DN_TP[Number(f[2])] || (!r.tp && Number(f[2])===0))));
+  }else if(sum || col==="STS" || col==="SAS"){
+    db.asesmenSumatif=db.asesmenSumatif.filter(r=>!(same(r) && jenisSumatifOf(r)===(sum?"LM":col) && (!sum || String(r.lingkupMateri||"").trim()===DN_LM[Number(sum[1])])));
+  }
+}
 function dnSimpanSemua(){
   const ctx = dnCtx();
   const inputs = document.querySelectorAll(".dn-input");
+  const draft = dnLoadDraft(ctx);
   let n = 0;
   inputs.forEach(inp=>{
-    if(inp.value==="") return;
+    if(inp.value===""){
+      const key=dnDraftCellKey(inp.dataset.col,inp.dataset.siswaid);
+      if(Object.prototype.hasOwnProperty.call(draft,key) && draft[key]==="") dnDeleteCell(inp.dataset.siswaid,ctx,inp.dataset.col);
+      return;
+    }
     const siswaId = inp.dataset.siswaid, col = inp.dataset.col;
     let nilai = Number(inp.value);
     if(isNaN(nilai)) return;

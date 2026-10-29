@@ -11,6 +11,7 @@ function boot(){
   settings = loadSettings();
   applyTheme();
   buildSidebar();
+  buildMobileNav();
   showLockScreen();
   const requested=new URLSearchParams(location.search).get('page');
   navigate(NAV.some(g=>g.items.some(i=>i.id===requested))?requested:'dashboard');

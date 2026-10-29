@@ -22,6 +22,10 @@ function syncWorkspaceUi(){
 }
 
 function openMenuSearch(){
+  const query=document.getElementById("commandQuery");
+  if(query){ query.focus(); return; }
+  // Preserve an open form instead of replacing it with the search dialog.
+  if(document.getElementById("activeModal")) return;
   if(document.getElementById('bookReader')) return;
   if(!document.getElementById("app").classList.contains("ready")) return;
   openModal({title:"Temukan fitur",bodyHtml:`<div class="command-search">${ic("search",22)}<input type="search" id="commandQuery" aria-label="Cari fitur AdminGuru" placeholder="Contoh: nilai, rapor, CP, jurnal..." autocomplete="off" oninput="renderMenuResults(this.value)"></div><div id="commandResults" class="command-results"></div><p class="hint command-help">↑ ↓ Pilih &nbsp; Enter Buka &nbsp; Esc Tutup</p>`,onMount:()=>{

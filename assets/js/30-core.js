@@ -198,6 +198,7 @@ function buildSidebar(){
   let h = `<div class="brand">
     <div class="logo logo-img"><img src="${LOGO_SEKOLAH}" alt="Logo SD Negeri 1 Gerduren"></div>
     <div class="txt"><strong>Administrasi Guru</strong><span>SD Negeri 1 Gerduren</span></div>
+    <button class="iconbtn sidebar-close" aria-label="Tutup menu" onclick="toggleSidebar(false);document.getElementById('menuToggle').focus()">${ic("x",18)}</button>
   </div>
   <div class="navsearch">${ic("search",16)}<input id="navSearch" type="search" placeholder="Cari menu..." autocomplete="off" oninput="filterNav(this.value)"></div>
   <div class="nav-empty" id="navEmpty">Tidak ada menu yang cocok.</div>`;
@@ -268,10 +269,13 @@ function toggleSidebar(force){
   const open = force!==undefined ? force : !sb.classList.contains("open");
   sb.classList.toggle("open", open);
   mask.classList.toggle("show", open);
+  sb.inert = window.innerWidth<=960 && !open;
+  document.getElementById("menuToggle").setAttribute("aria-expanded",String(open));
 }
 function navigate(page){
   currentPage = page;
   markActiveNav(page);
+  document.querySelectorAll("#mobileNav [data-page]").forEach(n=>n.classList.toggle("active",n.dataset.page===page));
   const navItem = NAV.flatMap(g=>g.items).find(i=>i.id===page);
   document.getElementById("pageTitle").textContent = navItem ? navItem.label : "Dashboard";
   renderPage(page);
@@ -281,7 +285,10 @@ function navigate(page){
 function renderPage(page){
   const c = document.getElementById("pageContent");
   const renderer = PAGES[page];
+  c.dataset.page = page;
   c.innerHTML = renderer ? renderer() : "<p>Halaman tidak ditemukan.</p>";
+  if(typeof enhanceFormLabels==="function") enhanceFormLabels(c);
+  if(typeof syncWorkspaceUi==="function") syncWorkspaceUi();
 }
 
 /* ============================================================
@@ -302,6 +309,7 @@ function openModal({title, bodyHtml, onMount, footHtml}){
   closeModal();
   const mask = document.createElement("div");
   mask.className = "modal-mask show"; mask.id = "activeModal";
+  mask._returnFocus = document.activeElement;
   mask.innerHTML = `<div class="modal">
       <div class="modal-head"><h3>${escapeHtml(title)}</h3>
         <button class="iconbtn" onclick="closeModal()">${ic("x",18)}</button></div>
@@ -312,7 +320,7 @@ function openModal({title, bodyHtml, onMount, footHtml}){
   document.body.appendChild(mask);
   if(onMount) onMount();
 }
-function closeModal(){ const m = document.getElementById("activeModal"); if(m) m.remove(); }
+function closeModal(){ const m = document.getElementById("activeModal"); if(m){ const target=m._returnFocus; m.remove(); if(target && target.isConnected) target.focus(); } }
 
 function confirmDialog(msg, onYes){
   openModal({
@@ -385,6 +393,7 @@ function crudSection(cfg){
       const tds = cfg.columns.map(c=>{
         let val = r[c.key];
         if(c.render) val = c.render(val, r);
+        else val = escapeHtml(val);
         return `<td>${val==null?'':val}</td>`;
       }).join("");
       return `<tr><td>${data.indexOf(r)+1}</td>${tds}
