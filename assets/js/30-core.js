@@ -281,6 +281,7 @@ function navigate(page){
 function renderPage(page){
   const c = document.getElementById("pageContent");
   const renderer = PAGES[page];
+  c.dataset.page = page;
   c.innerHTML = renderer ? renderer() : "<p>Halaman tidak ditemukan.</p>";
 }
 

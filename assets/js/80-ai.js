@@ -567,7 +567,7 @@ async function aiRunGenerate(resultElId, {type, title, systemPrompt, userPrompt}
     const truncated=res.finishReason==="length";
     const warning=truncated?'<div class="card"><span class="badge badge-red">Terpotong</span> <p>Hasil belum lengkap. Naikkan Max Tokens lalu generate ulang. Unduhan otomatis ditunda.</p></div>':"";
     holder.innerHTML=warning+aiResultHtml(title,res.text,type,saveId);
-    const output=document.getElementById(saveId);
+    const output=holder.querySelector("#"+saveId);
     output.dataset.finishReason=res.finishReason||"";
     AIGuruWord.applyPreview(saveId);
     _aiLastDoc={title};
