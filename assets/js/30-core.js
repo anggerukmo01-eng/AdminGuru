@@ -198,6 +198,7 @@ function buildSidebar(){
   let h = `<div class="brand">
     <div class="logo logo-img"><img src="${LOGO_SEKOLAH}" alt="Logo SD Negeri 1 Gerduren"></div>
     <div class="txt"><strong>Administrasi Guru</strong><span>SD Negeri 1 Gerduren</span></div>
+    <button class="iconbtn sidebar-close" aria-label="Tutup menu" onclick="toggleSidebar(false);document.getElementById('menuToggle').focus()">${ic("x",18)}</button>
   </div>
   <div class="navsearch">${ic("search",16)}<input id="navSearch" type="search" placeholder="Cari menu..." autocomplete="off" oninput="filterNav(this.value)"></div>
   <div class="nav-empty" id="navEmpty">Tidak ada menu yang cocok.</div>`;
