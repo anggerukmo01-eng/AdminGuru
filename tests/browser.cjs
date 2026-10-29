@@ -39,6 +39,44 @@ const server=http.createServer((request,response)=>{
     assert.equal(await page.locator('#commandQuery').evaluate(el=>document.activeElement===el),true);
     await page.locator('#commandQuery').fill('bank soal');await page.keyboard.press('Enter');
     assert.equal(await page.locator('#pageContent').getAttribute('data-page'),'aiBankSoal');passed('Keyboard command search navigates with Enter');
+    await page.locator('.workspace-search').focus();await page.keyboard.press('Control+k');
+    await page.locator('#commandQuery').fill('tidak-ada-menu-qa');await page.keyboard.press('Escape');
+    assert.equal(await page.locator('#commandQuery').count(),0);
+    assert.equal(await page.locator('.workspace-search').evaluate(el=>document.activeElement===el),true);
+    await page.keyboard.press('Control+k');await page.keyboard.press('Control+k');
+    assert.equal(await page.locator('#activeModal').count(),1);await page.keyboard.press('Escape');
+    await page.evaluate(()=>openModal({title:'QA formulir',bodyHtml:'<input id="qaUnsaved" value="Draf guru">'}));
+    await page.locator('#qaUnsaved').fill('Isian belum disimpan');await page.keyboard.press('Control+k');
+    assert.equal(await page.locator('#qaUnsaved').inputValue(),'Isian belum disimpan');
+    assert.equal(await page.locator('#commandQuery').count(),0);await page.evaluate(()=>closeModal());
+    passed('Search Esc closes empty results, restores focus, reuses its dialog and protects open forms');
+    const ledgerStorage=await page.evaluate(()=>Object.entries(localStorage));
+    try{
+      await page.evaluate(()=>{
+        db.siswa=[{id:'qa-ledger',nama:'QA Murid',nis:'1234567890'}];db.asesmenFormatif=[];db.asesmenSumatif=[];
+        window._dnCtx={mapel:MAPEL_LIST[0],semester:'1'};dnClearDraft(dnCtx());navigate('inputnilai');
+      });
+      const cell=col=>page.locator('.dn-input[data-siswaid="qa-ledger"][data-col="'+col+'"]');
+      await cell('F0-0').fill('75');await cell('S0').fill('80');await cell('STS').fill('70');await cell('SAS').fill('90');
+      await page.evaluate(()=>{navigate('dashboard');navigate('inputnilai');});
+      assert.equal(await cell('F0-0').inputValue(),'75');assert.equal(await cell('S0').inputValue(),'80');
+      assert.equal(await page.locator('#dnRap_qa-ledger').innerText(),'82');
+      await page.getByRole('button',{name:'Simpan Semua',exact:true}).click();
+      await page.reload();await page.getByRole('button',{name:'Buka Aplikasi'}).click();
+      await page.evaluate(()=>navigate('inputnilai'));
+      assert.equal(await cell('F0-0').inputValue(),'75');assert.equal(await cell('S0').inputValue(),'80');
+      await cell('F0-0').fill('');await cell('S0').fill('');
+      await page.getByRole('button',{name:'Simpan Semua',exact:true}).click();
+      assert.equal(await cell('F0-0').inputValue(),'');assert.equal(await cell('S0').inputValue(),'');
+      assert.equal(await page.locator('#dnRap_qa-ledger').innerText(),'—');
+      await cell('S0').fill('0');await page.getByRole('button',{name:'Simpan Semua',exact:true}).click();
+      assert.equal(await cell('S0').inputValue(),'0');
+      assert.equal(await page.locator('#dnRap_qa-ledger').innerText(),'50');
+      passed('Bulk grades survive navigation/reload, delete explicit blanks, preserve zero and calculate weighted reports');
+    }finally{
+      await page.evaluate(entries=>{localStorage.clear();for(const [key,value]of entries)localStorage.setItem(key,value);},ledgerStorage);
+      await page.reload();await page.getByRole('button',{name:'Buka Aplikasi'}).click();
+    }
     await page.evaluate(()=>navigate('aiAnalisisCP'));await page.locator('#acp_kelas').selectOption('kelas-3');
     assert.match(await page.locator('#acp_cp').inputValue(),/10\.000/);
     await page.locator('#acp_kelas').selectOption('kelas-1');assert.match(await page.locator('#acp_cp').inputValue(),/bilangan cacah sampai 100/);

@@ -302,6 +302,7 @@ function openModal({title, bodyHtml, onMount, footHtml}){
   closeModal();
   const mask = document.createElement("div");
   mask.className = "modal-mask show"; mask.id = "activeModal";
+  mask._returnFocus = document.activeElement;
   mask.innerHTML = `<div class="modal">
       <div class="modal-head"><h3>${escapeHtml(title)}</h3>
         <button class="iconbtn" onclick="closeModal()">${ic("x",18)}</button></div>
@@ -312,7 +313,7 @@ function openModal({title, bodyHtml, onMount, footHtml}){
   document.body.appendChild(mask);
   if(onMount) onMount();
 }
-function closeModal(){ const m = document.getElementById("activeModal"); if(m) m.remove(); }
+function closeModal(){ const m = document.getElementById("activeModal"); if(m){ const target=m._returnFocus; m.remove(); if(target && target.isConnected) target.focus(); } }
 
 function confirmDialog(msg, onYes){
   openModal({

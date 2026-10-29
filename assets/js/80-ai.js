@@ -89,90 +89,99 @@ function aiEstimateCost(promptTok, completionTok){
 
 /* ---------- 2. AI SERVICE (OpenRouter) ---------- */
 async function openRouterChat(messages, opts){
-  opts = opts||{};
-  if(!aiSettings.apiKey){ throw new Error("API Key belum diisi. Buka menu AI Settings terlebih dahulu."); }
-  const body = {
-    model: aiSettings.model,
-    messages: messages,
-    temperature: Number(aiSettings.temperature),
-    top_p: Number(aiSettings.topP),
-    max_tokens: Number(aiSettings.maxTokens),
-    presence_penalty: Number(aiSettings.presencePenalty),
-    frequency_penalty: Number(aiSettings.frequencyPenalty),
-    stream: !!aiSettings.streaming
+  opts=opts||{};
+  if(!aiSettings.apiKey) throw new Error("API Key belum diisi. Buka menu AI Settings terlebih dahulu.");
+  const body={
+    model:aiSettings.model,messages,
+    temperature:Number(aiSettings.temperature),top_p:Number(aiSettings.topP),
+    max_tokens:Number(aiSettings.maxTokens),presence_penalty:Number(aiSettings.presencePenalty),
+    frequency_penalty:Number(aiSettings.frequencyPenalty),stream:!!aiSettings.streaming
   };
-  let attempt = 0;
-  const maxAttempt = Math.max(1, Number(aiSettings.retry)||1);
-  let lastErr = null;
-  while(attempt < maxAttempt){
-    attempt++;
-    const controller = new AbortController();
-    const timeoutMs = (Number(aiSettings.timeoutSec)||60)*1000;
-    const timer = setTimeout(()=>controller.abort(), timeoutMs);
+  const maxAttempt=Math.max(1,Math.min(5,Math.floor(Number(aiSettings.retry)||1)));
+  for(let attempt=1;attempt<=maxAttempt;attempt++){
+    const controller=new AbortController();
+    const timeoutMs=Math.max(1,(Number(aiSettings.timeoutSec)||60)*1000);
+    let reader=null, receivedText=false;
+    const timer=setTimeout(()=>controller.abort(),timeoutMs);
     try{
-      const res = await fetch(aiSettings.baseUrl, {
+      const res=await fetch(aiSettings.baseUrl,{
         method:"POST",
-        headers:{
-          "Content-Type":"application/json",
-          "Authorization":"Bearer "+aiSettings.apiKey,
-          "HTTP-Referer": (typeof location!=="undefined"?location.href:"https://teacherplanner.local"),
-          "X-Title":"AI Teacher Suite Pro Indonesia"
-        },
-        body: JSON.stringify(body),
-        signal: controller.signal
+        headers:{"Content-Type":"application/json","Authorization":"Bearer "+aiSettings.apiKey,
+          "HTTP-Referer":typeof location!=="undefined"?location.href:"https://teacherplanner.local",
+          "X-Title":"AI Teacher Suite Pro Indonesia"},
+        body:JSON.stringify(body),signal:controller.signal
       });
-      clearTimeout(timer);
       if(!res.ok){
-        let errText = "";
-        try{ const j = await res.json(); errText = (j.error&&j.error.message) || JSON.stringify(j); }catch(e){ errText = res.statusText; }
-        if(res.status===401 || res.status===403) throw new Error("API Key tidak valid atau tidak memiliki akses. ("+res.status+")");
-        if(res.status===429) throw new Error("Batas penggunaan (rate limit) tercapai. Coba lagi beberapa saat lagi.");
-        if(res.status===402) throw new Error("Kuota/saldo OpenRouter habis. Silakan isi ulang kredit.");
-        throw new Error("Permintaan AI gagal ("+res.status+"): "+errText);
+        let errText=res.statusText;
+        try{const j=await res.json();errText=(j.error&&j.error.message)||JSON.stringify(j);}catch(e){if(controller.signal.aborted)throw e;}
+        const message=res.status===401 || res.status===403
+          ? "API Key tidak valid atau tidak memiliki akses. ("+res.status+")"
+          : res.status===402 ? "Kuota/saldo OpenRouter habis. Silakan isi ulang kredit."
+          : res.status===429 ? "Batas penggunaan (rate limit) tercapai. Coba lagi beberapa saat lagi."
+          : "Permintaan AI gagal ("+res.status+"): "+errText;
+        const error=new Error(message);
+        error.retryable=res.status===429 || res.status>=500;
+        throw error;
       }
-      if(aiSettings.streaming && res.body && res.body.getReader){
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder("utf-8");
-        let full = "";
-        let buf = "";
-        let finishReason = null;
-        while(true){
-          const {done, value} = await reader.read();
-          if(done) break;
-          buf += decoder.decode(value, {stream:true});
-          const lines = buf.split("\n");
-          buf = lines.pop();
-          for(const line of lines){
-            const trimmed = line.trim();
-            if(!trimmed.startsWith("data:")) continue;
-            const payload = trimmed.slice(5).trim();
-            if(payload==="[DONE]") continue;
-            try{
-              const json = JSON.parse(payload);
-              const ch0 = json.choices && json.choices[0];
-              if(ch0 && ch0.finish_reason) finishReason = ch0.finish_reason;
-              const delta = ch0 && ch0.delta ? ch0.delta.content : "";
-              if(delta){ full += delta; if(opts.onDelta) opts.onDelta(full, delta); }
-            }catch(e){ /* abaikan baris parsial */ }
+      let text="", finishReason=null, usage=null;
+      const contentType=res.headers.get("content-type")||"";
+      if(body.stream && res.body && res.body.getReader && contentType.includes("text/event-stream")){
+        reader=res.body.getReader();
+        const decoder=new TextDecoder("utf-8");
+        let buffer="", doneEvent=false;
+        const parseLine=line=>{
+          const trimmed=line.trim();
+          if(!trimmed.startsWith("data:"))return;
+          const payload=trimmed.slice(5).trim();
+          if(!payload)return;
+          if(payload==="[DONE]"){doneEvent=true;return;}
+          let json;
+          try{json=JSON.parse(payload);}catch(e){const error=new Error("Respons streaming AI tidak valid.");error.retryable=false;throw error;}
+          if(json.error){const error=new Error(json.error.message||"Provider AI gagal.");error.retryable=false;throw error;}
+          if(json.usage)usage=json.usage;
+          const choice=json.choices&&json.choices[0];
+          if(choice&&choice.finish_reason)finishReason=choice.finish_reason;
+          const delta=choice&&choice.delta&&choice.delta.content;
+          if(typeof delta==="string" && delta){
+            text+=delta;receivedText=true;
+            if(opts.onDelta)opts.onDelta(text,delta);
           }
+        };
+        while(!doneEvent){
+          const chunk=await reader.read();
+          if(chunk.done){buffer+=decoder.decode();break;}
+          buffer+=decoder.decode(chunk.value,{stream:true});
+          const lines=buffer.split("\n");buffer=lines.pop();
+          for(const line of lines){parseLine(line);if(doneEvent)break;}
         }
-        return { text: full, finishReason, usage:{prompt_tokens:aiEstimateTokens(JSON.stringify(messages)), completion_tokens:aiEstimateTokens(full)} };
-      } else {
-        const json = await res.json();
-        const text = json.choices && json.choices[0] && json.choices[0].message ? json.choices[0].message.content : "";
-        const finishReason = json.choices && json.choices[0] ? json.choices[0].finish_reason : null;
-        const usage = json.usage || {prompt_tokens:aiEstimateTokens(JSON.stringify(messages)), completion_tokens:aiEstimateTokens(text)};
-        if(opts.onDelta) opts.onDelta(text, text);
-        return { text, finishReason, usage };
+        if(!doneEvent && buffer.trim())parseLine(buffer);
+        if(!doneEvent && !finishReason){const error=new Error("Koneksi AI terputus sebelum respons selesai. Silakan generate ulang.");error.retryable=false;throw error;}
+      }else{
+        const json=await res.json();
+        if(json.error){const error=new Error(json.error.message||"Provider AI gagal.");error.retryable=false;throw error;}
+        const choice=json.choices&&json.choices[0];
+        text=choice&&choice.message&&choice.message.content||"";
+        finishReason=choice&&choice.finish_reason||null;
+        usage=json.usage||null;
+        if(typeof text==="string" && text.trim() && opts.onDelta)opts.onDelta(text,text);
       }
-    }catch(err){
+      if(typeof text!=="string" || !text.trim()){
+        const error=new Error("AI tidak mengembalikan isi. Periksa model dan coba lagi.");error.retryable=false;throw error;
+      }
+      return {text,finishReason,usage:usage||{prompt_tokens:aiEstimateTokens(JSON.stringify(messages)),completion_tokens:aiEstimateTokens(text)}};
+    }catch(error){
+      if(controller.signal.aborted || error.name==="AbortError")throw new Error("Waktu tunggu habis setelah "+aiSettings.timeoutSec+" detik.");
+      // Do not repeat terminal failures or a stream that already emitted text.
+      if(error.retryable===false || receivedText || attempt===maxAttempt)throw error;
+    }finally{
       clearTimeout(timer);
-      lastErr = err;
-      if(err.name==="AbortError"){ lastErr = new Error("Waktu tunggu (timeout) habis setelah "+aiSettings.timeoutSec+" detik."); }
-      if(attempt < maxAttempt){ await new Promise(r=>setTimeout(r, 900*attempt)); continue; }
+      if(reader){
+        try{await reader.cancel();}catch(e){}
+        try{reader.releaseLock();}catch(e){}
+      }
     }
+    await new Promise(resolve=>setTimeout(resolve,900*attempt));
   }
-  throw lastErr || new Error("Gagal menghubungi AI setelah beberapa percobaan.");
 }
 
 async function aiTestConnection(){
@@ -353,20 +362,14 @@ function aiDeleteHistory(id){
   });
 }
 function aiViewHistory(id){
-  const h = loadAiHistory().find(x=>x.id===id);
-  if(!h) return;
-  openModal({
-    title: h.title,
-    bodyHtml: `<div class="ai-result-content" id="aiViewContent">${sanitizeAiHtml(h.content)}</div>
-      <div class="ai-toolbar" style="margin-top:14px;">
-        <button class="btn" onclick="aiExportWordAuto('${h.type}','aiViewContent','${escapeHtml(h.title).replace(/'/g,"")}')">${ic("download",15)} Export Word</button>
-        <button class="btn" onclick="aiExportExcel(document.getElementById('aiViewContent').innerHTML,'${escapeHtml(h.title).replace(/'/g,"")}')">${ic("download",15)} Export Excel</button>
-        <button class="btn" onclick="aiExportPDF(document.getElementById('aiViewContent').innerHTML,'${escapeHtml(h.title).replace(/'/g,"")}','${h.type}')">${ic("download",15)} Export PDF</button>
-        <button class="btn" onclick="aiExportMarkdown(document.getElementById('aiViewContent'),'${escapeHtml(h.title).replace(/'/g,"")}')">${ic("download",15)} Export Markdown</button>
-        <button class="btn" onclick="aiCopyElement('aiViewContent')">${ic("doc",15)} Salin</button>
-      </div>`
-  });
+  const h=loadAiHistory().find(x=>x.id===id);
+  if(!h)return;
+  openModal({title:h.title,bodyHtml:aiResultHtml(h.title,h.content,h.type,"aiViewContent"),onMount:()=>{
+    document.getElementById("aiViewContent").dataset.finishReason=h.finishReason||"";
+    AIGuruWord.applyPreview("aiViewContent");
+  }});
 }
+
 function aiDuplicateAsNewDoc(id){
   const h = loadAiHistory().find(x=>x.id===id);
   if(!h) return;
@@ -495,7 +498,7 @@ function aiPresetSelectHtml(id, label, options, onChangeFn){
 
 /* ---------- 7. LOADING / RESULT PANEL ---------- */
 function aiLoadingHtml(msg){
-  return `<div class="card ai-result-box"><div class="ai-loading-panel"><span class="dot"></span><span class="dot"></span><span class="dot"></span>&nbsp;${escapeHtml(msg||"AI sedang menyusun dokumen...")}</div></div>`;
+  return `<div class="card ai-result-box" data-document-title="${escapeHtml(title)}"><div class="ai-loading-panel"><span class="dot"></span><span class="dot"></span><span class="dot"></span>&nbsp;${escapeHtml(msg||"AI sedang menyusun dokumen...")}</div></div>`;
 }
 /* ---------- SANITASI HTML HASIL AI (anti-XSS, tanpa pustaka eksternal) ----------
    Hasil AI dirender via innerHTML. Prompt sistem sudah membatasi tag, tapi respons
@@ -509,57 +512,24 @@ const AI_SAFE_TAGS = {H2:1,H3:1,H4:1,P:1,UL:1,OL:1,LI:1,TABLE:1,THEAD:1,TBODY:1,
    formulir, dan elemen yang bisa membawa kode aktif. */
 const AI_DROP_TAGS = {SCRIPT:1,STYLE:1,IFRAME:1,OBJECT:1,EMBED:1,FORM:1,INPUT:1,BUTTON:1,SELECT:1,TEXTAREA:1,LINK:1,META:1,TITLE:1,HEAD:1,BODY:1,HTML:1,SVG:1,MATH:1};
 function sanitizeAiHtml(html){
-  if(!html) return "";
-  try{
-    const doc = new DOMParser().parseFromString("<div>"+html+"</div>", "text/html");
-    const root = doc.body.firstChild;
-    if(!root) return "";
-    const walk = (node)=>{
-      const kids = Array.from(node.childNodes);
-      for(const ch of kids){
-        if(ch.nodeType===1){
-          if(AI_DROP_TAGS[ch.tagName]){
-            node.removeChild(ch);
-            continue;
-          }
-          if(!AI_SAFE_TAGS[ch.tagName]){
-            const t = document.createTextNode(ch.textContent||"");
-            node.replaceChild(t, ch);
-            continue;
-          }
-          for(const at of Array.from(ch.attributes)){
-            const n = at.name.toLowerCase();
-            if(n.startsWith("on") || n==="style" || n==="href" || n==="src" || n==="action" || n==="formaction" || n==="xlink:href"){
-              ch.removeAttribute(at.name);
-            }
-          }
-          walk(ch);
-        } else if(ch.nodeType===8){
-          node.removeChild(ch);
-        }
-      }
-    };
-    walk(root);
-    return root.innerHTML;
-  }catch(e){
-    return String(html).replace(/<[^>]*>/g, "");
-  }
+  return AIDocumentFormat.normalize(html);
 }
+function aiActionArg(value){ return escapeHtml(JSON.stringify(String(value))); }
 
-function aiResultHtml(title, contentHtml, docType, saveId){
-  const safeHtml = sanitizeAiHtml(contentHtml);
-  return `<div class="card ai-result-box">
+function aiResultHtml(title, contentHtml, docType, saveId, options={}){
+  const safeHtml = AIDocumentFormat.normalize(contentHtml,options);
+  const type=aiActionArg(docType),id=aiActionArg(saveId),name=aiActionArg(title);
+  return `<div class="card ai-result-box" data-document-title="${escapeHtml(title)}">
     <div class="ai-toolbar">
-      <button class="btn btn-primary" onclick="aiSaveDoc('${docType}','${saveId}')">${ic("check",15)} Simpan Dokumen</button>
-      <button class="btn" onclick="aiExportWordAuto('${docType}','${saveId}','${escapeHtml(title).replace(/'/g,"")}')">${ic("download",15)} Export Word</button>
-      <button class="btn" onclick="aiExportDocx('${docType}','${saveId}','${escapeHtml(title).replace(/'/g,"")}')">${ic("download",15)} Export DOCX</button>
-      <button class="btn" onclick="dbxSaveAiDoc('${docType}','${saveId}','${escapeHtml(title).replace(/'/g,"")}')">${ic("upload",15)} Simpan ke Dropbox</button>
-      <button class="btn" onclick="aiExportExcel(document.getElementById('${saveId}').innerHTML,'${escapeHtml(title).replace(/'/g,"")}')">${ic("download",15)} Export Excel</button>
-      <button class="btn" onclick="aiExportPDF(document.getElementById('${saveId}').innerHTML,'${escapeHtml(title).replace(/'/g,"")}','${docType}')">${ic("download",15)} Export PDF</button>
-      <button class="btn" onclick="aiExportMarkdown(document.getElementById('${saveId}'),'${escapeHtml(title).replace(/'/g,"")}')">${ic("download",15)} Export Markdown</button>
-      <button class="btn" onclick="aiCopyElement('${saveId}')">${ic("doc",15)} Salin</button>
-      <button class="btn" onclick="document.getElementById('${saveId}').contentEditable=true;document.getElementById('${saveId}').focus();toast('Mode edit aktif - klik di dalam teks untuk mengubah.')">${ic("pen",15)} Edit</button>
+      <button class="btn btn-primary" onclick="aiSaveDoc(${type},${id})">${ic("check",15)} Simpan Dokumen</button>
+      <button class="btn" onclick="aiExportWordAuto(${type},${id},${name})">${ic("download",15)} Word DOCX</button>
+      <button class="btn" onclick="dbxSaveAiDoc(${type},${id},${name})">${ic("upload",15)} Simpan ke Dropbox</button>
+      <button class="btn" onclick="aiExportExcel(document.getElementById(${id}).innerHTML,${name})">${ic("download",15)} Excel</button>
+      <button class="btn" onclick="aiExportPDF(document.getElementById(${id}).innerHTML,${name},${type})">${ic("download",15)} PDF</button>
+      <button class="btn" onclick="aiCopyElement(${id})">${ic("doc",15)} Salin</button>
+      <button class="btn" onclick="document.getElementById(${id}).contentEditable=true;document.getElementById(${id}).focus()">${ic("pen",15)} Edit</button>
     </div>
+    ${AIGuruWord.settingsHtml(saveId)}
     <div class="ai-result-content" id="${saveId}">${safeHtml}</div>
   </div>`;
 }
@@ -567,7 +537,8 @@ let _aiLastDoc = {};
 function aiSaveDoc(type, saveId){
   const el = document.getElementById(saveId);
   const content = el ? sanitizeAiHtml(el.innerHTML) : "";
-  const title = _aiLastDoc.title || (type+" - "+new Date().toLocaleDateString("id-ID"));
+  const box = el && el.closest(".ai-result-box");
+  const title = (box && box.dataset.documentTitle) || _aiLastDoc.title || (type+" - "+new Date().toLocaleDateString("id-ID"));
   db.aiDocs = db.aiDocs||[];
   db.aiDocs.unshift({id:uid("aidoc"), type, title, content, createdAt:new Date().toISOString()});
   saveDB();
@@ -577,36 +548,38 @@ function aiSaveDoc(type, saveId){
 /* Fungsi generik pemanggil AI: membangun prompt, menampilkan loading,
    memanggil openRouterChat, lalu menampilkan hasil + menyimpan ke history. */
 async function aiRunGenerate(resultElId, {type, title, systemPrompt, userPrompt}){
-  const holder = document.getElementById(resultElId);
-  if(!holder) return;
-  holder.innerHTML = aiLoadingHtml("AI sedang menyusun "+type+"...");
-  const saveId = "aiOut_"+uid("x");
+  const holder=document.getElementById(resultElId);
+  if(!holder)return;
+  const generationClassId=activeClassId,saveId="aiOut_"+uid("x");
+  holder.dataset.requestId=saveId;
+  holder.innerHTML=aiLoadingHtml("AI sedang menyusun "+type+"...");
   try{
-    const messages = [
-      {role:"system", content: systemPrompt || aiSettings.systemPrompt},
-      {role:"user", content: userPrompt}
+    const messages=[
+      {role:"system",content:systemPrompt||aiSettings.systemPrompt},
+      {role:"user",content:userPrompt+"\n\n"+AIDocumentFormat.FORMAT_RULES}
     ];
-    const res = await openRouterChat(messages, {
-      onDelta: (full)=>{ holder.innerHTML = aiResultHtml(title, full, type, saveId); }
-    });
-    let truncWarn = "";
-    if(res.finishReason==="length"){
-      truncWarn = `<div class="card" style="border-left:4px solid #e8590c;margin-bottom:10px;"><span class="badge badge-red">Terpotong</span> <span class="hint">Hasil AI terpotong karena mencapai batas Max Tokens. Naikkan <strong>Max Tokens</strong> di AI Settings (disarankan 8000), lalu generate ulang.</span></div>`;
-      toast("Hasil terpotong (batas token) — naikkan Max Tokens di AI Settings.");
+    const res=await openRouterChat(messages,{onDelta:full=>{
+      if(holder.dataset.requestId!==saveId)return;
+      holder.innerHTML=aiResultHtml(title,full,type,saveId,{streaming:true});
+      AIGuruWord.applyPreview(saveId);
+    }});
+    if(holder.dataset.requestId!==saveId)return;
+    const truncated=res.finishReason==="length";
+    const warning=truncated?'<div class="card"><span class="badge badge-red">Terpotong</span> <p>Hasil belum lengkap. Naikkan Max Tokens lalu generate ulang. Unduhan otomatis ditunda.</p></div>':"";
+    holder.innerHTML=warning+aiResultHtml(title,res.text,type,saveId);
+    const output=document.getElementById(saveId);
+    output.dataset.finishReason=res.finishReason||"";
+    AIGuruWord.applyPreview(saveId);
+    _aiLastDoc={title};
+    addAiHistory({id:uid("aihist"),type,title,content:output.innerHTML,classId:generationClassId,
+      finishReason:res.finishReason,model:aiSettings.model,usage:res.usage,createdAt:new Date().toISOString()});
+    if(aiSettings.autoWord&&!truncated && generationClassId===activeClassId && holder.isConnected){
+      await aiExportWordAuto(type,saveId,title);
     }
-    holder.innerHTML = truncWarn + aiResultHtml(title, res.text, type, saveId);
-    _aiLastDoc = {title};
-    addAiHistory({id:uid("aihist"), type, title, content:res.text, model:aiSettings.model, usage:res.usage, createdAt:new Date().toISOString()});
-    /* Unduh Word otomatis setelah generate (bisa dimatikan di AI Settings). */
-    if(aiSettings.autoWord){
-      const wordNote = res.finishReason==="length"
-        ? `<p style="color:#c92a2a;font-weight:bold;">PERINGATAN: naskah ini terpotong karena mencapai batas Max Tokens. Naikkan Max Tokens di AI Settings lalu generate ulang.</p>` : "";
-      try{ aiExportWordAuto(type, saveId, title, wordNote); }
-      catch(e){ console.warn("Auto Word gagal:", e); }
-    }
-  }catch(e){
-    holder.innerHTML = `<div class="card"><p class="badge badge-red">Gagal</p><p class="hint" style="margin-top:8px;">${escapeHtml(e.message)}</p></div>`;
-    toast("Gagal generate: "+e.message);
+  }catch(error){
+    if(holder.dataset.requestId!==saveId)return;
+    holder.innerHTML='<div class="card"><p class="badge badge-red">Gagal</p><p class="hint">'+escapeHtml(error.message)+'</p></div>';
+    toast("Gagal generate: "+error.message);
   }
 }
 
@@ -617,17 +590,11 @@ function aiBuildWordDoc(html, title){
   <style>body{font-family:Calibri,Arial,sans-serif;font-size:12pt;} table{border-collapse:collapse;width:100%;} td,th{border:1px solid #333;padding:5px;}</style>
   </head><body>${letterheadHtml()}<h1 style="font-size:15pt;">${escapeHtml(title)}</h1>${html}</body></html>`;
 }
-function aiExportWord(html, title){
-  const doc = aiBuildWordDoc(html, title);
-  const blob = new Blob(['\ufeff', doc], {type:"application/msword"});
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = (title||"dokumen").replace(/[^\w\-]+/g,"_")+".doc";
-  document.body.appendChild(a); a.click(); a.remove();
-  toast("File Word (.doc) diunduh.");
+async function aiExportWord(html,title){
+  return AIGuruWord.download(AIDocumentFormat.normalize(html),title,"Dokumen AI");
 }
-/* Export Excel: HTML berisi tabel dibuka langsung oleh MS Excel / LibreOffice
-   sebagai spreadsheet (.xls). Tanpa library tambahan, offline-friendly. */
+/* Excel retains the existing spreadsheet export. */
+
 function aiExportExcel(html, title){
   const doc = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:x='urn:schemas-microsoft-com:office:excel' xmlns='http://www.w3.org/TR/REC-html40'>
   <head><meta charset="utf-8"><title>${escapeHtml(title)}</title>
@@ -674,29 +641,26 @@ function aiBuildWordSoalDoc(html, title){
   </style>
   </head><body>${kopSoalHtml()}${html}</body></html>`;
 }
-function aiExportWordSoal(html, title){
-  const doc = aiBuildWordSoalDoc(html, title);
-  const blob = new Blob(['\ufeff', doc], {type:"application/msword"});
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = (title||"naskah-soal").replace(/[^\w\-]+/g,"_")+".doc";
-  document.body.appendChild(a); a.click(); a.remove();
-  toast("Naskah soal (.doc, format F4) diunduh.");
+async function aiExportWordSoal(html,title){
+  return AIGuruWord.download(AIDocumentFormat.normalize(html),title,"Bank Soal");
 }
-/* Dispatcher: naskah soal/asesmen memakai format khusus F4; lainnya format standar.
-   prefixHtml opsional: disisipkan sebelum konten (mis. peringatan terpotong). */
-function aiExportWordAuto(docType, elId, title, prefixHtml){
-  const el = document.getElementById(elId);
-  const html = (prefixHtml||"") + (el ? el.innerHTML : "");
-  if(docType==="Bank Soal" || docType==="Asesmen Formatif") aiExportWordSoal(html, title);
-  else aiExportWord(html, title);
+
+async function aiExportWordAuto(docType,elId,title,prefixHtml){
+  const el=document.getElementById(elId),status=document.getElementById("word_status_"+elId);
+  if(!el){toast("Dokumen belum tersedia.");return;}
+  if(status)status.textContent="Menyiapkan Word DOCX...";
+  const warning=el.dataset.finishReason==="length"?'<p><strong>PERINGATAN DRAF TERPOTONG</strong> Lengkapi dokumen sebelum digunakan.</p>':"";
+  try{
+    await AIGuruWord.download(warning+(prefixHtml||"")+el.innerHTML,title,docType,{format:AIGuruWord.readSettings(elId)});
+    if(status)status.textContent="Word DOCX berhasil diunduh.";
+  }catch(error){
+    if(status)status.textContent="Ekspor gagal: "+error.message;
+    toast("Ekspor gagal: "+error.message);
+  }
 }
-/* Export DOCX asli (OOXML) dari dokumen AI — memakai htmlToDocx (30-core.js). */
-function aiExportDocx(docType, elId, title){
-  const el = document.getElementById(elId);
-  const html = el ? el.innerHTML : "";
-  htmlToDocx(html, (title||"dokumen").replace(/[^\w\-]+/g,"_"), title);
-}
+
+function aiExportDocx(docType,elId,title){return aiExportWordAuto(docType,elId,title);}
+
 function aiExportPDF(html, title, docType){
   const isSoal = (docType==="Bank Soal" || docType==="Asesmen Formatif");
   const kop = isSoal ? kopSoalHtml() : letterheadHtml();
