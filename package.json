@@ -6,9 +6,12 @@
   "scripts": {
     "test": "node --test tests/*.test.cjs",
     "test:browser": "node tests/browser.cjs && node tests/library-browser.cjs && node tests/word-browser.cjs",
-    "test:program": "node tests/program-browser.cjs"
+    "test:program": "node tests/program-browser.cjs",
+    "test:program:consistency": "node --test tests/program.test.cjs tests/program-docx.test.cjs",
+    "test:program:pagination": "node tests/program-consistency-browser.cjs"
   },
   "devDependencies": {
+    "jsdom": "26.1.0",
     "pdfjs-dist": "5.6.205",
     "playwright": "1.62.1"
   }
