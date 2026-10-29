@@ -268,10 +268,13 @@ function toggleSidebar(force){
   const open = force!==undefined ? force : !sb.classList.contains("open");
   sb.classList.toggle("open", open);
   mask.classList.toggle("show", open);
+  sb.inert = window.innerWidth<=960 && !open;
+  document.getElementById("menuToggle").setAttribute("aria-expanded",String(open));
 }
 function navigate(page){
   currentPage = page;
   markActiveNav(page);
+  document.querySelectorAll("#mobileNav [data-page]").forEach(n=>n.classList.toggle("active",n.dataset.page===page));
   const navItem = NAV.flatMap(g=>g.items).find(i=>i.id===page);
   document.getElementById("pageTitle").textContent = navItem ? navItem.label : "Dashboard";
   renderPage(page);
@@ -283,6 +286,8 @@ function renderPage(page){
   const renderer = PAGES[page];
   c.dataset.page = page;
   c.innerHTML = renderer ? renderer() : "<p>Halaman tidak ditemukan.</p>";
+  if(typeof enhanceFormLabels==="function") enhanceFormLabels(c);
+  if(typeof syncWorkspaceUi==="function") syncWorkspaceUi();
 }
 
 /* ============================================================
