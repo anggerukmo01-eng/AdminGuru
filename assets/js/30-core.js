@@ -387,6 +387,7 @@ function crudSection(cfg){
       const tds = cfg.columns.map(c=>{
         let val = r[c.key];
         if(c.render) val = c.render(val, r);
+        else val = escapeHtml(val);
         return `<td>${val==null?'':val}</td>`;
       }).join("");
       return `<tr><td>${data.indexOf(r)+1}</td>${tds}
