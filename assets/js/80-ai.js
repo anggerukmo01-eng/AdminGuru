@@ -498,7 +498,7 @@ function aiPresetSelectHtml(id, label, options, onChangeFn){
 
 /* ---------- 7. LOADING / RESULT PANEL ---------- */
 function aiLoadingHtml(msg){
-  return `<div class="card ai-result-box" data-document-title="${escapeHtml(title)}"><div class="ai-loading-panel"><span class="dot"></span><span class="dot"></span><span class="dot"></span>&nbsp;${escapeHtml(msg||"AI sedang menyusun dokumen...")}</div></div>`;
+  return `<div class="card ai-result-box"><div class="ai-loading-panel"><span class="dot"></span><span class="dot"></span><span class="dot"></span>&nbsp;${escapeHtml(msg||"AI sedang menyusun dokumen...")}</div></div>`;
 }
 /* ---------- SANITASI HTML HASIL AI (anti-XSS, tanpa pustaka eksternal) ----------
    Hasil AI dirender via innerHTML. Prompt sistem sudah membatasi tag, tapi respons
