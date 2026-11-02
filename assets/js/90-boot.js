@@ -8,6 +8,7 @@
    ============================================================ */
 /* Flag migrasi roster Dapodik sekali pakai (2 Nov 2026). */
 const ROSTER_DAPODIK_FLAG = "tpsd2026_roster_dapodik_sync_20261102";
+const NAMA_EYD_FLAG = "tpsd2026_nama_eyd_dedup_20261102";
 const JURNAL_SIMULASI_FLAG = "tpsd2026_jurnal_simulasi_20261102";
 /* Gabungkan roster Dapodik ke roster tablet.
    - Cocok: NISN (persis) lalu nama ternormalisasi unik dalam kelas.
@@ -182,6 +183,114 @@ function boot(){
         });
         localStorage.setItem(ROSTER_DAPODIK_FLAG, JSON.stringify(ringkas));
       }
+    }catch(e){}
+  }
+
+  /* PERBAIKAN DATA SISWA (2 Nov 2026, perintah Anggi) — sekali pakai,
+     bekerja dari data tersimpan saja (tidak butuh seed), SETELAH blok
+     migrasi roster di atas dan SEBELUM loadDB:
+     (a) DATA GANDA: migrasi roster bisa gagal memasangkan satu anak
+         bila ejaan DAN tanggal lahirnya beda dari Dapodik (contoh
+         Kelas 1: "Fadli Hardi Yanto" tablet, ttl 6 Jun 2019, vs
+         "Fadli Hardy Yanto" Dapodik, lahir 6 Jul 2019 — lolos dari
+         ketiga tingkat pencocokan, sehingga keduanya tampil).
+         Bila dalam satu kelas ada pasangan (id Dapodik dp*-* + id lama)
+         yang namanya mirip (jarak edit <= 3, dan jarak itu unik),
+         gabungkan: riwayat id lama (kehadiran dan struktur per-siswa
+         lain) dipindah ke id Dapodik — riwayat lama MENANG atas isian
+         migrasi bila bentrok — id Dapodik mewarisi nomor absen dan
+         posisi id lama, lalu id lama dihapus. Siswa tanpa pasangan
+         Dapodik tetap dipertahankan (bukan data ganda).
+     (b) EYD: nama yang tersimpan KAPITAL SEMUA (bawaan Dapodik)
+         ditulis ulang Title Case: huruf pertama tiap kata kapital,
+         sisanya kecil; tanda hubung membuka kata baru, apostrof tidak
+         ("AL-FARIZI" -> "Al-Farizi", "AL'FARIZZI" -> "Al'farizzi").
+         Berlaku untuk nama siswa, nama ayah/ibu/wali, tempat lahir,
+         dan ttl. Ejaan dan data Dapodik tidak diubah, hanya
+         kapitalisasinya. */
+  if(typeof localStorage!=="undefined" && typeof classKey==="function"
+     && typeof CLASS_LIST!=="undefined" && !localStorage.getItem(NAMA_EYD_FLAG)){
+    try{
+      const eyd = s => String(s||"").split(" ").map(w => w.split("-").map(p => p ? p.charAt(0).toUpperCase() + p.slice(1).toLowerCase() : p).join("-")).join(" ");
+      const norm = v => String(v||"").toLowerCase().replace(/[^a-z0-9]/g, "");
+      const lev = (a,b) => {
+        a = norm(a); b = norm(b);
+        if(a===b) return 0;
+        let prev = [], cur = [];
+        for(let j=0;j<=b.length;j++) prev[j] = j;
+        for(let i=1;i<=a.length;i++){
+          cur[0] = i;
+          for(let j=1;j<=b.length;j++)
+            cur[j] = Math.min(prev[j]+1, cur[j-1]+1, prev[j-1]+(a[i-1]===b[j-1]?0:1));
+          const tmp = prev; prev = cur; cur = tmp;
+        }
+        return prev[b.length];
+      };
+      const ringkas = {hapus: 0, gabung: 0, nama: 0};
+      const gelarNama = s => {
+        let n = 0;
+        const baru = eyd(s.nama);
+        if(baru !== s.nama){ s.nama = baru; n++; }
+        ["ayah","ibu"].forEach(k => {
+          if(s[k] && eyd(s[k]) !== s[k]){ s[k] = eyd(s[k]); n++; }
+        });
+        if(s.ttl && eyd(s.ttl) !== s.ttl){ s.ttl = eyd(s.ttl); n++; }
+        if(s.bi && typeof s.bi === "object"){
+          if(s.bi.tempatLahir && eyd(s.bi.tempatLahir) !== s.bi.tempatLahir){ s.bi.tempatLahir = eyd(s.bi.tempatLahir); n++; }
+          ["ayah","ibu","wali"].forEach(r => {
+            const o = s.bi[r];
+            if(o && o.nama && eyd(o.nama) !== o.nama){ o.nama = eyd(o.nama); n++; }
+          });
+        }
+        return n;
+      };
+      CLASS_LIST.forEach(c => {
+        const raw = localStorage.getItem(classKey(c.id));
+        if(!raw) return;
+        let bucket;
+        try{ bucket = JSON.parse(raw); }catch(e){ return; }
+        if(!bucket || !Array.isArray(bucket.siswa)) return;
+        bucket.siswa.forEach(s => { ringkas.nama += gelarNama(s); });
+        const isDp = s => /^dp\d+-/.test(s.id || "");
+        const terpakai = new Set();
+        const pasangan = [];
+        bucket.siswa.forEach(dp => {
+          if(!isDp(dp)) return;
+          let terbaik = null, jarakTerbaik = 99, jumlahTerbaik = 0;
+          bucket.siswa.forEach(t => {
+            if(isDp(t) || t === dp || terpakai.has(t)) return;
+            const d = lev(t.nama, dp.nama);
+            if(d < jarakTerbaik){ jarakTerbaik = d; terbaik = t; jumlahTerbaik = 1; }
+            else if(d === jarakTerbaik){ jumlahTerbaik++; }
+          });
+          if(terbaik && jarakTerbaik <= 3 && jumlahTerbaik === 1){
+            terpakai.add(terbaik); pasangan.push([terbaik, dp]);
+          }
+        });
+        pasangan.forEach(pair => {
+          const lama = pair[0], baru = pair[1];
+          const idxLama = bucket.siswa.indexOf(lama);
+          baru.no = lama.no;
+          const pindah = o => {
+            if(!o || typeof o !== "object") return;
+            if(Array.isArray(o)){ o.forEach(pindah); return; }
+            Object.keys(o).forEach(k => {
+              const v = o[k];
+              if(k === "siswaId" && v === lama.id){ o[k] = baru.id; }
+              else if(k === lama.id){ o[baru.id] = v; delete o[k]; }
+              else pindah(v);
+            });
+          };
+          Object.keys(bucket).forEach(k => { if(k !== "siswa") pindah(bucket[k]); });
+          bucket.siswa.splice(idxLama, 1);
+          const idxBaru = bucket.siswa.indexOf(baru);
+          bucket.siswa.splice(idxBaru, 1);
+          bucket.siswa.splice(idxLama, 0, baru);
+          ringkas.hapus++; ringkas.gabung++;
+        });
+        localStorage.setItem(classKey(c.id), JSON.stringify(bucket));
+      });
+      localStorage.setItem(NAMA_EYD_FLAG, JSON.stringify(ringkas));
     }catch(e){}
   }
 
