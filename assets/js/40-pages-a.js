@@ -318,6 +318,17 @@ function swapNoAbsen(id, direction){
   saveDB();
   renderPage("siswa");
 }
+/* Format tampil data siswa (2 Nov 2026): nilai jejak float dari ekspor
+   Excel/seed lama seperti "1990.0" (tahun lahir ayah/ibu/wali, kode pos,
+   anak ke, berat/tinggi) tampil sebagai "1990". Hanya memotong ".0" pada
+   bilangan bulat; desimal asli (16.5, -7.123456) dan teks lain tidak
+   diubah; nilai kosong/falsy dibiarkan agar fallback '-' tetap jalan. */
+function fmtData(v){
+  if(!v) return v;
+  const m = String(v).match(/^(-?\d+)\.0+$/);
+  return m ? m[1] : v;
+}
+
 PAGES.siswa = function(){
   const q = (window._siswaQ||"").toLowerCase();
   const sortMode = window._siswaSort || "nama";
@@ -337,70 +348,70 @@ PAGES.siswa = function(){
         ${sortMode==="no" ? `<button class="btn btn-sm btn-icon" title="Tukar ke bawah" style="width:20px;height:20px;padding:0;font-size:10px;line-height:1;" onclick="swapNoAbsen('${s.id}',1)" ${i===data.length-1?"disabled":""}>▼</button>` : ""}
       </div>
     </td>
-    <td><strong>${escapeHtml(s.nama)}</strong><div class="muted" style="font-size:11px;">${escapeHtml(s.ttl||"")}</div></td>
-    <td>${escapeHtml(s.nis||'[Diisi Guru]')}</td>
-    <td><span class="badge ${s.jk==='L'?'badge-blue':'badge-orange'}">${escapeHtml(s.jk)}</span></td>
-    <td>${escapeHtml(s.nisn||'[Diisi Guru]')}</td>
-    <td>${escapeHtml(bi.tempatLahir||'-')}</td>
-    <td>${escapeHtml(bi.tanggalLahir||'-')}</td>
-    <td>${escapeHtml(bi.nik||'-')}</td>
-    <td>${escapeHtml(s.agama||'-')}</td>
-    <td>${escapeHtml(s.alamat||'-')}</td>
-    <td>${escapeHtml(bi.rt||'-')}</td>
-    <td>${escapeHtml(bi.rw||'-')}</td>
-    <td>${escapeHtml(bi.dusun||'-')}</td>
-    <td>${escapeHtml(bi.kelurahan||'-')}</td>
-    <td>${escapeHtml(bi.kecamatan||'-')}</td>
-    <td>${escapeHtml(bi.kodePos||'-')}</td>
-    <td>${escapeHtml(bi.jenisTinggal||'-')}</td>
-    <td>${escapeHtml(bi.transportasi||'-')}</td>
-    <td>${escapeHtml(bi.telepon||'-')}</td>
-    <td>${escapeHtml(bi.hp||'-')}</td>
-    <td>${escapeHtml(bi.email||'-')}</td>
-    <td>${escapeHtml(bi.skhun||'-')}</td>
-    <td>${escapeHtml(bi.penerimaKPS||'-')}</td>
-    <td>${escapeHtml(bi.noKPS||'-')}</td>
-    <td>${escapeHtml(s.ayah||'-')}</td>
-    <td>${escapeHtml(ay.tahunLahir||'-')}</td>
-    <td>${escapeHtml(ay.pendidikan||'-')}</td>
-    <td>${escapeHtml(ay.pekerjaan||'-')}</td>
-    <td>${escapeHtml(ay.penghasilan||'-')}</td>
-    <td>${escapeHtml(ay.nik||'-')}</td>
-    <td>${escapeHtml(s.ibu||'-')}</td>
-    <td>${escapeHtml(ib.tahunLahir||'-')}</td>
-    <td>${escapeHtml(ib.pendidikan||'-')}</td>
-    <td>${escapeHtml(ib.pekerjaan||'-')}</td>
-    <td>${escapeHtml(ib.penghasilan||'-')}</td>
-    <td>${escapeHtml(ib.nik||'-')}</td>
-    <td>${escapeHtml(wl.nama||'-')}</td>
-    <td>${escapeHtml(wl.tahunLahir||'-')}</td>
-    <td>${escapeHtml(wl.pendidikan||'-')}</td>
-    <td>${escapeHtml(wl.pekerjaan||'-')}</td>
-    <td>${escapeHtml(wl.penghasilan||'-')}</td>
-    <td>${escapeHtml(wl.nik||'-')}</td>
-    <td>${escapeHtml(bi.noUN||'-')}</td>
-    <td>${escapeHtml(bi.noIjazah||'-')}</td>
-    <td>${escapeHtml(bi.penerimaKIP||'-')}</td>
-    <td>${escapeHtml(bi.nomorKIP||'-')}</td>
-    <td>${escapeHtml(bi.namaKIP||'-')}</td>
-    <td>${escapeHtml(bi.nomorKKS||'-')}</td>
-    <td>${escapeHtml(bi.noAkta||'-')}</td>
-    <td>${escapeHtml(bi.bank||'-')}</td>
-    <td>${escapeHtml(bi.rekening||'-')}</td>
-    <td>${escapeHtml(bi.rekeningAtasNama||'-')}</td>
-    <td>${escapeHtml(bi.layakPIP||'-')}</td>
-    <td>${escapeHtml(bi.alasanPIP||'-')}</td>
-    <td>${escapeHtml(bi.kebutuhanKhusus||'-')}</td>
-    <td>${escapeHtml(bi.sekolahAsal||'-')}</td>
-    <td>${escapeHtml(bi.anakKe||'-')}</td>
-    <td>${escapeHtml(bi.lintang||'-')}</td>
-    <td>${escapeHtml(bi.bujur||'-')}</td>
-    <td>${escapeHtml(bi.noKK||'-')}</td>
-    <td>${escapeHtml(bi.beratBadan||'-')}</td>
-    <td>${escapeHtml(bi.tinggiBadan||'-')}</td>
-    <td>${escapeHtml(bi.lingkarKepala||'-')}</td>
-    <td>${escapeHtml(bi.jmlSaudara||'-')}</td>
-    <td>${escapeHtml(bi.jarakSekolah||'-')}</td>
+    <td><strong>${escapeHtml(fmtData(s.nama))}</strong><div class="muted" style="font-size:11px;">${escapeHtml(fmtData(s.ttl||""))}</div></td>
+    <td>${escapeHtml(fmtData(s.nis||'[Diisi Guru]'))}</td>
+    <td><span class="badge ${s.jk==='L'?'badge-blue':'badge-orange'}">${escapeHtml(fmtData(s.jk))}</span></td>
+    <td>${escapeHtml(fmtData(s.nisn||'[Diisi Guru]'))}</td>
+    <td>${escapeHtml(fmtData(bi.tempatLahir||'-'))}</td>
+    <td>${escapeHtml(fmtData(bi.tanggalLahir||'-'))}</td>
+    <td>${escapeHtml(fmtData(bi.nik||'-'))}</td>
+    <td>${escapeHtml(fmtData(s.agama||'-'))}</td>
+    <td>${escapeHtml(fmtData(s.alamat||'-'))}</td>
+    <td>${escapeHtml(fmtData(bi.rt||'-'))}</td>
+    <td>${escapeHtml(fmtData(bi.rw||'-'))}</td>
+    <td>${escapeHtml(fmtData(bi.dusun||'-'))}</td>
+    <td>${escapeHtml(fmtData(bi.kelurahan||'-'))}</td>
+    <td>${escapeHtml(fmtData(bi.kecamatan||'-'))}</td>
+    <td>${escapeHtml(fmtData(bi.kodePos||'-'))}</td>
+    <td>${escapeHtml(fmtData(bi.jenisTinggal||'-'))}</td>
+    <td>${escapeHtml(fmtData(bi.transportasi||'-'))}</td>
+    <td>${escapeHtml(fmtData(bi.telepon||'-'))}</td>
+    <td>${escapeHtml(fmtData(bi.hp||'-'))}</td>
+    <td>${escapeHtml(fmtData(bi.email||'-'))}</td>
+    <td>${escapeHtml(fmtData(bi.skhun||'-'))}</td>
+    <td>${escapeHtml(fmtData(bi.penerimaKPS||'-'))}</td>
+    <td>${escapeHtml(fmtData(bi.noKPS||'-'))}</td>
+    <td>${escapeHtml(fmtData(s.ayah||'-'))}</td>
+    <td>${escapeHtml(fmtData(ay.tahunLahir||'-'))}</td>
+    <td>${escapeHtml(fmtData(ay.pendidikan||'-'))}</td>
+    <td>${escapeHtml(fmtData(ay.pekerjaan||'-'))}</td>
+    <td>${escapeHtml(fmtData(ay.penghasilan||'-'))}</td>
+    <td>${escapeHtml(fmtData(ay.nik||'-'))}</td>
+    <td>${escapeHtml(fmtData(s.ibu||'-'))}</td>
+    <td>${escapeHtml(fmtData(ib.tahunLahir||'-'))}</td>
+    <td>${escapeHtml(fmtData(ib.pendidikan||'-'))}</td>
+    <td>${escapeHtml(fmtData(ib.pekerjaan||'-'))}</td>
+    <td>${escapeHtml(fmtData(ib.penghasilan||'-'))}</td>
+    <td>${escapeHtml(fmtData(ib.nik||'-'))}</td>
+    <td>${escapeHtml(fmtData(wl.nama||'-'))}</td>
+    <td>${escapeHtml(fmtData(wl.tahunLahir||'-'))}</td>
+    <td>${escapeHtml(fmtData(wl.pendidikan||'-'))}</td>
+    <td>${escapeHtml(fmtData(wl.pekerjaan||'-'))}</td>
+    <td>${escapeHtml(fmtData(wl.penghasilan||'-'))}</td>
+    <td>${escapeHtml(fmtData(wl.nik||'-'))}</td>
+    <td>${escapeHtml(fmtData(bi.noUN||'-'))}</td>
+    <td>${escapeHtml(fmtData(bi.noIjazah||'-'))}</td>
+    <td>${escapeHtml(fmtData(bi.penerimaKIP||'-'))}</td>
+    <td>${escapeHtml(fmtData(bi.nomorKIP||'-'))}</td>
+    <td>${escapeHtml(fmtData(bi.namaKIP||'-'))}</td>
+    <td>${escapeHtml(fmtData(bi.nomorKKS||'-'))}</td>
+    <td>${escapeHtml(fmtData(bi.noAkta||'-'))}</td>
+    <td>${escapeHtml(fmtData(bi.bank||'-'))}</td>
+    <td>${escapeHtml(fmtData(bi.rekening||'-'))}</td>
+    <td>${escapeHtml(fmtData(bi.rekeningAtasNama||'-'))}</td>
+    <td>${escapeHtml(fmtData(bi.layakPIP||'-'))}</td>
+    <td>${escapeHtml(fmtData(bi.alasanPIP||'-'))}</td>
+    <td>${escapeHtml(fmtData(bi.kebutuhanKhusus||'-'))}</td>
+    <td>${escapeHtml(fmtData(bi.sekolahAsal||'-'))}</td>
+    <td>${escapeHtml(fmtData(bi.anakKe||'-'))}</td>
+    <td>${escapeHtml(fmtData(bi.lintang||'-'))}</td>
+    <td>${escapeHtml(fmtData(bi.bujur||'-'))}</td>
+    <td>${escapeHtml(fmtData(bi.noKK||'-'))}</td>
+    <td>${escapeHtml(fmtData(bi.beratBadan||'-'))}</td>
+    <td>${escapeHtml(fmtData(bi.tinggiBadan||'-'))}</td>
+    <td>${escapeHtml(fmtData(bi.lingkarKepala||'-'))}</td>
+    <td>${escapeHtml(fmtData(bi.jmlSaudara||'-'))}</td>
+    <td>${escapeHtml(fmtData(bi.jarakSekolah||'-'))}</td>
     <td><div class="row-actions">
       <button class="btn btn-sm btn-icon" title="Ubah" onclick="editSiswa('${s.id}')">${ic("edit",15)}</button>
       <button class="btn btn-sm btn-icon" title="Buku Induk Siswa" onclick="bukuIndukDetail('${s.id}')">${ic("book",15)}</button>
@@ -1414,7 +1425,7 @@ function bukuIndukDetail(siswaId){
       <button class="btn btn-primary" onclick="printBukuInduk('${siswaId}')">${ic("print",15)} Cetak</button>`});
 }
 function biRow(no, label, val){
-  return `<tr><td style="width:36px;">${no}</td><td style="width:38%;">${label}</td><td>${escapeHtml(val||"-")}</td></tr>`;
+  return `<tr><td style="width:36px;">${no}</td><td style="width:38%;">${label}</td><td>${escapeHtml(fmtData(val)||"-")}</td></tr>`;
 }
 function bukuIndukLihatHtml(siswaId){
   const s = (db.siswa||[]).find(x=>x.id===siswaId);
@@ -1441,14 +1452,14 @@ function bukuIndukLihatHtml(siswaId){
     ${biRow(13,"Status Yatim/Piatu",bi.statusYatim)}
     ${biRow(14,"Bahasa Sehari-hari",bi.bahasa)}${biRow(15,"Kebutuhan Khusus",bi.kebutuhanKhusus)}
     <tr><td colspan="3" style="background:var(--primary-ghost);font-weight:800;">B. TEMPAT TINGGAL</td></tr>
-    ${biRow(16,"Alamat",s.alamat)}${biRow(17,"RT/RW",(bi.rt||"-")+"/"+(bi.rw||"-"))}
+    ${biRow(16,"Alamat",s.alamat)}${biRow(17,"RT/RW",(fmtData(bi.rt)||"-")+"/"+(fmtData(bi.rw)||"-"))}
     ${biRow(18,"Dusun",bi.dusun)}${biRow(19,"Kelurahan/Desa",bi.kelurahan)}
     ${biRow(20,"Kecamatan",bi.kecamatan)}${biRow(21,"Kode Pos",bi.kodePos)}
     ${biRow(22,"Telepon / HP",(bi.telepon||"")+(bi.telepon&&bi.hp?" / ":"")+(bi.hp||""))}
-    ${biRow(23,"Tinggal Bersama",bi.tinggalBersama)}${biRow(24,"Jarak ke Sekolah",bi.jarakSekolah?bi.jarakSekolah+" km":"")}
+    ${biRow(23,"Tinggal Bersama",bi.tinggalBersama)}${biRow(24,"Jarak ke Sekolah",bi.jarakSekolah?fmtData(bi.jarakSekolah)+" km":"")}
     ${biRow(25,"Transportasi",bi.transportasi)}
     <tr><td colspan="3" style="background:var(--primary-ghost);font-weight:800;">C. KESEHATAN</td></tr>
-    ${biRow(26,"Berat/Tinggi Badan",(bi.beratBadan||"-")+" kg / "+(bi.tinggiBadan||"-")+" cm")}
+    ${biRow(26,"Berat/Tinggi Badan",(fmtData(bi.beratBadan)||"-")+" kg / "+(fmtData(bi.tinggiBadan)||"-")+" cm")}
     ${biRow(27,"Golongan Darah",bi.golDarah)}${biRow(28,"Penyakit Pernah Diderita",bi.penyakit)}
     ${biRow(29,"Kelainan Jasmani",bi.kelainan)}
     <tr><td colspan="3" style="background:var(--primary-ghost);font-weight:800;">D. PENDIDIKAN</td></tr>

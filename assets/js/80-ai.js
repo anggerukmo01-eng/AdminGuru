@@ -1271,6 +1271,12 @@ function absensiRingkasanHtml(bulan){
   const pct = v => penyebut>0 ? (v*100/penyebut) : 0;
   const f1 = v => (Math.round(v*10)/10).toString().replace(".", ",")+"%";
   const bar = (p, color) => `<div style="height:8px;border-radius:99px;background:var(--border);overflow:hidden;margin-top:6px;"><div style="height:100%;width:${Math.min(100,p)}%;background:${color};border-radius:99px;"></div></div>`;
+  /* REVISI 2 Nov 2026: daftar nama siswa yang pernah absen pada bulan
+     ini (Sakit/Izin/Alpa + jumlah harinya), dari baris rekap yang sama. */
+  const absenList = (key, label) => {
+    const lst = rows.filter(r=>r[key]>0).map(r=>`${escapeHtml(r.nama)} (${r[key]} hari)`);
+    return `<div style="margin-top:6px;"><strong>${label} (${lst.length} siswa):</strong> ${lst.length ? lst.join(", ") : "— Tidak ada —"}</div>`;
+  };
   const card = (label, total, p, color) => `
     <div class="card" style="margin:0;padding:14px 16px;">
       <div class="muted" style="font-size:11.5px;font-weight:700;">${label}</div>
@@ -1289,6 +1295,12 @@ function absensiRingkasanHtml(bulan){
       ${card("Sakit", tS, pct(tS), "var(--warn)")}
       ${card("Izin", tI, pct(tI), "var(--primary)")}
       ${card("Alfa", tA, pct(tA), "var(--danger)")}
+    </div>
+    <div style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px;">
+      <div class="muted" style="font-size:11.5px;font-weight:700;margin-bottom:4px;">SISWA YANG PERNAH ABSEN — ${bulanIndoLabel(bulan)}</div>
+      ${absenList("sk","Sakit")}
+      ${absenList("iz","Izin")}
+      ${absenList("al","Alpa")}
     </div>
   </div>`;
 }
