@@ -238,7 +238,16 @@ function renderPapanInfo(d){
   const cid = (typeof activeClassId!=="undefined" && activeClassId) ? activeClassId : "kelas-1";
   const kelasLabel = (typeof classInfo==="function") ? classInfo(cid).label : cid;
   const jadwalTxt = papanJadwalHariIni((typeof db!=="undefined" ? db.jadwal : null), hari);
-  const piket = (cid === "kelas-1") ? (PIKET_HARIAN[hari] || null) : null;
+  /* Piket dari DATABASE (db.jadwalPiket) bila sudah terisi; bila kosong,
+     pakai daftar PIKET_HARIAN (Kelas 1) sebagai cadangan supaya strip
+     tidak pernah kosong. Nama tampil = nama lengkap dari database. */
+  let piket = null;
+  if(typeof db!=="undefined" && Array.isArray(db.jadwalPiket) && typeof siswaName==="function"){
+    const dariDb = db.jadwalPiket.filter(r => r && r.hari === hari)
+      .map(r => siswaName(r.siswaId)).filter(n => n && n !== "?");
+    if(dariDb.length) piket = dariDb;
+  }
+  if(!piket) piket = (cid === "kelas-1") ? (PIKET_HARIAN[hari] || null) : null;
   let teks = (kelasLabel || "Kelas 1") + ' • ';
   teks += jadwalTxt ? ('Jadwal hari ini (' + hari + '): ' + jadwalTxt) : ('Hari ini ' + hari + ': tidak ada jadwal pelajaran');
   teks += ' • Piket hari ini: ' + (piket ? piket.join(", ") : '—');

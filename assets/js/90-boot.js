@@ -149,13 +149,36 @@ function boot(){
             bucket.siswa.forEach(s=>{ if(!hari[s.id]){ hari[s.id] = "H"; ringkas.hadirDiisi++; } });
           }
         };
+        /* Isi jadwal piket & kelompok belajar dari seed (2 Nov 2026,
+           perintah Anggi; kelompok = tim piket Senin–Jumat): bila bucket
+           belum punya datanya (kosong/tidak ada), isi dari seed —
+           dicocokkan lewat NAMA ke roster hasil gabungan (id tablet
+           dipertahankan, bukan id seed). Data yang sudah diisi guru
+           tidak diubah. */
+        const isiStoreDariSeed = (bucket, seedClass, key, grupKey) => {
+          if(!bucket || !Array.isArray(bucket.siswa)) return;
+          if(Array.isArray(bucket[key]) && bucket[key].length) return;
+          const seedRows = (seedClass && seedClass[key]) || [];
+          if(!seedRows.length) return;
+          const norm = v => String(v||"").toLowerCase().replace(/[^a-z0-9]/g, "");
+          const seedNama = {};
+          (seedClass.siswa||[]).forEach(s=>{ if(s.id) seedNama[s.id] = s.nama; });
+          const byNama = {};
+          bucket.siswa.forEach(s=>{ const n = norm(s.nama); if(n && !byNama[n]) byNama[n] = s; });
+          const rows = [];
+          seedRows.forEach(r=>{
+            const t = byNama[norm(seedNama[r.siswaId]||"")];
+            if(t){ const row = {id: r.id, siswaId: t.id, keterangan: r.keterangan || ""}; row[grupKey] = r[grupKey]; rows.push(row); }
+          });
+          if(rows.length) bucket[key] = rows;
+        };
         Object.keys(daftar).forEach(cid=>{
           let raw = null;
           try{ const s = localStorage.getItem(classKey(cid)); if(s) raw = JSON.parse(s); }catch(e){}
           const hasil = mergeRosterDapodik((raw && raw.siswa) || [], (daftar[cid].siswa||[]));
           ringkas.tambah += hasil.tambah; ringkas.perbarui += hasil.perbarui; ringkas.takCocok += hasil.takCocok;
-          if(raw){ raw.siswa = hasil.siswa; isiKehadiran(raw); localStorage.setItem(classKey(cid), JSON.stringify(raw)); }
-          else if(hasil.siswa.length){ const nb = {siswa: hasil.siswa}; isiKehadiran(nb); localStorage.setItem(classKey(cid), JSON.stringify(nb)); }
+          if(raw){ raw.siswa = hasil.siswa; isiKehadiran(raw); isiStoreDariSeed(raw, daftar[cid], "jadwalPiket", "hari"); isiStoreDariSeed(raw, daftar[cid], "kelompokBelajar", "kelompok"); localStorage.setItem(classKey(cid), JSON.stringify(raw)); }
+          else if(hasil.siswa.length){ const nb = {siswa: hasil.siswa}; isiKehadiran(nb); isiStoreDariSeed(nb, daftar[cid], "jadwalPiket", "hari"); isiStoreDariSeed(nb, daftar[cid], "kelompokBelajar", "kelompok"); localStorage.setItem(classKey(cid), JSON.stringify(nb)); }
         });
         localStorage.setItem(ROSTER_DAPODIK_FLAG, JSON.stringify(ringkas));
       }

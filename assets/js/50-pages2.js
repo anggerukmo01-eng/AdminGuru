@@ -367,9 +367,9 @@ PAGES.jadwalPiket = function(){
 PAGES.kelompokBelajar = function(){
   return crudSection({
     store:"kelompokBelajar", title:"Pembagian Kelompok Belajar",
-    desc:"Pembagian siswa ke dalam kelompok belajar A, B, C, D.",
+    desc:"Pembagian siswa ke dalam kelompok belajar (A, B, C, D, atau per hari piket Senin–Jumat).",
     fields:[
-      {key:"kelompok",label:"Kelompok",type:"select",options:["A","B","C","D"],required:true},
+      {key:"kelompok",label:"Kelompok",type:"select",options:["A","B","C","D","Senin","Selasa","Rabu","Kamis","Jumat"],required:true},
       {key:"siswaId",label:"Nama Siswa",type:"select",options:siswaOpts(),required:true},
       {key:"keterangan",label:"Keterangan"},
     ],
