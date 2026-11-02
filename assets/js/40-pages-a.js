@@ -112,6 +112,10 @@ PAGES.dashboard = function(){
     </div><p class="hint">Dipakai bersama pada profil sekolah, kop surat, program pembelajaran, dan rapor.</p></details>
   <details class="card school-summary"><summary>${ic('bar',18)} Ringkasan sekolah & pembinaan</summary><div class="school-summary-grid">${CLASS_LIST.map(c=>{const n=(c.id===activeClassId?db:loadClassDB(c.id)).siswa.length;return `<button class="class-summary ${c.id===activeClassId?'active':''}" onclick="switchActiveClass('${c.id}')"><small>${c.id===activeClassId?'Kelas aktif':'Pindah kelas'}</small><strong>${c.label}</strong><span>${n} siswa</span></button>`;}).join('')}</div><div class="school-links">${[{id:'perkembangan',label:'Catatan perkembangan',icon:'heart'},{id:'analisisnilai',label:'Analisis nilai',icon:'target'},{id:'pekerjaanOrtu',label:'Pekerjaan orang tua',icon:'users'},{id:'backup',label:'Backup & sinkronisasi',icon:'backup'},{id:'guru',label:(db.guru.length+db.tendik.length)+' guru & tendik',icon:'school'}].map(item=>`<button class="btn" onclick="navigate('${item.id}')">${ic(item.icon,16)} ${item.label}</button>`).join('')}</div><p class="hint">Dimensi Profil Lulusan: ${DIMENSI_PROFIL.map(d=>escapeHtml(d.nama)).join(' · ')}.</p></details>
   <details class="card school-summary"><summary>${ic('star',18)} Rekap Program Indonesia Pintar</summary><div class="pip-summary"><div><span>Penerima (KIP)</span><strong>${pip.penerima}</strong></div><div><span>Usulan sekolah</span><strong>${pip.usulan}</strong></div></div><div class="table-wrap"><table><thead><tr><th>Kategori usulan</th><th>Jumlah</th></tr></thead><tbody>${Object.entries(pip.byKategori).map(([label,n])=>`<tr><td>${escapeHtml(label)}</td><td>${n}</td></tr>`).join('')||'<tr><td colspan="2">Belum ada usulan tercatat.</td></tr>'}</tbody></table></div><p class="hint">Rekap seluruh kelas berdasarkan Buku Induk; satu usulan dapat memiliki beberapa kategori.</p></details>
+  <section class="card"><div class="dashboard-card-head"><div><span class="card-eyebrow">KEADAAN MURID</span><h2>Rekap Umur Siswa per Bulan</h2></div></div>
+    <p class="muted" style="font-size:12.5px;">Tahun Pelajaran ${escapeHtml(db.sekolah.tahunAjaran)} · Dihitung langsung dari tanggal lahir siswa.</p>
+    ${rekapUmurBulananHtml()}
+  </section>
   <footer class="workspace-footer"><span>AdminGuru <strong>· Edukreativa By Anggi</strong></span><span>Data administrasi tersimpan di perangkat ini.</span></footer>`;
 };
 
@@ -1074,6 +1078,71 @@ function rekapPekerjaanOrtu(){
     map[k].total++;
   });
   return Object.values(map).sort((a,b)=>b.total-a.total);
+}
+/* ---------- REKAP UMUR SISWA PER BULAN — KEADAAN MURID (2 Nov 2026) ----------
+   Tabel seperti formulir "BANYAKNYA MURID YANG BERUMUR": kolom kiri Bulan
+   (dimulai Juli, tahun pelajaran berjalan) x kolom umur 6–17 tahun + Jumlah.
+   Angka dihitung LANGSUNG dari tanggal lahir siswa (Buku Induk): umur per
+   AKHIR bulan. Cakupan: seluruh kelas (1–6), dibaca dari bucket tiap kelas
+   (pola yang sama dengan rekapPIP). Siswa tanpa tanggal lahir yang dapat
+   dibaca tidak terhitung dan dilaporkan di catatan bawah tabel. */
+const BULAN_INDO_UMUR = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+function parseTanggalLahirSiswa(s){
+  const kandidat = [];
+  if(s.bi && s.bi.tanggalLahir) kandidat.push(s.bi.tanggalLahir);
+  if(s.tanggalLahir) kandidat.push(s.tanggalLahir);
+  if(s.tanggal_lahir) kandidat.push(s.tanggal_lahir);
+  if(s.ttl) kandidat.push(s.ttl);
+  for(const raw of kandidat){
+    const t = String(raw||"").trim();
+    if(!t) continue;
+    let m = t.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if(m){ const d = new Date(+m[1], +m[2]-1, +m[3]); if(!isNaN(d.getTime())) return d; }
+    m = t.match(/(\d{1,2})\s+(Januari|Februari|Maret|April|Mei|Juni|Juli|Agustus|September|Oktober|November|Desember)\s+(\d{4})/i);
+    if(m){
+      const namaBulan = m[2].charAt(0).toUpperCase()+m[2].slice(1).toLowerCase();
+      const idx = BULAN_INDO_UMUR.indexOf(namaBulan);
+      if(idx>=0){ const d = new Date(+m[3], idx, +m[1]); if(!isNaN(d.getTime())) return d; }
+    }
+    m = t.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+    if(m){ const d = new Date(+m[3], +m[2]-1, +m[1]); if(!isNaN(d.getTime())) return d; }
+  }
+  return null;
+}
+function umurPadaTanggal(lahir, ref){
+  let u = ref.getFullYear() - lahir.getFullYear();
+  if(ref.getMonth() < lahir.getMonth() || (ref.getMonth()===lahir.getMonth() && ref.getDate() < lahir.getDate())) u--;
+  return u;
+}
+function tahunAjaranAwalUmur(){
+  const m = String((db.sekolah&&db.sekolah.tahunAjaran)||"").match(/(\d{4})\s*\/\s*\d{4}/);
+  if(m) return +m[1];
+  const now = new Date();
+  return now.getMonth()>=6 ? now.getFullYear() : now.getFullYear()-1;
+}
+function rekapUmurBulananHtml(){
+  const awal = tahunAjaranAwalUmur();
+  const bulanList = [];
+  for(let i=0;i<12;i++){
+    const mIdx = (6+i)%12; // Juli=6 ... Juni=5
+    const y = (6+i)<12 ? awal : awal+1;
+    bulanList.push({ym: y+"-"+String(mIdx+1).padStart(2,"0"), y, m: mIdx});
+  }
+  const semuaSiswa = [];
+  CLASS_LIST.forEach(c=>{ const cls = loadClassDB(c.id); (cls.siswa||[]).forEach(s=>semuaSiswa.push(s)); });
+  const lahirList = semuaSiswa.map(s=>parseTanggalLahirSiswa(s));
+  const tanpaTgl = lahirList.filter(d=>!d).length;
+  const thUmur = []; for(let u=6;u<=17;u++) thUmur.push("<th>"+u+" tahun</th>");
+  const body = bulanList.map(b=>{
+    const ref = new Date(b.y, b.m+1, 0); // akhir bulan
+    const hit = {}; for(let u=6;u<=17;u++) hit[u]=0;
+    lahirList.forEach(d=>{ if(!d) return; const u = umurPadaTanggal(d, ref); if(u>=6 && u<=17) hit[u]++; });
+    let jml = 0; for(let u=6;u<=17;u++) jml += hit[u];
+    const cells = []; for(let u=6;u<=17;u++) cells.push("<td>"+(hit[u]||"")+"</td>");
+    return "<tr><td style=\"text-align:left;\"><strong>"+escapeHtml(bulanIndoLabel(b.ym))+"</strong></td>"+cells.join("")+"<td><strong>"+jml+"</strong></td></tr>";
+  }).join("");
+  return "<div class=\"table-wrap\"><table><thead><tr><th>Bulan</th>"+thUmur.join("")+"<th>Jumlah</th></tr></thead><tbody>"+body+"</tbody></table></div>"
+    + "<p class=\"hint\">Umur dihitung per akhir bulan dari tanggal lahir di Buku Induk. Cakupan: seluruh kelas (1–6), "+semuaSiswa.length+" siswa."+(tanpaTgl ? " "+tanpaTgl+" siswa tanpa tanggal lahir tidak terhitung." : "")+"</p>";
 }
 function rekapPIP(){
   let penerima = 0, usulan = 0;
