@@ -324,10 +324,11 @@ PAGES.siswa = function(){
   const jkFilter = window._siswaFilterJK || "";
   let data = db.siswa.slice();
   if(jkFilter) data = data.filter(s=>s.jk===jkFilter);
-  if(q) data = data.filter(s=>[s.nama,s.nis,s.nisn,s.alamat].some(v=>String(v||"").toLowerCase().includes(q)));
+  if(q) data = data.filter(s=>[s.nama,s.nis,s.nisn,s.alamat,(s.bi&&s.bi.nik),(s.bi&&s.bi.noKK)].some(v=>String(v||"").toLowerCase().includes(q)));
   data = sortMode==="nama" ? data.sort((a,b)=>(a.nama||"").localeCompare(b.nama||"")) : data.sort((a,b)=>(a.no||0)-(b.no||0));
   const isKelas6 = activeClassId==="kelas-6";
-  const body = data.map((s,i)=>`<tr>
+  const body = data.map((s,i)=>{ const bi = s.bi||{}; const ay = bi.ayah||{}; const ib = bi.ibu||{}; const wl = bi.wali||{};
+    return `<tr>
     <td>
       <div style="display:flex;align-items:center;gap:3px;">
         ${sortMode==="no" ? `<button class="btn btn-sm btn-icon" title="Tukar ke atas" style="width:20px;height:20px;padding:0;font-size:10px;line-height:1;" onclick="swapNoAbsen('${s.id}',-1)" ${i===0?"disabled":""}>▲</button>` : ""}
@@ -337,17 +338,76 @@ PAGES.siswa = function(){
       </div>
     </td>
     <td><strong>${escapeHtml(s.nama)}</strong><div class="muted" style="font-size:11px;">${escapeHtml(s.ttl||"")}</div></td>
+    <td>${escapeHtml(s.nis||'[Diisi Guru]')}</td>
     <td><span class="badge ${s.jk==='L'?'badge-blue':'badge-orange'}">${escapeHtml(s.jk)}</span></td>
-    <td>${escapeHtml(s.nis||'[Diisi Guru]')}</td><td>${escapeHtml(s.nisn||'[Diisi Guru]')}</td>
-    <td>${escapeHtml(s.ayah||'-')}</td><td>${escapeHtml(s.ibu||'-')}</td>
+    <td>${escapeHtml(s.nisn||'[Diisi Guru]')}</td>
+    <td>${escapeHtml(bi.tempatLahir||'-')}</td>
+    <td>${escapeHtml(bi.tanggalLahir||'-')}</td>
+    <td>${escapeHtml(bi.nik||'-')}</td>
+    <td>${escapeHtml(s.agama||'-')}</td>
     <td>${escapeHtml(s.alamat||'-')}</td>
+    <td>${escapeHtml(bi.rt||'-')}</td>
+    <td>${escapeHtml(bi.rw||'-')}</td>
+    <td>${escapeHtml(bi.dusun||'-')}</td>
+    <td>${escapeHtml(bi.kelurahan||'-')}</td>
+    <td>${escapeHtml(bi.kecamatan||'-')}</td>
+    <td>${escapeHtml(bi.kodePos||'-')}</td>
+    <td>${escapeHtml(bi.jenisTinggal||'-')}</td>
+    <td>${escapeHtml(bi.transportasi||'-')}</td>
+    <td>${escapeHtml(bi.telepon||'-')}</td>
+    <td>${escapeHtml(bi.hp||'-')}</td>
+    <td>${escapeHtml(bi.email||'-')}</td>
+    <td>${escapeHtml(bi.skhun||'-')}</td>
+    <td>${escapeHtml(bi.penerimaKPS||'-')}</td>
+    <td>${escapeHtml(bi.noKPS||'-')}</td>
+    <td>${escapeHtml(s.ayah||'-')}</td>
+    <td>${escapeHtml(ay.tahunLahir||'-')}</td>
+    <td>${escapeHtml(ay.pendidikan||'-')}</td>
+    <td>${escapeHtml(ay.pekerjaan||'-')}</td>
+    <td>${escapeHtml(ay.penghasilan||'-')}</td>
+    <td>${escapeHtml(ay.nik||'-')}</td>
+    <td>${escapeHtml(s.ibu||'-')}</td>
+    <td>${escapeHtml(ib.tahunLahir||'-')}</td>
+    <td>${escapeHtml(ib.pendidikan||'-')}</td>
+    <td>${escapeHtml(ib.pekerjaan||'-')}</td>
+    <td>${escapeHtml(ib.penghasilan||'-')}</td>
+    <td>${escapeHtml(ib.nik||'-')}</td>
+    <td>${escapeHtml(wl.nama||'-')}</td>
+    <td>${escapeHtml(wl.tahunLahir||'-')}</td>
+    <td>${escapeHtml(wl.pendidikan||'-')}</td>
+    <td>${escapeHtml(wl.pekerjaan||'-')}</td>
+    <td>${escapeHtml(wl.penghasilan||'-')}</td>
+    <td>${escapeHtml(wl.nik||'-')}</td>
+    <td>${escapeHtml(bi.noUN||'-')}</td>
+    <td>${escapeHtml(bi.noIjazah||'-')}</td>
+    <td>${escapeHtml(bi.penerimaKIP||'-')}</td>
+    <td>${escapeHtml(bi.nomorKIP||'-')}</td>
+    <td>${escapeHtml(bi.namaKIP||'-')}</td>
+    <td>${escapeHtml(bi.nomorKKS||'-')}</td>
+    <td>${escapeHtml(bi.noAkta||'-')}</td>
+    <td>${escapeHtml(bi.bank||'-')}</td>
+    <td>${escapeHtml(bi.rekening||'-')}</td>
+    <td>${escapeHtml(bi.rekeningAtasNama||'-')}</td>
+    <td>${escapeHtml(bi.layakPIP||'-')}</td>
+    <td>${escapeHtml(bi.alasanPIP||'-')}</td>
+    <td>${escapeHtml(bi.kebutuhanKhusus||'-')}</td>
+    <td>${escapeHtml(bi.sekolahAsal||'-')}</td>
+    <td>${escapeHtml(bi.anakKe||'-')}</td>
+    <td>${escapeHtml(bi.lintang||'-')}</td>
+    <td>${escapeHtml(bi.bujur||'-')}</td>
+    <td>${escapeHtml(bi.noKK||'-')}</td>
+    <td>${escapeHtml(bi.beratBadan||'-')}</td>
+    <td>${escapeHtml(bi.tinggiBadan||'-')}</td>
+    <td>${escapeHtml(bi.lingkarKepala||'-')}</td>
+    <td>${escapeHtml(bi.jmlSaudara||'-')}</td>
+    <td>${escapeHtml(bi.jarakSekolah||'-')}</td>
     <td><div class="row-actions">
       <button class="btn btn-sm btn-icon" title="Ubah" onclick="editSiswa('${s.id}')">${ic("edit",15)}</button>
       <button class="btn btn-sm btn-icon" title="Buku Induk Siswa" onclick="bukuIndukDetail('${s.id}')">${ic("book",15)}</button>
       <button class="btn btn-sm btn-icon" title="Pindah Kelas" onclick="pindahSiswaKelas('${s.id}')">${ic("users",15)}</button>
       <button class="btn btn-sm btn-icon" title="Siswa Keluar / Mutasi Keluar" style="color:var(--danger);" onclick="prosesSiswaKeluar('${s.id}')">${ic("guest",15)}</button>
       <button class="btn btn-sm btn-icon btn-danger" title="Hapus" onclick="deleteSiswa('${s.id}')">${ic("trash",15)}</button>
-    </div></td></tr>`).join("");
+    </div></td></tr>`; }).join("");
   return `
   <div class="section-head"><div><h1>Data Siswa</h1><div class="desc">${escapeHtml(classInfo(activeClassId).label)} &middot; ${db.siswa.length} siswa terdaftar.</div></div>
     <div class="grow"></div>
@@ -378,7 +438,7 @@ PAGES.siswa = function(){
     <p class="hint" style="font-size:11px;margin-top:6px;">Klik "Unduh Template CSV" di atas untuk contoh format kolom yang benar, isi data mengikuti baris contoh, lalu unggah file tersebut di sini. Header kolom yang sedikit berbeda (mis. "Nama" atau "No Absen") tetap dapat dikenali otomatis.</p>
   </div>
   <div class="toolbar" style="flex-wrap:wrap;gap:10px;">
-    <div class="search-box">${ic("search",16)}<input placeholder="Cari nama / NIS / NISN / alamat..." oninput="window._siswaQ=this.value; renderPage('siswa');"></div>
+    <div class="search-box">${ic("search",16)}<input placeholder="Cari nama / NIS / NISN / NIK / alamat..." oninput="window._siswaQ=this.value; renderPage('siswa');"></div>
     <select onchange="window._siswaSort=this.value; renderPage('siswa');" style="max-width:180px;">
       <option value="no" ${sortMode==="no"?"selected":""}>Urutkan: No. Absen</option>
       <option value="nama" ${sortMode==="nama"?"selected":""}>Urutkan: Alfabetis</option>
@@ -389,8 +449,9 @@ PAGES.siswa = function(){
       <option value="P" ${jkFilter==="P"?"selected":""}>Perempuan</option>
     </select>
   </div>
-  <div class="table-wrap"><table><thead><tr><th>No</th><th>Nama Siswa</th><th>JK</th><th>NIS</th><th>NISN</th><th>Ayah</th><th>Ibu</th><th>Alamat</th><th style="text-align:right">Aksi</th></tr></thead>
-  <tbody>${body || `<tr><td colspan="9" class="empty-state">Tidak ada data ditemukan.</td></tr>`}</tbody></table></div>`;
+  <p class="hint" style="font-size:11px;margin:0 0 6px;">Tabel lengkap gaya Dapodik (66 kolom) — geser tabel ke kanan untuk melihat semua kolom.</p>
+  <div class="table-wrap"><table><thead><tr><th colspan="24" style="text-align:center;background:var(--primary-ghost);">Data Siswa</th><th colspan="6" style="text-align:center;background:var(--primary-ghost);">Data Ayah</th><th colspan="6" style="text-align:center;background:var(--primary-ghost);">Data Ibu</th><th colspan="6" style="text-align:center;background:var(--primary-ghost);">Data Wali</th><th colspan="12" style="text-align:center;background:var(--primary-ghost);">Ujian & Bantuan</th><th colspan="11" style="text-align:center;background:var(--primary-ghost);">Lainnya</th><th rowspan="2" style="text-align:right">Aksi</th></tr><tr><th>No</th><th>Nama Siswa</th><th>NIS (NIPD)</th><th>JK</th><th>NISN</th><th>Tempat Lahir</th><th>Tanggal Lahir</th><th>NIK</th><th>Agama</th><th>Alamat</th><th>RT</th><th>RW</th><th>Dusun</th><th>Kelurahan</th><th>Kecamatan</th><th>Kode Pos</th><th>Jenis Tinggal</th><th>Transportasi</th><th>Telepon</th><th>HP</th><th>E-Mail</th><th>SKHUN</th><th>Penerima KPS</th><th>No. KPS</th><th>Nama Ayah</th><th>Tahun Lahir Ayah</th><th>Pendidikan Ayah</th><th>Pekerjaan Ayah</th><th>Penghasilan Ayah</th><th>NIK Ayah</th><th>Nama Ibu</th><th>Tahun Lahir Ibu</th><th>Pendidikan Ibu</th><th>Pekerjaan Ibu</th><th>Penghasilan Ibu</th><th>NIK Ibu</th><th>Nama Wali</th><th>Tahun Lahir Wali</th><th>Pendidikan Wali</th><th>Pekerjaan Wali</th><th>Penghasilan Wali</th><th>NIK Wali</th><th>No. Peserta UN</th><th>No. Seri Ijazah</th><th>Penerima KIP</th><th>Nomor KIP</th><th>Nama di KIP</th><th>Nomor KKS</th><th>No. Registrasi Akta</th><th>Bank</th><th>Nomor Rekening</th><th>Rekening Atas Nama</th><th>Layak PIP</th><th>Alasan PIP</th><th>Kebutuhan Khusus</th><th>Sekolah Asal</th><th>Anak Ke-</th><th>Lintang</th><th>Bujur</th><th>No. KK</th><th>Berat Badan</th><th>Tinggi Badan</th><th>Lingkar Kepala</th><th>Jml. Saudara</th><th>Jarak ke Sekolah</th></tr></thead>
+  <tbody>${body || `<tr><td colspan="66" class="empty-state">Tidak ada data ditemukan.</td></tr>`}</tbody></table></div>`;
 };
 function addSiswa(){
   openModal({title:"Tambah Siswa", bodyHtml:`<div class="form-grid">${siswaFields().map(f=>fieldHtml(f, f.key==="no" ? (db.siswa.length+1) : "")).join("")}</div>`,
