@@ -187,6 +187,68 @@ function navCollapsedGet(){
 function navCollapsedSet(arr){
   try{ localStorage.setItem("tp_nav_collapsed", JSON.stringify(arr)); }catch(e){}
 }
+/* ---- Papan info atas (2 Nov 2026, perintah Anggi) ----
+   Jadwal piket kebersihan Kelas 1 (nama pendek dari data Dapodik —
+   aturan 2 Nov 2026: nama selalu memakai data Dapodik;
+   20 nama = seluruh siswa Kelas 1, masing-masing tepat satu hari).
+   Geza (Selasa) dan Eza (Jumat) adalah dua anak berbeda. */
+const PIKET_HARIAN = {
+  Senin: ["Rizki", "Aksan", "Aqmar", "Azziz"],
+  Selasa: ["Geza", "Arfan", "Syarif", "Alfan"],
+  Rabu: ["Aji", "Saffiq", "Farell", "Denis"],
+  Kamis: ["Nuha", "Naura", "Hana", "Lathif"],
+  Jumat: ["Eza", "Kenzie", "Ishaq", "Fadli"],
+};
+
+/* Gabungkan slot jadwal berurutan yang mapelnya sama & bersambung
+   (mis. 3 jam PAI 07.00–08.45 menjadi satu blok). */
+function papanJadwalHariIni(jadwal, hari){
+  const slots = (jadwal && jadwal[hari]) || [];
+  const isi = slots.filter(s => s && s.mapel);
+  if(!isi.length) return "";
+  const gabung = [];
+  isi.forEach(s=>{
+    const parts = String(s.jam || "").split("-").map(x=>x.trim());
+    const mulai = parts[0] || "", selesai = parts[1] || "";
+    const last = gabung[gabung.length-1];
+    if(last && last.mapel === s.mapel && last.selesai === mulai){
+      last.selesai = selesai;
+    } else {
+      gabung.push({mapel: s.mapel, mulai, selesai});
+    }
+  });
+  return gabung.map(g => g.mapel + (g.mulai ? " (" + g.mulai + (g.selesai ? "–" + g.selesai : "") + ")" : "")).join(" • ");
+}
+
+/* Perbarui strip atas: jam live (tiap detik) + teks berjalan (hanya
+   ditulis ulang bila teksnya berubah, supaya animasi tidak restart).
+   Parameter d opsional (untuk uji); default waktu sekarang. */
+function renderPapanInfo(d){
+  const jamEl = (typeof document!=="undefined") ? document.getElementById("papanJam") : null;
+  const mqEl = (typeof document!=="undefined") ? document.getElementById("papanMarquee") : null;
+  if(!jamEl || !mqEl) return;
+  const now = d || new Date();
+  const HARI = ["Minggu","Senin","Selasa","Rabu","Kamis","Jumat","Sabtu"];
+  const BULAN = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+  const hari = HARI[now.getDay()];
+  const hh = String(now.getHours()).padStart(2,"0");
+  const mm = String(now.getMinutes()).padStart(2,"0");
+  const ss = String(now.getSeconds()).padStart(2,"0");
+  jamEl.innerHTML = '<span class="papan-tanggal">' + hari + ', ' + now.getDate() + ' ' + BULAN[now.getMonth()] + ' ' + now.getFullYear() + ' • </span>' + hh + ':' + mm + ':' + ss + ' WIB';
+  const cid = (typeof activeClassId!=="undefined" && activeClassId) ? activeClassId : "kelas-1";
+  const kelasLabel = (typeof classInfo==="function") ? classInfo(cid).label : cid;
+  const jadwalTxt = papanJadwalHariIni((typeof db!=="undefined" ? db.jadwal : null), hari);
+  const piket = (cid === "kelas-1") ? (PIKET_HARIAN[hari] || null) : null;
+  let teks = (kelasLabel || "Kelas 1") + ' • ';
+  teks += jadwalTxt ? ('Jadwal hari ini (' + hari + '): ' + jadwalTxt) : ('Hari ini ' + hari + ': tidak ada jadwal pelajaran');
+  teks += ' • Piket hari ini: ' + (piket ? piket.join(", ") : '—');
+  if(mqEl.dataset.teks !== teks){
+    mqEl.dataset.teks = teks;
+    mqEl.innerHTML = '<span>' + teks + '</span><span aria-hidden="true">' + teks + '</span><span aria-hidden="true">' + teks + '</span><span aria-hidden="true">' + teks + '</span>';
+    mqEl.style.animationDuration = Math.max(30, Math.round(teks.length * 0.35)) + 's';
+  }
+}
+
 function buildSidebar(){
   const el = document.getElementById("sidebar");
   let collapsed = navCollapsedGet();
@@ -217,6 +279,7 @@ function buildSidebar(){
   el.innerHTML = h;
   buildClassSwitcher();
   markActiveNav(currentPage);
+  if(typeof renderPapanInfo==="function") renderPapanInfo();
 }
 function toggleNavGroup(group){
   const g = document.querySelector('.navgroup[data-group="'+group+'"]');

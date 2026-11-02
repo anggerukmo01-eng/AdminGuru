@@ -1591,8 +1591,13 @@ function generateAiJurnal(){
   if(!tanggal){ toast("Isi dulu: Tanggal."); document.getElementById("aj_tanggal").focus(); return; }
   if(materi==="-"||materi.length<3){ toast("Isi dulu: Materi."); document.getElementById("aj_materi").focus(); return; }
   const cls = classInfo(kelasId);
-  const kehadiranHari = db.kehadiran[tanggal] || {};
-  const totalSiswa = db.siswa.length;
+  /* REVISI 2 Nov 2026: jumlah siswa & kehadiran diambil dari kelas yang
+     DIPILIH di formulir (kelasId). Bila sama dengan kelas aktif, perilaku
+     lama dipertahankan persis (pakai db); bila berbeda, pakai bucket
+     kelas tersebut — bukan jumlah kelas aktif. */
+  const kelasDbJurnal = (typeof loadClassDB==="function" && kelasId && typeof activeClassId!=="undefined" && kelasId!==activeClassId) ? loadClassDB(kelasId) : null;
+  const kehadiranHari = ((kelasDbJurnal && kelasDbJurnal.kehadiran) || db.kehadiran || {})[tanggal] || {};
+  const totalSiswa = ((kelasDbJurnal && kelasDbJurnal.siswa) || db.siswa || []).length;
   const hadir = Object.values(kehadiranHari).filter(v=>v==="H").length || totalSiswa;
   const tidakHadir = totalSiswa - hadir;
   const prompt = `Susun satu entri JURNAL MENGAJAR HARIAN resmi (jurnal kelas/agenda guru) dengan data berikut:

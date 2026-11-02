@@ -245,6 +245,9 @@ function saveDB(){
    dari kunci localStorage milik kelas tsb, lalu me-render ulang halaman. */
 function switchActiveClass(newClassId){
   if(!CLASS_LIST.some(c=>c.id===newClassId) || newClassId===activeClassId){ return; }
+  /* REVISI 2 Nov 2026: simpan dulu perubahan kelas lama sebelum pindah,
+     supaya isian yang belum tersimpan (mis. kehadiran) tidak hilang. */
+  try{ if(typeof db!=="undefined" && typeof saveDB==="function") saveDB(); }catch(e){}
   activeClassId = newClassId;
   localStorage.setItem(ACTIVE_CLASS_KEY, newClassId);
   db = loadDB();

@@ -733,6 +733,59 @@ canvas.pen-canvas{width:100%; height:420px; touch-action:none; border-radius:var
 .navitem.active svg{color:var(--primary);}
 [data-theme="dark"] .navitem.active{color:var(--text);}
 
+/* ============================================================
+   REVISI 2 Nov 2026 — MODE TERANG LEBIH NYAMAN + MENU KACA
+   - Latar mode terang: gradasi pastel redup (tidak silau), bukan
+     putih datar; motif dots dibuat lebih lembut.
+   - Menu sidebar: pil kaca (transparan + blur + bingkai terang);
+     menu aktif: kaca gradasi warna-warni (biru–ungu–hijau).
+   - Mode gelap TIDAK diubah: aturan di bawah hanya untuk light.
+   ============================================================ */
+html[data-theme="light"]{ --surface:#fffdf9; }
+html[data-theme="light"] body{
+  background:
+    radial-gradient(1100px 500px at 85% -10%, rgba(255,205,170,.38), transparent 60%),
+    radial-gradient(900px 480px at -10% 20%, rgba(197,210,255,.45), transparent 60%),
+    radial-gradient(800px 500px at 50% 110%, rgba(198,240,220,.40), transparent 60%),
+    linear-gradient(160deg,#e9e7f4 0%,#e6edf3 48%,#f3efe6 100%);
+  background-attachment:fixed;
+}
+html[data-theme="light"] body::before{
+  background-image:radial-gradient(rgba(62,99,242,.04) 1.2px, transparent 1.2px);
+}
+html[data-theme="light"] .sidebar{
+  background:rgba(255,255,255,.62);
+  border-right:1px solid rgba(255,255,255,.8);
+  box-shadow:0 0 0 1px rgba(23,32,58,.04), 8px 0 30px rgba(23,32,58,.06);
+}
+html[data-theme="light"] .topbar{
+  background:rgba(255,255,255,.66);
+  border-bottom:1px solid rgba(255,255,255,.8);
+}
+html[data-theme="light"] .navitem{
+  background:rgba(255,255,255,.55);
+  -webkit-backdrop-filter:blur(12px) saturate(1.5);
+  backdrop-filter:blur(12px) saturate(1.5);
+  border:1px solid rgba(255,255,255,.75);
+  box-shadow:0 1px 3px rgba(23,32,58,.06), inset 0 1px 0 rgba(255,255,255,.8);
+}
+html[data-theme="light"] .navitem:hover{
+  background:rgba(255,255,255,.85);
+  color:var(--text);
+  border-color:rgba(62,99,242,.25);
+  transform:translateY(-1px);
+  box-shadow:0 4px 12px rgba(23,32,58,.08), inset 0 1px 0 rgba(255,255,255,.9);
+}
+html[data-theme="light"] .navitem.active{
+  background:linear-gradient(135deg, rgba(62,99,242,.20), rgba(112,72,232,.18) 55%, rgba(12,166,120,.16));
+  -webkit-backdrop-filter:blur(14px) saturate(1.6);
+  backdrop-filter:blur(14px) saturate(1.6);
+  border:1px solid rgba(62,99,242,.35);
+  color:var(--primary-ink);
+  font-weight:800;
+  box-shadow:0 4px 14px rgba(62,99,242,.18), inset 0 1px 0 rgba(255,255,255,.85);
+}
+
 /* --- empty state modern --- */
 .empty-state{
   text-align:center; padding:36px 20px; color:var(--text-soft);
@@ -800,3 +853,19 @@ h3 .ai-chip svg{width:15px; height:15px;}
     #dnTableWrap thead .dn-pin { font-size: 10px; letter-spacing: 0; }
   }
 }
+
+/* ---- Papan info atas: jam + teks berjalan (2 Nov 2026) ----
+   Strip fixed selebar layar (portrait & landscape), di atas sidebar
+   (z 60) dan topbar, di bawah lock screen (z 9999). .main dan .sidebar
+   diberi ruang supaya tidak tertutup strip; .topbar menempel di bawahnya. */
+#papanInfo{position:fixed;top:0;left:0;right:0;height:42px;z-index:70;display:flex;align-items:stretch;background:var(--surface-glass);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--border);overflow:hidden;}
+#papanJam{flex-shrink:0;display:flex;align-items:center;padding:0 14px;font-weight:800;font-size:13.5px;white-space:nowrap;border-right:1px solid var(--border);color:var(--text);}
+#papanMarqueeWrap{flex:1;overflow:hidden;display:flex;align-items:center;min-width:0;}
+#papanMarquee{display:inline-flex;white-space:nowrap;animation:papanGeser 40s linear infinite;will-change:transform;}
+#papanMarquee span{padding-right:64px;font-size:13.5px;font-weight:600;color:var(--text-soft);}
+#papanInfo:hover #papanMarquee{animation-play-state:paused;}
+@keyframes papanGeser{from{transform:translateX(0);}to{transform:translateX(-50%);}}
+.main{padding-top:42px;}
+.topbar{top:42px;}
+.sidebar{padding-top:58px;}
+@media(max-width:640px){#papanJam{font-size:12.5px;padding:0 10px;}#papanJam .papan-tanggal{display:none;}#papanMarquee span{font-size:12.5px;}}
