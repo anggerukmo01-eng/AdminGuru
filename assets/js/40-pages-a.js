@@ -1086,23 +1086,26 @@ function rekapPekerjaanOrtu(){
    AKHIR bulan. Cakupan: HANYA Kelas 1 (bucket kelas-1) — revisi 2 Nov 2026
    atas permintaan Anggi ("Fokus Hanya Kelas 1 Saja"). Siswa tanpa tanggal lahir yang dapat
    dibaca tidak terhitung dan dilaporkan di catatan bawah tabel. */
-const BULAN_INDO_UMUR = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
 function parseTanggalLahirSiswa(s){
   const kandidat = [];
   if(s.bi && s.bi.tanggalLahir) kandidat.push(s.bi.tanggalLahir);
   if(s.tanggalLahir) kandidat.push(s.tanggalLahir);
   if(s.tanggal_lahir) kandidat.push(s.tanggal_lahir);
   if(s.ttl) kandidat.push(s.ttl);
+  /* PERBAIKAN 2 Nov 2026: ttl di data lama memakai singkatan bulan ("27 Jun
+     2019", "17 Des 2019", "3 Sept 2019") yang sebelumnya TIDAK terbaca sehingga
+     siswa itu hilang dari hitungan umur. Peta ini menerima nama penuh maupun
+     singkatan. */
+  const petaBulan = {januari:0, jan:0, februari:1, feb:1, maret:2, mar:2, april:3, apr:3, mei:4, juni:5, jun:5, juli:6, jul:6, agustus:7, agu:7, september:8, sept:8, sep:8, oktober:9, okt:9, november:10, nov:10, desember:11, des:11};
   for(const raw of kandidat){
     const t = String(raw||"").trim();
     if(!t) continue;
     let m = t.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
     if(m){ const d = new Date(+m[1], +m[2]-1, +m[3]); if(!isNaN(d.getTime())) return d; }
-    m = t.match(/(\d{1,2})\s+(Januari|Februari|Maret|April|Mei|Juni|Juli|Agustus|September|Oktober|November|Desember)\s+(\d{4})/i);
+    m = t.match(/(\d{1,2})\s+(Januari|Jan|Februari|Feb|Maret|Mar|April|Apr|Mei|Juni|Jun|Juli|Jul|Agustus|Agu|September|Sept|Sep|Oktober|Okt|November|Nov|Desember|Des)\s+(\d{4})/i);
     if(m){
-      const namaBulan = m[2].charAt(0).toUpperCase()+m[2].slice(1).toLowerCase();
-      const idx = BULAN_INDO_UMUR.indexOf(namaBulan);
-      if(idx>=0){ const d = new Date(+m[3], idx, +m[1]); if(!isNaN(d.getTime())) return d; }
+      const idx = petaBulan[m[2].toLowerCase()];
+      if(idx!==undefined){ const d = new Date(+m[3], idx, +m[1]); if(!isNaN(d.getTime())) return d; }
     }
     m = t.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
     if(m){ const d = new Date(+m[3], +m[2]-1, +m[1]); if(!isNaN(d.getTime())) return d; }
@@ -1132,7 +1135,9 @@ function rekapUmurBulananHtml(){
      HANYA memakai roster Kelas 1 (bucket kelas-1), bukan seluruh kelas. */
   const semuaSiswa = (typeof loadClassDB==="function" ? (loadClassDB("kelas-1").siswa||[]) : (db.siswa||[])).slice();
   const lahirList = semuaSiswa.map(s=>parseTanggalLahirSiswa(s));
-  const tanpaTgl = lahirList.filter(d=>!d).length;
+  const tanpaNama = [];
+  lahirList.forEach((d,i)=>{ if(!d) tanpaNama.push(semuaSiswa[i].nama||"-"); });
+  const tanpaTgl = tanpaNama.length;
   const thUmur = []; for(let u=6;u<=17;u++) thUmur.push("<th>"+u+" tahun</th>");
   const body = bulanList.map(b=>{
     const ref = new Date(b.y, b.m+1, 0); // akhir bulan
@@ -1143,7 +1148,7 @@ function rekapUmurBulananHtml(){
     return "<tr><td style=\"text-align:left;\"><strong>"+escapeHtml(bulanIndoLabel(b.ym))+"</strong></td>"+cells.join("")+"<td><strong>"+jml+"</strong></td></tr>";
   }).join("");
   return "<div class=\"table-wrap\"><table><thead><tr><th>Bulan</th>"+thUmur.join("")+"<th>Jumlah</th></tr></thead><tbody>"+body+"</tbody></table></div>"
-    + "<p class=\"hint\">Umur dihitung per akhir bulan dari tanggal lahir di Buku Induk. Cakupan: Kelas 1, "+semuaSiswa.length+" siswa."+(tanpaTgl ? " "+tanpaTgl+" siswa tanpa tanggal lahir tidak terhitung." : "")+"</p>";
+    + "<p class=\"hint\">Umur dihitung per akhir bulan dari tanggal lahir di Buku Induk. Cakupan: Kelas 1, "+semuaSiswa.length+" siswa."+(tanpaTgl ? " "+tanpaTgl+" siswa tanpa tanggal lahir tidak terhitung: "+tanpaNama.map(n=>escapeHtml(n)).join(", ")+"." : "")+"</p>";
 }
 function rekapPIP(){
   let penerima = 0, usulan = 0;
