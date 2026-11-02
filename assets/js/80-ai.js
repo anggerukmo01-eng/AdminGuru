@@ -1128,7 +1128,13 @@ function attendanceGridData(bulan){
   const nDays = daysInMonthOf(bulan);
   const dayNums = Array.from({length:nDays}, (_,i)=>i+1);
   const perHari = dayNums.map(()=>0);
-  const rows = siswaSortedAlpha().map(s=>{
+  /* REVISI 2 Nov 2026: roster absensi DIKUNCI ke kelas yang sedang ditampilkan,
+     dibaca dari bucket kelas tersimpan (bukan db.siswa di memori), agar penyebut
+     persentase bulanan = jumlah siswa kelas tersebut (Kelas 1 untuk guru Kelas 1)
+     dan tidak pernah tercampur total siswa semua kelas. */
+  const rosterKelas = (typeof loadClassDB==="function" && typeof activeClassId!=="undefined")
+    ? (loadClassDB(activeClassId).siswa||[]) : (db.siswa||[]);
+  const rows = rosterKelas.slice().sort((a,b)=>(a.nama||"").localeCompare(b.nama||"","id",{sensitivity:"base"})).map(s=>{
     let h=0, sk=0, iz=0, al=0;
     const cells = dayNums.map(d=>{
       const iso = bulan+"-"+String(d).padStart(2,"0");
@@ -1257,6 +1263,7 @@ function absensiRingkasanHtml(bulan){
   const data = attendanceGridData(bulan);
   const rows = data.rows;
   const nSiswa = rows.length;
+  const labelKelas = (typeof classInfo==="function" && typeof activeClassId!=="undefined") ? classInfo(activeClassId).label : "";
   const hariEfektif = hariEfektifBulan(bulan);
   let tH=0, tS=0, tI=0, tA=0;
   rows.forEach(r=>{ tH+=r.h; tS+=r.sk; tI+=r.iz; tA+=r.al; });
@@ -1274,7 +1281,7 @@ function absensiRingkasanHtml(bulan){
   return `
   <div class="card" style="margin-bottom:16px;">
     <div class="section-head" style="margin-bottom:12px;"><div>
-      <h3 style="margin:0;">Ringkasan Kehadiran — ${bulanIndoLabel(bulan)}</h3>
+      <h3 style="margin:0;">Ringkasan Kehadiran${labelKelas ? " — " + escapeHtml(labelKelas) : ""} — ${bulanIndoLabel(bulan)}</h3>
       <div class="desc">Hari efektif: <strong>${hariEfektif} hari</strong> (di luar Sabtu/Minggu &amp; libur nasional) &middot; Siswa: <strong>${nSiswa}</strong> &middot; Rumus: jumlah &times; 100 &divide; (hari efektif &times; jumlah siswa)</div>
     </div></div>
     <div class="grid grid-2" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));">
