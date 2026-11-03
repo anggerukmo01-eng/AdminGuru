@@ -54,7 +54,7 @@ function analisisTableHtml(comp){
     const badge = x.nilaiAkhir==null
       ? `<span class="badge">-</span>`
       : x.tuntas ? `<span class="badge badge-green">Tuntas</span>` : `<span class="badge badge-orange">Belum</span>`;
-    return `<tr><td>${i+1}</td><td style="text-align:left;"><strong>${escapeHtml(x.s.nama)}</strong></td>`
+    return `<tr><td>${x.s.no!=null && x.s.no!=="" ? escapeHtml(x.s.no) : "—"}</td><td style="text-align:left;"><strong>${escapeHtml(x.s.nama)}</strong></td>`
       + x.lmVals.map(v=>`<td>${fmt1(v)}</td>`).join("")
       + `<td>${fmt1(x.sts)}</td><td>${fmt1(x.sas)}</td><td>${fmt1(x.naSumatif)}</td>`
       + `<td style="background:var(--primary-ghost);"><strong>${fmt1(x.nilaiAkhir)}</strong></td>`

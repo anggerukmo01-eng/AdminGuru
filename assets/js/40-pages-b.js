@@ -761,6 +761,61 @@ function dnCtx(){
   window._dnCtx = ctx;
   return ctx;
 }
+/* ---------- Perbaikan P0 (3 Nov 2026): absen, normalisasi LM, peringatan ---------- */
+// Samakan label Lingkup Materi lama ("LM1", "LM 1") ke bentuk kanonik
+// "Lingkup Materi 1" supaya tidak menjadi kolom ganda di Daftar Nilai.
+// Label lain (mis. "Bab 1", "Umum") dibiarkan apa adanya: tidak aman ditebak.
+function normLM(label){
+  const t = String(label||"").trim();
+  const m = t.match(/^LM\s*0*(\d+)$/i);
+  if(m) return "Lingkup Materi "+Number(m[1]);
+  return t;
+}
+// Urutan bawaan tabel penilaian = nomor absen (seperti kertas), bukan alfabet.
+// Siswa tanpa nomor absen diletakkan terakhir, lalu alfabetis.
+function siswaSortedAbsen(){
+  return db.siswa.slice().sort((a,b)=>{
+    const na = (a.no==null || a.no==="") ? Infinity : Number(a.no);
+    const nb = (b.no==null || b.no==="") ? Infinity : Number(b.no);
+    if(na!==nb) return na-nb;
+    return (a.nama||"").localeCompare(b.nama||"","id",{sensitivity:"base"});
+  });
+}
+// Label kolom input untuk pesan peringatan (F li-ti / S li / STS / SAS).
+function dnLabelKolom(col){
+  let m = col.match(/^F(\d+)-(\d+)$/);
+  if(m) return "Formatif LM "+(Number(m[1])+1)+" TP "+(Number(m[2])+1);
+  m = col.match(/^S(\d+)$/);
+  if(m) return "Sumatif LM "+(Number(m[1])+1);
+  return col;
+}
+// Rekaman sumatif LM ganda untuk siswa yang sama (label kanonik sama):
+// penyebab NR salah diam-diam. Dipakai banner peringatan di Daftar Nilai.
+function dnDuplikatLM(mapelSel, semSel){
+  const hitung = {};
+  (db.asesmenSumatif||[]).forEach(r=>{
+    if(r.mapel!==mapelSel || String(r.semester||"")!==""+semSel) return;
+    if(jenisSumatifOf(r)!=="LM") return;
+    const lm = normLM(r.lingkupMateri);
+    const k = r.siswaId+"|"+lm;
+    (hitung[k]=hitung[k]||{siswaId:r.siswaId, lm:lm, nilai:[]}).nilai.push(r.nilai);
+  });
+  return Object.values(hitung).filter(h=>h.nilai.length>1);
+}
+// Penanda draf: label toolbar + hitung sel draf mapel+semester aktif.
+function dnUpdateDirtyLabel(){
+  const el = document.getElementById("dnAutosaveLabel");
+  if(!el) return;
+  const ctx = dnCtx();
+  const n = Object.keys(dnLoadDraft(ctx)).length;
+  if(n>0){
+    el.textContent = "Ada "+n+" sel draf yang BELUM disimpan — klik Simpan Semua.";
+    el.style.fontWeight = "700"; el.style.color = "var(--warn)";
+  } else {
+    el.textContent = "Semua perubahan tersimpan.";
+    el.style.fontWeight = ""; el.style.color = "";
+  }
+}
 function dnDraftKey(ctx){
   return "tpsd2026_draftdaftarnilai_"+[activeClassId, ctx.mapel, ctx.semester].map(s=>String(s||"").replace(/[^a-zA-Z0-9]/g,"_")).join("__");
 }
@@ -771,7 +826,7 @@ function dnExistingMap(ctx){
   const map = {};
   (db.asesmenFormatif||[]).forEach(r=>{
     if(r.mapel!==ctx.mapel || String(r.semester||"")!==String(ctx.semester)) return;
-    const li = DN_LM.indexOf(String(r.lingkupMateri||"").trim());
+    const li = DN_LM.indexOf(normLM(r.lingkupMateri));
     if(li<0) return;
     let ti = DN_TP.indexOf(String(r.tp||""));
     if(ti<0){
@@ -784,7 +839,7 @@ function dnExistingMap(ctx){
     if(r.mapel!==ctx.mapel || String(r.semester||"")!==String(ctx.semester)) return;
     const j = jenisSumatifOf(r);
     if(j==="LM"){
-      const li = DN_LM.indexOf(String(r.lingkupMateri||"").trim());
+      const li = DN_LM.indexOf(normLM(r.lingkupMateri));
       if(li>=0) map["S|"+li+"|"+r.siswaId] = r.nilai;
     } else if(j==="STS"){ map["STS|"+r.siswaId] = r.nilai; }
     else if(j==="SAS"){ map["SAS|"+r.siswaId] = r.nilai; }
@@ -849,7 +904,7 @@ PAGES.inputnilai = function(){
       <div class="grow"></div>
       <span class="hint" id="dnAutosaveLabel">Draf tersimpan otomatis di perangkat ini.</span>
     </div>
-    <div class="hint" style="margin-top:10px;">ℹ️ Klik <strong>judul kolom</strong> untuk mengisi satu kolom sekaligus (hanya sel yang masih kosong). Asesmen formatif bersifat kualitatif — <strong>tidak masuk hitungan nilai rapor</strong>. Kosong = belum dinilai (bukan 0).</div>
+    <div class="hint" style="margin-top:10px;">ℹ️ Klik <strong>judul kolom</strong> untuk mengisi satu kolom sekaligus (hanya sel yang masih kosong). Asesmen formatif bersifat kualitatif — <strong>tidak masuk hitungan nilai rapor</strong>. Kosong = belum dinilai (bukan 0). Sel yang dikosongkan akan <strong>dihapus saat Simpan</strong> (dengan konfirmasi). Nilai di luar 0–100 akan dijepit dengan peringatan. Urutan baris = nomor absen.</div>
   </div>
   <div id="dnTableHolder"><p class="muted">Memuat daftar siswa...</p></div>
   <div class="card" style="margin-top:16px;"><p class="hint" style="margin:0;"><strong>Keterangan (standar kertas):</strong> Nilai Raport = (2 &times; Nilai Rata-Rata LM + 1 &times; Nilai STS + 2 &times; Nilai SAS) / 5. NR = rata-rata nilai Sumatif Lingkup Materi 1&ndash;4 yang sudah terisi. Nilai Raport baru muncul bila NR, STS, dan SAS sudah terisi semua.</p></div>`;
@@ -866,7 +921,7 @@ function dnRenderTable(){
   if(!holder) return;
   const existing = dnExistingMap(ctx);
   const draft = dnLoadDraft(ctx);
-  const siswaList = siswaSortedAlpha();
+  const siswaList = siswaSortedAbsen();
   const val = (key, siswaId)=>{
     if(Object.prototype.hasOwnProperty.call(draft, key+"|"+siswaId)) return draft[key+"|"+siswaId];
     return existing[key+"|"+siswaId]!=null ? existing[key+"|"+siswaId] : "";
@@ -876,7 +931,7 @@ function dnRenderTable(){
   };
   const thFill = (col, label, extra)=>`<th title="Klik untuk isi kolom ${label}" style="cursor:pointer;"${extra||""} onclick="dnIsiKolom('${col}','${label}')">${label}</th>`;
   let head = `<tr><th rowspan="3" class="dn-pin dn-no">No</th><th rowspan="3" class="dn-pin dn-nis">NISN</th><th rowspan="3" class="dn-pin dn-name">Nama Peserta Didik</th><th colspan="16">FORMATIF</th><th colspan="7">SUMATIF</th><th rowspan="3" style="background:var(--primary-ghost);">Nilai Raport</th></tr>`;
-  head += `<tr>${DN_LM.map((lm,li)=>`<th colspan="4">${lm.replace("Lingkup Materi ","LM ")}</th>`).join("")}${[0,1,2,3].map(li=>thFill("S"+li, "LM"+(li+1), ' rowspan="2"')).join("")}<th rowspan="2">NR</th>${thFill("STS","STS", ' rowspan="2"')}${thFill("SAS","SAS", ' rowspan="2"')}</tr>`;
+  head += `<tr>${DN_LM.map((lm,li)=>`<th colspan="4">${lm.replace("Lingkup Materi ","LM ")}</th>`).join("")}${[0,1,2,3].map(li=>thFill("S"+li, "LM"+(li+1), ' rowspan="2"')).join("")}<th rowspan="2">NR (Rata-rata LM)</th>${thFill("STS","STS", ' rowspan="2"')}${thFill("SAS","SAS", ' rowspan="2"')}</tr>`;
   head += `<tr>${DN_LM.map((lm,li)=>DN_TP.map((tp,ti)=>thFill("F"+li+"-"+ti, tp)).join("")).join("")}</tr>`;
   const body = siswaList.map((s,i)=>{
     let tds = "";
@@ -886,7 +941,7 @@ function dnRenderTable(){
     tds += `<td>${inp("STS", s, val("STS", s.id))}</td>`;
     tds += `<td>${inp("SAS", s, val("SAS", s.id))}</td>`;
     tds += `<td id="dnRap_${s.id}" style="font-weight:800;text-align:center;background:var(--primary-ghost);">—</td>`;
-    return `<tr id="dnRow_${s.id}"><td class="dn-pin dn-no">${i+1}</td><td class="dn-pin dn-nis">${escapeHtml(s.nis||"—")}</td><td class="dn-pin dn-name"><strong>${escapeHtml(s.nama)}</strong></td>${tds}</tr>`;
+    return `<tr id="dnRow_${s.id}"><td class="dn-pin dn-no">${s.no!=null && s.no!=="" ? escapeHtml(s.no) : "—"}</td><td class="dn-pin dn-nis">${escapeHtml(s.nis||"—")}</td><td class="dn-pin dn-name"><strong>${escapeHtml(s.nama)}</strong></td>${tds}</tr>`;
   }).join("");
   holder.innerHTML = `<div id="dnTableWrap" class="table-wrap"><table><thead>${head}</thead><tbody>${body || `<tr><td colspan="27" class="empty-state">Belum ada data siswa.</td></tr>`}</tbody></table></div>`;
   // Match the multi-row headings and body cells to the same column palette.
@@ -921,6 +976,7 @@ function dnRenderTable(){
   });
   siswaList.forEach(s=>dnHitungBaris(s.id, true));
   dnRenderStats();
+  dnUpdateDirtyLabel();
 }
 function dnOnInput(el){
   const ctx = dnCtx();
@@ -928,7 +984,11 @@ function dnOnInput(el){
   if(v!==""){
     let num = Number(v);
     if(isNaN(num)) num = 0;
-    if(num<0) num = 0; if(num>100) num = 100;
+    if(num<0 || num>100){
+      const jepit = num<0 ? 0 : 100;
+      toast("Nilai "+num+" di luar 0-100 untuk "+(siswaName(el.dataset.siswaid)||"siswa")+" ("+dnLabelKolom(el.dataset.col)+") dijepit menjadi "+jepit+". Periksa kembali nilai aslinya.");
+      num = jepit;
+    }
     if(String(num)!==v) el.value = num;
     v = num;
   }
@@ -938,6 +998,7 @@ function dnOnInput(el){
   dnSaveDraft(ctx, draft);
   el.style.fontWeight = (v!=="") ? "700" : "";
   dnHitungBaris(el.dataset.siswaid);
+  dnUpdateDirtyLabel();
 }
 function dnKeydown(e){
   if(e.key==="Enter"){
@@ -960,20 +1021,44 @@ function dnIsiKolom(col, label){
 }
 function dnFindFormatif(siswaId, ctx, lm, tp){
   const arr = db.asesmenFormatif||[];
-  let r = arr.find(x=>x.siswaId===siswaId && x.mapel===ctx.mapel && String(x.semester||"")===String(ctx.semester) && String(x.lingkupMateri||"").trim()===lm && x.tp===tp);
-  if(!r && tp==="TP1") r = arr.find(x=>x.siswaId===siswaId && x.mapel===ctx.mapel && String(x.semester||"")===String(ctx.semester) && String(x.lingkupMateri||"").trim()===lm && !x.tp);
+  let r = arr.find(x=>x.siswaId===siswaId && x.mapel===ctx.mapel && String(x.semester||"")===String(ctx.semester) && normLM(x.lingkupMateri)===lm && x.tp===tp);
+  if(!r && tp==="TP1") r = arr.find(x=>x.siswaId===siswaId && x.mapel===ctx.mapel && String(x.semester||"")===String(ctx.semester) && normLM(x.lingkupMateri)===lm && !x.tp);
   return r||null;
 }
 function dnFindSumatif(siswaId, ctx, jenis, lm){
-  return (db.asesmenSumatif||[]).find(x=>x.siswaId===siswaId && x.mapel===ctx.mapel && String(x.semester||"")===String(ctx.semester) && jenisSumatifOf(x)===jenis && (jenis==="LM" ? String(x.lingkupMateri||"").trim()===lm : true)) || null;
+  return (db.asesmenSumatif||[]).find(x=>x.siswaId===siswaId && x.mapel===ctx.mapel && String(x.semester||"")===String(ctx.semester) && jenisSumatifOf(x)===jenis && (jenis==="LM" ? normLM(x.lingkupMateri)===lm : true)) || null;
 }
 function dnSimpanSemua(){
   const ctx = dnCtx();
   const inputs = document.querySelectorAll(".dn-input");
   let n = 0;
+  const hapus = [];
+  // Kunci sumatif/formatif satu sel (dipakai cari rekaman yang akan dihapus
+  // bila sel dikosongkan, dan buang duplikat saat sel disimpan).
+  const kunciFormatif = (siswaId, lm, tp)=>({store:"asesmenFormatif",
+    sama: x=>x.siswaId===siswaId && x.mapel===ctx.mapel && String(x.semester||"")===String(ctx.semester) && normLM(x.lingkupMateri)===lm && (x.tp||"TP1")===tp});
+  const kunciSumatif = (siswaId, jenis, lm)=>({store:"asesmenSumatif",
+    sama: x=>x.siswaId===siswaId && x.mapel===ctx.mapel && String(x.semester||"")===String(ctx.semester) && jenisSumatifOf(x)===jenis && (jenis==="LM" ? normLM(x.lingkupMateri)===lm : true)});
+  const kunciDariKolom = (siswaId, col)=>{
+    if(/^F\d+-\d+$/.test(col)){
+      const mm = col.match(/^F(\d+)-(\d+)$/);
+      return kunciFormatif(siswaId, DN_LM[Number(mm[1])], DN_TP[Number(mm[2])]);
+    }
+    if(col==="STS" || col==="SAS") return kunciSumatif(siswaId, col, null);
+    if(/^S\d+$/.test(col)) return kunciSumatif(siswaId, "LM", DN_LM[Number(col.slice(1))]);
+    return null;
+  };
   inputs.forEach(inp=>{
-    if(inp.value==="") return;
     const siswaId = inp.dataset.siswaid, col = inp.dataset.col;
+    const kunci = kunciDariKolom(siswaId, col);
+    if(!kunci) return;
+    if(inp.value===""){
+      // Sel yang dikosongkan = minta hapus rekaman tersimpan (bila ada).
+      const arr = db[kunci.store]||[];
+      const r = arr.find(kunci.sama);
+      if(r) hapus.push({store:kunci.store, r:r});
+      return;
+    }
     let nilai = Number(inp.value);
     if(isNaN(nilai)) return;
     nilai = Math.min(100, Math.max(0, nilai));
@@ -981,25 +1066,46 @@ function dnSimpanSemua(){
       const mm = col.match(/^F(\d+)-(\d+)$/), li = Number(mm[1]), ti = Number(mm[2]);
       const lm = DN_LM[li], tp = DN_TP[ti];
       const r = dnFindFormatif(siswaId, ctx, lm, tp);
-      if(r){ r.nilai = nilai; if(!r.tanggal) r.tanggal = todayISO(); if(!r.tp) r.tp = tp; }
+      if(r){
+        r.nilai = nilai; if(!r.tanggal) r.tanggal = todayISO(); if(!r.tp) r.tp = tp;
+        if(normLM(r.lingkupMateri)!==r.lingkupMateri) r.lingkupMateri = lm;
+        db.asesmenFormatif = (db.asesmenFormatif||[]).filter(x=> x===r || !kunci.sama(x));
+      }
       else db.asesmenFormatif.push({id:uid("asesmenFormatif"), siswaId, mapel:ctx.mapel, tanggal:todayISO(), nilai, lingkupMateri:lm, tp, semester:ctx.semester, catatan:"", jenisSumatif:"Formatif"});
     } else if(col==="STS" || col==="SAS"){
       const r = dnFindSumatif(siswaId, ctx, col, null);
-      if(r){ r.nilai = nilai; if(!r.tanggal) r.tanggal = todayISO(); }
+      if(r){
+        r.nilai = nilai; if(!r.tanggal) r.tanggal = todayISO();
+        db.asesmenSumatif = (db.asesmenSumatif||[]).filter(x=> x===r || !kunci.sama(x));
+      }
       else db.asesmenSumatif.push({id:uid("asesmenSumatif"), siswaId, mapel:ctx.mapel, tanggal:todayISO(), nilai, lingkupMateri:col, semester:ctx.semester, catatan:"", jenisSumatif:col, bentuk:"Tes Tulis"});
     } else if(/^S\d+$/.test(col)){
       const li = Number(col.slice(1)), lm = DN_LM[li];
       const r = dnFindSumatif(siswaId, ctx, "LM", lm);
-      if(r){ r.nilai = nilai; if(!r.tanggal) r.tanggal = todayISO(); }
+      if(r){
+        r.nilai = nilai; if(!r.tanggal) r.tanggal = todayISO();
+        if(normLM(r.lingkupMateri)!==r.lingkupMateri) r.lingkupMateri = lm;
+        db.asesmenSumatif = (db.asesmenSumatif||[]).filter(x=> x===r || !kunci.sama(x));
+      }
       else db.asesmenSumatif.push({id:uid("asesmenSumatif"), siswaId, mapel:ctx.mapel, tanggal:todayISO(), nilai, lingkupMateri:lm, semester:ctx.semester, catatan:"", jenisSumatif:"LM", bentuk:"Tes Tulis"});
     }
     n++;
   });
-  saveDB();
-  dnClearDraft(ctx);
-  toast(n+" nilai berhasil disimpan (Formatif + Sumatif LM + STS + SAS).");
-  playSuccessSoundIfEnabled();
-  dnRenderTable();
+  const simpan = ()=>{
+    hapus.forEach(h=>{
+      const arr = db[h.store]||[];
+      const i = arr.indexOf(h.r);
+      if(i>=0) arr.splice(i,1);
+    });
+    saveDB();
+    dnClearDraft(ctx);
+    toast(n+" nilai disimpan"+(hapus.length? " dan "+hapus.length+" nilai dihapus" : "")+" (Formatif + Sumatif LM + STS + SAS).");
+    playSuccessSoundIfEnabled();
+    dnRenderTable();
+  };
+  if(hapus.length){
+    confirmDialog("Simpan akan MENGHAPUS "+hapus.length+" nilai yang dikosongkan di tabel ini. Lanjutkan?", simpan);
+  } else simpan();
 }
 function dnKop(){
   const s = db.sekolah, ctx = dnCtx();
@@ -1060,7 +1166,7 @@ function daftarNilaiRows(mapelSel, semSel){
   const lmSet = [];
   rows.forEach(r=>{
     if(jenisSumatifOf(r)!=="LM") return;
-    const lm = String(r.lingkupMateri||"Umum").trim()||"Umum";
+    const lm = normLM(r.lingkupMateri)||"Umum";
     if(lmSet.indexOf(lm)<0) lmSet.push(lm);
   });
   lmSet.sort((a,b)=>{
@@ -1072,10 +1178,10 @@ function daftarNilaiRows(mapelSel, semSel){
   const bySiswa = {};
   rows.forEach(r=>{ (bySiswa[r.siswaId]=bySiswa[r.siswaId]||[]).push(r); });
   const avgOf = a=> a.length? a.reduce((x,y)=>x+y,0)/a.length : null;
-  const table = siswaSortedAlpha().map(s=>{
+  const table = siswaSortedAbsen().map(s=>{
     const arr = bySiswa[s.id]||[];
     const lmVals = lmSet.map(lm=>{
-      const v = arr.filter(r=>jenisSumatifOf(r)==="LM" && String(r.lingkupMateri||"Umum").trim()===lm).map(r=>Number(r.nilai)||0);
+      const v = arr.filter(r=>jenisSumatifOf(r)==="LM" && (normLM(r.lingkupMateri)||"Umum")===lm).map(r=>Number(r.nilai)||0);
       return v.length? v.reduce((a,b)=>a+b,0)/v.length : null;
     });
     const sts = avgOf(arr.filter(r=>jenisSumatifOf(r)==="STS").map(r=>Number(r.nilai)||0));
@@ -1111,7 +1217,7 @@ PAGES.rekapnilai = function(){
     + (hasFase? `<th rowspan="2">Sumatif Akhir Fase</th>` : "")
     + `<th rowspan="2">Nilai Akhir (Rapor)</th><th rowspan="2">Deskripsi Capaian</th></tr>`
     + (lmSet.length? `<tr>${lmSet.map(l=>`<th>${escapeHtml(l)}</th>`).join("")}</tr>` : "");
-  const body = table.map((r,i)=>`<tr><td>${i+1}</td><td>${escapeHtml(r.s.nis||"-")}</td>`
+  const body = table.map((r,i)=>`<tr><td>${r.s.no!=null && r.s.no!=="" ? escapeHtml(r.s.no) : "—"}</td><td>${escapeHtml(r.s.nis||"-")}</td>`
     + `<td style="text-align:left;"><strong>${escapeHtml(r.s.nama)}</strong></td><td>${escapeHtml(r.s.jk||"-")}</td>`
     + r.lmVals.map(v=>`<td>${fmt(v)}</td>`).join("")
     + `<td><strong>${fmt(r.naSumatif)}</strong></td>`
@@ -1136,6 +1242,14 @@ PAGES.rekapnilai = function(){
     <div class="grow"></div>
     <span class="hint">Jenis penilaian kini dipilih eksplisit: <strong>Sumatif Lingkup Materi</strong>, <strong>STS</strong>, <strong>SAS</strong>, atau <strong>Sumatif Akhir Fase</strong> (di luar Nilai Akhir semester).</span>
   </div>
+  ${(()=>{ const d = Object.keys(dnLoadDraft({mapel:mapelSel, semester:semSel})).length;
+    const g = dnDuplikatLM(mapelSel, semSel);
+    if(!d && !g.length) return "";
+    let h = `<div class="card" style="margin-bottom:16px;border-left:4px solid var(--warn);">`;
+    if(d) h += `<p class="hint" style="margin:0 0 8px;">⚠️ Ada ${d} sel draf Input Nilai Massal yang belum disimpan untuk mapel &amp; semester ini. Angka di halaman ini belum mencakup draf tersebut — buka Input Nilai Massal lalu klik Simpan Semua.</p>`;
+    if(g.length) h += `<p class="hint" style="margin:0;">⚠️ Ditemukan ${g.length} rekaman sumatif LM ganda (label lama + label baru untuk LM yang sama) — nilai yang tampil adalah rata-ratanya. Bereskan dengan menyimpan ulang sel terkait di Input Nilai Massal (rekaman ganda ikut terbuang) atau menghapus salah satunya di menu Asesmen Sumatif:<br>${g.map(x=>escapeHtml(siswaName(x.siswaId))+" — "+escapeHtml(x.lm)+" ("+x.nilai.join(", ")+")").join("<br>")}</p>`;
+    return h+`</div>`;
+  })()}
   ${table.length
     ? `<div id="daftarNilaiHolder" class="table-wrap"><table><thead>${head}</thead><tbody>${body}</tbody></table></div>`
     : `<div class="empty-state">${illus("nilai",130)}<p>Belum ada nilai sumatif untuk mapel &amp; semester ini.<br>Isi dulu melalui menu <strong>Input Nilai Massal</strong>.</p></div>`}`;
@@ -1207,7 +1321,7 @@ function raporKop(semSel){
   </tbody></table>`;
 }
 function raporNilaiTable(semSel){
-  const siswa = siswaSortedAlpha();
+  const siswa = siswaSortedAbsen();
   const perMapel = MAPEL_LIST.map(m=>{
     const hasNilai = (db.asesmenSumatif||[]).some(r=>r.mapel===m && String(r.semester||"")===""+semSel);
     const dn = daftarNilaiRows(m, semSel);
@@ -1221,7 +1335,7 @@ function raporNilaiTable(semSel){
     const vals = perMapel.map(p=>p.map[s.id]);
     const valid = vals.filter(v=>v!=null);
     const avg = valid.length? valid.reduce((a,b)=>a+b,0)/valid.length : null;
-    return `<tr><td>${i+1}</td><td style="text-align:left;"><strong>${escapeHtml(s.nama)}</strong></td>`
+    return `<tr><td>${s.no!=null && s.no!=="" ? escapeHtml(s.no) : "—"}</td><td style="text-align:left;"><strong>${escapeHtml(s.nama)}</strong></td>`
       + vals.map(v=>`<td>${fmt1(v)}</td>`).join("")
       + `<td style="background:var(--primary-ghost);"><strong>${fmt1(avg)}</strong></td></tr>`;
   }).join("");
@@ -1244,7 +1358,7 @@ function exportRekapRaporExcel(){
 PAGES.rapor = function(){
   const semSel = window._raporSemester || String(db.sekolah.semester||"1");
   const nt = raporNilaiTable(semSel);
-  const rows = siswaSortedAlpha().map(s=>{
+  const rows = siswaSortedAbsen().map(s=>{
     const text = db.raporDeskripsi[s.id] || "";
     return `<div class="card" style="margin-bottom:14px;">
       <h3>${escapeHtml(s.nama)}</h3>
