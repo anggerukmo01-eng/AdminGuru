@@ -941,7 +941,7 @@ function dnRenderTable(){
     tds += `<td>${inp("STS", s, val("STS", s.id))}</td>`;
     tds += `<td>${inp("SAS", s, val("SAS", s.id))}</td>`;
     tds += `<td id="dnRap_${s.id}" style="font-weight:800;text-align:center;background:var(--primary-ghost);">—</td>`;
-    return `<tr id="dnRow_${s.id}"><td class="dn-pin dn-no">${s.no!=null && s.no!=="" ? escapeHtml(s.no) : "—"}</td><td class="dn-pin dn-nis">${escapeHtml(s.nis||"—")}</td><td class="dn-pin dn-name"><strong>${escapeHtml(s.nama)}</strong></td>${tds}</tr>`;
+    return `<tr id="dnRow_${s.id}"><td class="dn-pin dn-no">${s.no!=null && s.no!=="" ? escapeHtml(s.no) : "—"}</td><td class="dn-pin dn-nis">${escapeHtml(s.nisn||"—")}</td><td class="dn-pin dn-name"><strong>${escapeHtml(s.nama)}</strong></td>${tds}</tr>`;
   }).join("");
   holder.innerHTML = `<div id="dnTableWrap" class="table-wrap"><table><thead>${head}</thead><tbody>${body || `<tr><td colspan="27" class="empty-state">Belum ada data siswa.</td></tr>`}</tbody></table></div>`;
   // Match the multi-row headings and body cells to the same column palette.
@@ -1211,13 +1211,13 @@ PAGES.rekapnilai = function(){
   const lmSet = dn.lmSet, table = dn.table;
   const fmt = v=> v==null? "-": String(Math.round(v*10)/10);
   const hasFase = table.some(r=>r.fase!=null);
-  const head = `<tr><th rowspan="2">No</th><th rowspan="2">NIS</th><th rowspan="2">Nama Peserta Didik</th><th rowspan="2">L/P</th>`
+  const head = `<tr><th rowspan="2">No</th><th rowspan="2">NISN</th><th rowspan="2">Nama Peserta Didik</th><th rowspan="2">L/P</th>`
     + (lmSet.length? `<th colspan="${lmSet.length}">Nilai Sumatif per Lingkup Materi</th>` : "")
     + `<th rowspan="2">NR (Rata-rata LM)</th><th rowspan="2">STS</th><th rowspan="2">SAS</th>`
     + (hasFase? `<th rowspan="2">Sumatif Akhir Fase</th>` : "")
     + `<th rowspan="2">Nilai Akhir (Rapor)</th><th rowspan="2">Deskripsi Capaian</th></tr>`
     + (lmSet.length? `<tr>${lmSet.map(l=>`<th>${escapeHtml(l)}</th>`).join("")}</tr>` : "");
-  const body = table.map((r,i)=>`<tr><td>${r.s.no!=null && r.s.no!=="" ? escapeHtml(r.s.no) : "—"}</td><td>${escapeHtml(r.s.nis||"-")}</td>`
+  const body = table.map((r,i)=>`<tr><td>${r.s.no!=null && r.s.no!=="" ? escapeHtml(r.s.no) : "—"}</td><td>${escapeHtml(r.s.nisn||"-")}</td>`
     + `<td style="text-align:left;"><strong>${escapeHtml(r.s.nama)}</strong></td><td>${escapeHtml(r.s.jk||"-")}</td>`
     + r.lmVals.map(v=>`<td>${fmt(v)}</td>`).join("")
     + `<td><strong>${fmt(r.naSumatif)}</strong></td>`
@@ -1393,7 +1393,7 @@ function saveRapor(id){ db.raporDeskripsi[id] = document.getElementById("rapor_"
 function printRaporSiswa(id){
   const s = db.siswa.find(x=>x.id===id);
   const text = db.raporDeskripsi[id] || generateRaporDraft(id);
-  printDocument("DESKRIPSI RAPOR - "+s.nama.toUpperCase(), `<p><strong>Nama:</strong> ${escapeHtml(s.nama)} &nbsp; <strong>NIS:</strong> ${escapeHtml(s.nis||'-')} &nbsp; <strong>Kelas:</strong> ${escapeHtml(db.sekolah.kelas)}</p><div class="divider"></div><p style="line-height:1.8;">${escapeHtml(text)}</p>`);
+  printDocument("DESKRIPSI RAPOR - "+s.nama.toUpperCase(), `<p><strong>Nama:</strong> ${escapeHtml(s.nama)} &nbsp; <strong>NISN:</strong> ${escapeHtml(s.nisn||'-')} &nbsp; <strong>Kelas:</strong> ${escapeHtml(db.sekolah.kelas)}</p><div class="divider"></div><p style="line-height:1.8;">${escapeHtml(text)}</p>`);
 }
 
 /* ---------- KEHADIRAN ---------- */
