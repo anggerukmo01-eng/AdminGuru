@@ -506,6 +506,7 @@ function collectFullBackupPayload(){
     shared: loadSharedDB(),
     classes,
     alumni: loadAlumni(),
+    catatanGuru: (typeof loadCatatanGuru === "function" ? loadCatatanGuru() : []),
     activeClassId,
     settings,
     exportedAt: new Date().toISOString(),
@@ -526,6 +527,7 @@ function applyFullBackupPayload(payload){
     saveClassDB("kelas-1", cls);
   }
   if(payload.alumni) saveAlumni(payload.alumni);
+  if(payload.catatanGuru && typeof saveCatatanGuru === "function"){ try{ saveCatatanGuru(payload.catatanGuru); }catch(e){} }
   if(payload.settings){ settings = Object.assign(defaultSettings(), payload.settings); saveSettings(); applyTheme(); }
   activeClassId = (payload.activeClassId && CLASS_LIST.some(c=>c.id===payload.activeClassId)) ? payload.activeClassId : "kelas-1";
   localStorage.setItem(ACTIVE_CLASS_KEY, activeClassId);
