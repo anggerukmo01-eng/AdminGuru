@@ -1,6 +1,6 @@
 # Program Tahunan dan Program Semester — 27 Oktober 2026
 
-Menu kini menghasilkan DOCX asli menggunakan mesin docx 9.6.1 yang sudah tersedia, lalu merender **blob yang sama** secara lokal dengan docx-preview 0.3.7 dan JSZip 3.10.1. Unduhan adalah DOCX bertabel yang dapat diedit di Word, bukan HTML berekstensi .doc. Pratinjau memiliki halaman A4 landscape; pagination browser dapat berbeda sedikit dari Word. Bila renderer gagal, tabel HTML menjadi fallback dan DOCX tetap dapat diunduh jika generator berhasil.
+Menu kini menghasilkan DOCX asli menggunakan mesin docx 9.6.1 yang sudah tersedia, lalu merender **blob yang sama** secara lokal dengan docx-preview 0.3.7 dan JSZip 3.10.1. Unduhan adalah DOCX bertabel yang dapat diedit di Word, bukan HTML berekstensi .doc. Pratinjau memiliki halaman A4 landscape; pembagian halaman dan letak baris browser dapat berbeda dari Word; besar perbedaannya belum diukur di Microsoft Word. Bila renderer gagal, tabel HTML menjadi fallback dan DOCX tetap dapat diunduh jika generator berhasil.
 
 ## Data dan perhitungan
 
@@ -25,6 +25,8 @@ Rujukan diperiksa 27 Oktober 2026:
 Tidak ditemukan ketentuan dalam rujukan yang diperiksa yang mewajibkan satu format tabel Prota/Promes nasional. Tabel aplikasi adalah format operasional pemetaan TP dan JP, bukan pengganti dokumen perencanaan pembelajaran lengkap. Aplikasi tidak mengesahkan keakuratan seluruh CP/ATP tersimpan, kalender daerah, atau angka JP yang diinput pengguna.
 
 ## Verifikasi
+
+Verifikasi terarah dan kriteria penerimaan: [PROGRAM_VERIFICATION.md](PROGRAM_VERIFICATION.md). Jalankan `npm run test:program:consistency` untuk model dan DOCX riil tanpa browser, lalu `npm run test:program:pagination` untuk unduhan/pratinjau dan dokumen panjang.
 
 `npm test`, `npm run test:program`, dan `npm run test:browser` (Playwright, Chromium; bisa menggunakan CHROMIUM_PATH). Uji program mencakup DOCX riil dan XML tabel/header/orientasi, renderer lokal tanpa internet, konsistensi JP, persistensi, pemisahan kelas/tahun, semester ganjil/genap, arsip, empty state, dan viewport HP.
 
