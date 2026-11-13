@@ -413,12 +413,20 @@ function fieldHtml(f, val){
     return `<div style="grid-column:1/-1;margin:14px 0 2px;padding:9px 14px;background:var(--primary-ghost);border-left:4px solid var(--primary);border-radius:0 10px 10px 0;font-weight:800;font-size:13px;letter-spacing:.4px;color:var(--primary);">${escapeHtml(f.label)}</div>`;
   }
   if(f.type==="select"){
+    const values = (f.options||[]).map(o=>String(typeof o==="object" ? o.value : o));
+    // T1 (13 Nov 2026): nilai lama yang tidak ada di daftar opsi (mis. mapel
+    // dari seed lama) tetap ditampilkan sebagai opsi terkunci "(nilai lama)",
+    // supaya menyunting baris itu tidak diam-diam mengosongkan nilainya.
+    let extra = "";
+    if(v !== "" && !values.includes(String(v))){
+      extra = `<option value="${escapeHtml(v)}" selected>${escapeHtml(v)} (nilai lama)</option>`;
+    }
     const opts = (f.options||[]).map(o=>{
       const ov = typeof o==="object" ? o.value : o;
       const ol = typeof o==="object" ? o.label : o;
       return `<option value="${escapeHtml(ov)}" ${String(ov)===String(v)?"selected":""}>${escapeHtml(ol)}</option>`;
     }).join("");
-    return `<div class="field"><label>${f.label}</label><select id="f_${f.key}" ${req}><option value="">- pilih -</option>${opts}</select></div>`;
+    return `<div class="field"><label>${f.label}</label><select id="f_${f.key}" ${req}><option value="">- pilih -</option>${extra}${opts}</select></div>`;
   }
   if(f.type==="textarea"){
     return `<div class="field"><label>${f.label}</label><textarea id="f_${f.key}" ${req} placeholder="${f.placeholder||''}">${escapeHtml(v)}</textarea></div>`;
@@ -527,6 +535,11 @@ function crudEdit(store, id){
   });
   document.getElementById("crudSaveBtn").onclick = ()=>{
     const data = readForm(cfg.fields);
+    // T1 (13 Nov 2026): pemeriksaan field wajib — sama seperti crudAdd.
+    // Tanpa ini, menyunting baris (mis. ATP IPAS) bisa menyimpan mapel
+    // kosong dan merusak baris itu.
+    const missing = cfg.fields.find(f=>f.required && !data[f.key]);
+    if(missing){ toast("Mohon isi: "+missing.label); return; }
     Object.assign(row, data);
     saveDB(); closeModal(); toast("Perubahan disimpan.");
     if(store==="agenda") playSuccessSoundIfEnabled();

@@ -432,7 +432,7 @@ const DIMENSI_PROFIL = [
  {kode:"komunikasi", nama:"Komunikasi", desk:"Memiliki kemampuan menyimak, membaca, berbicara, dan menulis dengan baik dan benar sesuai etika dalam beragam konteks dan moda."},
 ];
 
-const MAPEL_LIST = ["Pendidikan Agama Islam dan Budi Pekerti","Pendidikan Pancasila","Bahasa Indonesia","Matematika","PJOK","Seni Musik","Seni Rupa","Bahasa Inggris","Muatan Lokal"];
+const MAPEL_LIST = ["Pendidikan Agama Islam dan Budi Pekerti","Pendidikan Pancasila","Bahasa Indonesia","Matematika","Ilmu Pengetahuan Alam dan Sosial (IPAS)","PJOK","Seni Musik","Seni Rupa","Bahasa Inggris","Koding dan Kecerdasan Artifisial","Muatan Lokal"];
 
 
 /* SEED BUKU INDUK 2026 — Dapodik 7 Sep 2026, Title Case. */
