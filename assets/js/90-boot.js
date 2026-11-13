@@ -8,6 +8,15 @@
    ============================================================ */
 /* Flag migrasi roster Dapodik sekali pakai (2 Nov 2026). */
 const ROSTER_DAPODIK_FLAG = "tpsd2026_roster_dapodik_sync_20261102";
+/* Flag pengaman seed (13 Nov 2026, Fase 1): diset bila APK (file://)
+   berjalan TANPA seed Dapodik padahal penyimpanan masih kosong — supaya
+   Beranda menampilkan peringatan keras dan aplikasi tidak diam-diam
+   memakai data tersamar lama. Dihapus bila seed ditemukan. */
+const SEED_DAPODIK_MISSING_FLAG = "tpsd2026_seed_dapodik_hilang_20261113";
+/* Flag migrasi sinkronisasi BI sekali pakai (13 Nov 2026, Fase 2). */
+const SISWA_BI_SYNC_FLAG = "tpsd2026_siswa_bi_sync_20261113";
+/* Flag migrasi PTK lengkap sekali pakai (13 Nov 2026, Fase 1 — APK uji v1.0.18). */
+const PTK_SYNC_FLAG = "tpsd2026_ptk_lengkap_sync_20261113";
 const NAMA_EYD_FLAG = "tpsd2026_nama_eyd_dedup_20261102";
 const JURNAL_SIMULASI_FLAG = "tpsd2026_jurnal_simulasi_20261102";
 /* Gabungkan roster Dapodik ke roster tablet.
@@ -183,6 +192,96 @@ function boot(){
         });
         localStorage.setItem(ROSTER_DAPODIK_FLAG, JSON.stringify(ringkas));
       }
+    }catch(e){}
+  }
+
+  /* PENGAMAN SEED (13 Nov 2026, Fase 1): bila aplikasi berjalan sebagai
+     APK (file://) TETAPI seed Dapodik tidak ditemukan DAN penyimpanan
+     masih kosong — mis. build lupa menyuntik seed-dapodik.js — tandai
+     supaya Beranda menampilkan peringatan keras. Tanpa ini, aplikasi
+     jatuh diam-diam ke data tersamar lama (SEED_BI_TXT, 7 Sep 2026).
+     Di web (https) tidak pernah aktif; bila seed ada, penanda dihapus. */
+  if(typeof localStorage!=="undefined" && typeof classKey==="function"
+     && typeof CLASS_LIST!=="undefined"){
+    try{
+      if(typeof SEED_DAPODIK_2026==="undefined"
+         && typeof location!=="undefined" && location.protocol==="file:"
+         && CLASS_LIST.every(c=>!localStorage.getItem(classKey(c.id)))){
+        localStorage.setItem(SEED_DAPODIK_MISSING_FLAG, "1");
+      } else if(typeof SEED_DAPODIK_2026!=="undefined"){
+        localStorage.removeItem(SEED_DAPODIK_MISSING_FLAG);
+      }
+    }catch(e){}
+  }
+
+  /* MIGRASI SINKRONISASI BI (13 Nov 2026, Fase 2): siswa yang dulu
+     ditambah lewat form cepat/CSV menyimpan BB/TB/anak-ke/jumlah-saudara
+     dan TTL sebagai field datar — tabel 66 kolom membaca dari s.bi,
+     sehingga nilai itu tidak tampil. Sekali pakai: salin field datar ke
+     bi bila bi masih kosong. Data seed (bi sudah terisi) tidak berubah. */
+  if(typeof localStorage!=="undefined" && typeof classKey==="function"
+     && typeof CLASS_LIST!=="undefined" && typeof syncSiswaFlatKeBi==="function"
+     && !localStorage.getItem(SISWA_BI_SYNC_FLAG)){
+    try{
+      let diperbaiki = 0;
+      CLASS_LIST.forEach(c=>{
+        let raw = null;
+        try{ const s = localStorage.getItem(classKey(c.id)); if(s) raw = JSON.parse(s); }catch(e){}
+        if(!raw || !Array.isArray(raw.siswa)) return;
+        raw.siswa.forEach(s=>{
+          const sebelum = JSON.stringify(s.bi||{});
+          syncSiswaFlatKeBi(s);
+          if(JSON.stringify(s.bi||{})!==sebelum) diperbaiki++;
+        });
+        localStorage.setItem(classKey(c.id), JSON.stringify(raw));
+      });
+      localStorage.setItem(SISWA_BI_SYNC_FLAG, JSON.stringify({diperbaiki}));
+    }catch(e){}
+  }
+
+  /* MIGRASI PTK LENGKAP (13 Nov 2026, Fase 1 — APK uji v1.0.18): seed
+     Dapodik 13 Nov membawa data guru/tendik LENGKAP (51 field), sedangkan
+     perangkat yang sudah memakai APK lama hanya menyimpan 15 field — hook
+     roster tidak menyentuh data PTK (flag-nya sudah terpasang di perangkat
+     lama). Sekali pakai: padankan tiap PTK seed ke data tersimpan lewat
+     id (atau nama), lalu isi/perbarui field dari seed, mengikuti pola
+     migrasi roster: Dapodik adalah sumber utama, nilai seed yang kosong
+     tidak menimpa data manual, id dipertahankan. PTK yang hanya ada di
+     perangkat (tidak ada di seed) tidak dihapus; PTK baru dari seed
+     ditambahkan. Telepon sekolah hanya dibersihkan bila masih placeholder
+     "[Belum tersedia]" (bukan nomor yang diketik guru). */
+  if(typeof localStorage!=="undefined" && typeof SEED_DAPODIK_2026!=="undefined"
+     && typeof loadSharedDB==="function" && typeof saveSharedDB==="function"
+     && !localStorage.getItem(PTK_SYNC_FLAG)){
+    try{
+      const shared = loadSharedDB();
+      const norm = v => String(v||"").toLowerCase().replace(/[^a-z0-9]/g, "");
+      const ringkas = {perbarui: 0, tambah: 0};
+      ["guru", "tendik"].forEach(tab=>{
+        const daftar = Array.isArray(shared[tab]) ? shared[tab] : (shared[tab] = []);
+        const seed = (SEED_DAPODIK_2026.shared && SEED_DAPODIK_2026.shared[tab]) || [];
+        seed.forEach(sp=>{
+          let row = daftar.find(r=>r.id===sp.id);
+          if(!row) row = daftar.find(r=>norm(r.nama)===norm(sp.nama));
+          if(row){
+            let berubah = false;
+            Object.keys(sp).forEach(k=>{
+              if(k==="id") return;
+              const v = sp[k];
+              if(v!==undefined && v!==null && String(v)!=="" && row[k]!==v){ row[k] = v; berubah = true; }
+            });
+            if(berubah) ringkas.perbarui++;
+          } else {
+            daftar.push(JSON.parse(JSON.stringify(sp)));
+            ringkas.tambah++;
+          }
+        });
+      });
+      if(shared.sekolah && shared.sekolah.telp==="[Belum tersedia]"){
+        shared.sekolah.telp = (SEED_DAPODIK_2026.shared && SEED_DAPODIK_2026.shared.sekolah && SEED_DAPODIK_2026.shared.sekolah.telp) || "";
+      }
+      saveSharedDB(shared);
+      localStorage.setItem(PTK_SYNC_FLAG, JSON.stringify(ringkas));
     }catch(e){}
   }
 

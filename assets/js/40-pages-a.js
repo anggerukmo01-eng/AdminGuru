@@ -76,6 +76,7 @@ PAGES.dashboard = function(){
     </div>${workspaceHeroArt()}
     <div class="hero-date">${ic('calendar',15)} ${escapeHtml(dateLabel)}</div>
   </section>
+  ${(typeof localStorage!=="undefined" && localStorage.getItem(SEED_DAPODIK_MISSING_FLAG)) ? `<div class="seed-warning" style="margin:14px 0;padding:14px 16px;border:1px solid #f59e0b;background:#fffbeb;border-radius:12px;line-height:1.55;"><strong>⚠️ Data Dapodik tidak ditemukan di APK ini.</strong> Aplikasi memakai data lama yang tersamar — NIK, No. KK, dan data pribadi lain tidak lengkap. Pasang ulang APK yang berisi data Dapodik, atau pulihkan dari berkas backup Dapodik. <button class="btn btn-sm" style="margin-left:8px;" onclick="navigate('backup')">Buka Backup &amp; Sinkronisasi</button></div>` : ``}
   <div class="dashboard-context"><span>${ic('school',16)} ${escapeHtml(db.sekolah.namaSekolah)}</span><span>T.A. ${escapeHtml(db.sekolah.tahunAjaran)} · Semester ${escapeHtml(db.sekolah.semester)}</span></div>
   <div class="workspace-metrics">
     <article class="metric-card tone-indigo"><span class="metric-icon">${ic('student',22)}</span><div><span class="metric-label">Siswa aktif</span><strong>${total}</strong><small>${db.siswa.filter(s=>s.jk==='L').length} laki-laki · ${db.siswa.filter(s=>s.jk==='P').length} perempuan</small></div></article>
@@ -175,37 +176,46 @@ function printSekolah(){
 PAGES.guru = function(){
   const tabState = window._guruTab || "guru";
   window._guruTab = tabState;
-  const rows = tabState==="guru" ? db.guru : db.tendik;
+  const q = (window._guruQ||"").toLowerCase();
+  let rows = tabState==="guru" ? db.guru : db.tendik;
+  if(q) rows = rows.filter(r=>[r.nama,r.nip,r.nik,r.jabatan,r.hp,r.email].some(v=>String(v||"").toLowerCase().includes(q)));
   const body = rows.map((r,i)=>`<tr>
     <td>${i+1}</td><td><strong>${escapeHtml(r.nama)}</strong>${r.id===db.sekolah.waliKelasId?' <span class="badge badge-green">Wali '+escapeHtml(classInfo(activeClassId).label)+'</span>':''}</td>
-    <td>${escapeHtml(r.jk)}</td><td>${escapeHtml(r.nip||'-')}</td><td>${escapeHtml(r.status)}</td>
+    <td>${escapeHtml(r.jk)}</td><td>${escapeHtml(r.nip||'-')}</td><td>${escapeHtml(r.nik||'-')}</td><td>${escapeHtml(r.status)}</td>
     <td>${escapeHtml(r.jabatan||'-')}</td><td>${escapeHtml(r.hp||'-')}</td>
     <td><div class="row-actions">
       <button class="btn btn-sm btn-icon" onclick="editStaff('${tabState}','${r.id}')">${ic("edit",15)}</button>
       <button class="btn btn-sm btn-icon btn-danger" onclick="deleteStaff('${tabState}','${r.id}')">${ic("trash",15)}</button>
     </div></td></tr>`).join("");
   return `
-  <div class="section-head"><div><h1>Guru & Tenaga Kependidikan</h1><div class="desc">Data resmi dari Dapodik sekolah. Data pribadi sensitif (NIK/NPWP/rekening) sengaja tidak ditampilkan.</div></div>
+  <div class="section-head"><div><h1>Guru & Tenaga Kependidikan</h1><div class="desc">Data lengkap Dapodik untuk pemakaian internal sekolah (termasuk NIK). Jangan dibagikan ke luar sekolah.</div></div>
     <div class="grow"></div>
-    <button class="btn" onclick="exportCSV(window._guruTab==='guru'?'guru':'tendik', ${'null'}, [{key:'nama',label:'Nama'},{key:'nip',label:'NIP'},{key:'jk',label:'JK'},{key:'status',label:'Status'},{key:'jabatan',label:'Tugas Tambahan'},{key:'hp',label:'HP'},{key:'email',label:'Email'}], 'daftar_'+window._guruTab)">${ic("download",15)} CSV</button>
+    <button class="btn" onclick="exportCSV(window._guruTab==='guru'?'guru':'tendik', ${'null'}, [{key:'nama',label:'Nama'},{key:'nip',label:'NIP'},{key:'nik',label:'NIK'},{key:'jk',label:'JK'},{key:'status',label:'Status'},{key:'jabatan',label:'Tugas Tambahan'},{key:'hp',label:'HP'},{key:'email',label:'Email'}], 'daftar_'+window._guruTab)">${ic("download",15)} CSV</button>
     <button class="btn btn-primary" onclick="addStaff()">${ic("plus",15)} Tambah</button>
   </div>
   <div class="pill-toggle" style="max-width:280px;margin-bottom:14px;">
     <button class="${tabState==='guru'?'active':''}" onclick="window._guruTab='guru';renderPage('guru');">Guru (${db.guru.length})</button>
     <button class="${tabState==='tendik'?'active':''}" onclick="window._guruTab='tendik';renderPage('guru');">Tendik (${db.tendik.length})</button>
   </div>
-  <div class="table-wrap"><table><thead><tr><th>No</th><th>Nama</th><th>JK</th><th>NIP</th><th>Status</th><th>Tugas Tambahan</th><th>HP</th><th style="text-align:right">Aksi</th></tr></thead>
-  <tbody>${body || `<tr><td colspan="8" class="empty-state">Belum ada data.</td></tr>`}</tbody></table></div>`;
+  <div class="toolbar" style="flex-wrap:wrap;gap:10px;">
+    <div class="search-box">${ic("search",16)}<input placeholder="Cari nama / NIP / NIK / jabatan / HP..." value="${escapeHtml(window._guruQ||"")}" oninput="cariDebounce(this,'_guruQ','guru')"></div>
+  </div>
+  <div class="table-wrap"><table><thead><tr><th>No</th><th>Nama</th><th>JK</th><th>NIP</th><th>NIK</th><th>Status</th><th>Tugas Tambahan</th><th>HP</th><th style="text-align:right">Aksi</th></tr></thead>
+  <tbody>${body || `<tr><td colspan="9" class="empty-state">Belum ada data.</td></tr>`}</tbody></table></div>`;
 };
 function staffFields(){
   return [
     {key:"nama",label:"Nama Lengkap",required:true},
     {key:"jk",label:"Jenis Kelamin",type:"select",options:["L","P"]},
     {key:"nip",label:"NIP"}, {key:"nuptk",label:"NUPTK"},
+    {key:"nik",label:"NIK"}, {key:"noKK",label:"No. KK"},
+    {key:"npwp",label:"NPWP"},
     {key:"tempatLahir",label:"Tempat Lahir"}, {key:"tglLahir",label:"Tanggal Lahir",type:"date"},
     {key:"status",label:"Status Kepegawaian"}, {key:"jabatan",label:"Tugas Tambahan / Jabatan"},
     {key:"agama",label:"Agama"}, {key:"alamat",label:"Alamat"},
     {key:"hp",label:"No. HP"}, {key:"email",label:"Email"}, {key:"pangkat",label:"Pangkat/Golongan"},
+    {key:"bank",label:"Bank"}, {key:"rekening",label:"Nomor Rekening"}, {key:"rekeningAtasNama",label:"Rekening Atas Nama"},
+    {key:"lintang",label:"Lintang"}, {key:"bujur",label:"Bujur"},
   ];
 }
 function addStaff(){
@@ -267,13 +277,24 @@ const SISWA_CSV_HEADER_ALIAS = {
   "alamat":"alamat", "alamat rumah":"alamat",
   "keterangan":"ket", "ket":"ket",
 };
+/* Kolom CSV tambahan (di luar form cepat) yang langsung masuk ke dict
+   Buku Induk — supaya impor massal bisa melengkapi NIK dkk. tanpa
+   memanjangkan form tambah siswa. Kunci: header ternormalisasi
+   (huruf kecil) -> key di s.bi. (13 Nov 2026, Fase 2) */
+const SISWA_CSV_BI_FIELDS = {
+  "nik":"nik", "nik siswa":"nik",
+  "no. kk":"noKK", "no kk":"noKK", "nomor kk":"noKK",
+  "hp":"hp", "no. hp":"hp", "nomor hp":"hp", "no hp":"hp",
+  "rt":"rt", "rw":"rw",
+};
 function exportSiswaCSV(){
   exportCSV("siswa", null, siswaFields().map(f=>({key:f.key, label:f.label})));
 }
 function downloadSiswaTemplateCSV(){
   const cols = siswaFields().map(f=>({key:f.key, label:f.label}));
+  cols.push({key:"__bi_nik", label:"NIK"}, {key:"__bi_noKK", label:"No. KK"}, {key:"__bi_hp", label:"HP"}, {key:"__bi_rt", label:"RT"}, {key:"__bi_rw", label:"RW"});
   const contoh = [
-    {no:"1", nama:"Contoh Nama Siswa", jk:"L", nis:"", nisn:"", ttl:"Banyumas, 1 Januari 2019", anakKe:"1", jmlSdr:"-", bb:"", tb:"", agama:"Islam", ayah:"Nama Ayah", ibu:"Nama Ibu", pendidikanOrtu:"", pekerjaanOrtu:"", alamat:"", ket:""},
+    {no:"1", nama:"Contoh Nama Siswa", jk:"L", nis:"", nisn:"", ttl:"Banyumas, 1 Januari 2019", anakKe:"1", jmlSdr:"-", bb:"", tb:"", agama:"Islam", ayah:"Nama Ayah", ibu:"Nama Ibu", pendidikanOrtu:"", pekerjaanOrtu:"", alamat:"", ket:"", __bi_nik:"", __bi_noKK:"", __bi_hp:"", __bi_rt:"", __bi_rw:""},
   ];
   exportCSV("siswa", contoh, cols, "template_data_siswa");
   toast("Template CSV diunduh. Isi data mengikuti baris contoh, lalu unggah kembali lewat \"Impor Data Siswa\".");
@@ -329,12 +350,48 @@ function fmtData(v){
   return m ? m[1] : v;
 }
 
+/* ---------- KELENGKAPAN DATA SISWA (13 Nov 2026, Fase 2) ---------- */
+/* "Belum lengkap" = NIK, No. KK, atau HP masih kosong di Buku Induk.
+   Dipakai untuk chip penanda di tabel + filter kelengkapan. */
+function siswaBelumLengkap(s){
+  const bi = (s && s.bi) || {};
+  return !bi.nik || !bi.noKK || !bi.hp;
+}
+/* Sinkronkan field cepat (form tambah/edit & CSV) ke dict Buku Induk,
+   supaya nilai yang diketik guru tampil di tabel 66 kolom (yang membaca
+   dari s.bi). Sebelumnya field datar (bb, tb, anakKe, jmlSdr, ttl) hanya
+   tersimpan di record tapi tidak pernah tampil di tabel. Hanya mengisi
+   field bi yang masih kosong — data seed/terisi tidak ditimpa. */
+function syncSiswaFlatKeBi(s){
+  if(!s) return s;
+  s.bi = s.bi || {};
+  const bi = s.bi;
+  if(s.anakKe && !bi.anakKe) bi.anakKe = s.anakKe;
+  if(s.jmlSdr && !bi.jmlSaudara) bi.jmlSaudara = s.jmlSdr;
+  if(s.bb && !bi.beratBadan) bi.beratBadan = s.bb;
+  if(s.tb && !bi.tinggiBadan) bi.tinggiBadan = s.tb;
+  if(s.ttl && (!bi.tempatLahir || !bi.tanggalLahir)){
+    const parts = String(s.ttl).split(",");
+    const tempat = (parts[0]||"").trim();
+    const tglPart = parts.slice(1).join(",").trim();
+    if(tempat && !bi.tempatLahir) bi.tempatLahir = tempat;
+    if(tglPart && !bi.tanggalLahir){
+      const d = parseTanggalLahirSiswa({ttl: tglPart});
+      if(d) bi.tanggalLahir = d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+    }
+  }
+  return s;
+}
+
 PAGES.siswa = function(){
   const q = (window._siswaQ||"").toLowerCase();
   const sortMode = window._siswaSort || "nama";
   const jkFilter = window._siswaFilterJK || "";
+  const lengkapFilter = window._siswaFilterLengkap || "";
   let data = db.siswa.slice();
   if(jkFilter) data = data.filter(s=>s.jk===jkFilter);
+  if(lengkapFilter==="belum") data = data.filter(s=>siswaBelumLengkap(s));
+  const belumCount = db.siswa.filter(s=>siswaBelumLengkap(s)).length;
   if(q) data = data.filter(s=>[s.nama,s.nis,s.nisn,s.alamat,(s.bi&&s.bi.nik),(s.bi&&s.bi.noKK)].some(v=>String(v||"").toLowerCase().includes(q)));
   data = sortMode==="nama" ? data.sort((a,b)=>(a.nama||"").localeCompare(b.nama||"")) : data.sort((a,b)=>(a.no||0)-(b.no||0));
   const isKelas6 = activeClassId==="kelas-6";
@@ -348,7 +405,7 @@ PAGES.siswa = function(){
         ${sortMode==="no" ? `<button class="btn btn-sm btn-icon" title="Tukar ke bawah" style="width:20px;height:20px;padding:0;font-size:10px;line-height:1;" onclick="swapNoAbsen('${s.id}',1)" ${i===data.length-1?"disabled":""}>▼</button>` : ""}
       </div>
     </td>
-    <td><strong>${escapeHtml(fmtData(s.nama))}</strong><div class="muted" style="font-size:11px;">${escapeHtml(fmtData(s.ttl||""))}</div></td>
+    <td><strong>${escapeHtml(fmtData(s.nama))}</strong>${siswaBelumLengkap(s)?` <span class="badge badge-orange" title="NIK / No. KK / HP belum lengkap — lengkapi lewat Buku Induk">Belum lengkap</span>`:``}<div class="muted" style="font-size:11px;">${escapeHtml(fmtData(s.ttl||""))}</div></td>
     <td>${escapeHtml(fmtData(s.nis||'[Diisi Guru]'))}</td>
     <td><span class="badge ${s.jk==='L'?'badge-blue':'badge-orange'}">${escapeHtml(fmtData(s.jk))}</span></td>
     <td>${escapeHtml(fmtData(s.nisn||'[Diisi Guru]'))}</td>
@@ -420,7 +477,7 @@ PAGES.siswa = function(){
       <button class="btn btn-sm btn-icon btn-danger" title="Hapus" onclick="deleteSiswa('${s.id}')">${ic("trash",15)}</button>
     </div></td></tr>`; }).join("");
   return `
-  <div class="section-head"><div><h1>Data Siswa</h1><div class="desc">${escapeHtml(classInfo(activeClassId).label)} &middot; ${db.siswa.length} siswa terdaftar.</div></div>
+  <div class="section-head"><div><h1>Data Siswa</h1><div class="desc">${escapeHtml(classInfo(activeClassId).label)} &middot; ${db.siswa.length} siswa terdaftar.${belumCount?` &middot; <strong style="color:var(--warn);">${belumCount} belum lengkap</strong> (NIK / No. KK / HP kosong)`:``}</div></div>
     <div class="grow"></div>
     <button class="btn" onclick="exportSiswaCSV()">${ic("download",15)} CSV</button>
     <button class="btn" style="border-color:var(--primary);color:var(--primary);" onclick="downloadSiswaTemplateCSV()">${ic("doc",15)} Unduh Template CSV</button>
@@ -446,10 +503,10 @@ PAGES.siswa = function(){
       <input type="file" id="importSiswaFile" accept=".csv" style="flex:1;min-width:200px;">
       <button class="btn" onclick="importSiswaCSV()">${ic("download",15)} Impor</button>
     </div>
-    <p class="hint" style="font-size:11px;margin-top:6px;">Klik "Unduh Template CSV" di atas untuk contoh format kolom yang benar, isi data mengikuti baris contoh, lalu unggah file tersebut di sini. Header kolom yang sedikit berbeda (mis. "Nama" atau "No Absen") tetap dapat dikenali otomatis.</p>
+    <p class="hint" style="font-size:11px;margin-top:6px;">Klik "Unduh Template CSV" di atas untuk contoh format kolom yang benar, isi data mengikuti baris contoh, lalu unggah file tersebut di sini. Header kolom yang sedikit berbeda (mis. "Nama" atau "No Absen") tetap dapat dikenali otomatis. Template juga memuat kolom <strong>NIK, No. KK, HP, RT, RW</strong> — terisi langsung ke Buku Induk.</p>
   </div>
   <div class="toolbar" style="flex-wrap:wrap;gap:10px;">
-    <div class="search-box">${ic("search",16)}<input placeholder="Cari nama / NIS / NISN / NIK / alamat..." oninput="window._siswaQ=this.value; renderPage('siswa');"></div>
+    <div class="search-box">${ic("search",16)}<input placeholder="Cari nama / NIS / NISN / NIK / alamat..." value="${escapeHtml(window._siswaQ||"")}" oninput="cariDebounce(this,'_siswaQ','siswa')"></div>
     <select onchange="window._siswaSort=this.value; renderPage('siswa');" style="max-width:180px;">
       <option value="no" ${sortMode==="no"?"selected":""}>Urutkan: No. Absen</option>
       <option value="nama" ${sortMode==="nama"?"selected":""}>Urutkan: Alfabetis</option>
@@ -459,6 +516,10 @@ PAGES.siswa = function(){
       <option value="L" ${jkFilter==="L"?"selected":""}>Laki-laki</option>
       <option value="P" ${jkFilter==="P"?"selected":""}>Perempuan</option>
     </select>
+    <select onchange="window._siswaFilterLengkap=this.value; renderPage('siswa');" style="max-width:220px;">
+      <option value="" ${lengkapFilter===""?"selected":""}>Semua Data</option>
+      <option value="belum" ${lengkapFilter==="belum"?"selected":""}>Data Belum Lengkap (NIK/KK/HP kosong)</option>
+    </select>
   </div>
   <p class="hint" style="font-size:11px;margin:0 0 6px;">Tabel lengkap gaya Dapodik (66 kolom) — geser tabel ke kanan untuk melihat semua kolom.</p>
   <div class="table-wrap"><table><thead><tr><th colspan="24" style="text-align:center;background:var(--primary-ghost);">Data Siswa</th><th colspan="6" style="text-align:center;background:var(--primary-ghost);">Data Ayah</th><th colspan="6" style="text-align:center;background:var(--primary-ghost);">Data Ibu</th><th colspan="6" style="text-align:center;background:var(--primary-ghost);">Data Wali</th><th colspan="12" style="text-align:center;background:var(--primary-ghost);">Ujian & Bantuan</th><th colspan="11" style="text-align:center;background:var(--primary-ghost);">Lainnya</th><th rowspan="2" style="text-align:right">Aksi</th></tr><tr><th>No</th><th>Nama Siswa</th><th>NIS (NIPD)</th><th>JK</th><th>NISN</th><th>Tempat Lahir</th><th>Tanggal Lahir</th><th>NIK</th><th>Agama</th><th>Alamat</th><th>RT</th><th>RW</th><th>Dusun</th><th>Kelurahan</th><th>Kecamatan</th><th>Kode Pos</th><th>Jenis Tinggal</th><th>Transportasi</th><th>Telepon</th><th>HP</th><th>E-Mail</th><th>SKHUN</th><th>Penerima KPS</th><th>No. KPS</th><th>Nama Ayah</th><th>Tahun Lahir Ayah</th><th>Pendidikan Ayah</th><th>Pekerjaan Ayah</th><th>Penghasilan Ayah</th><th>NIK Ayah</th><th>Nama Ibu</th><th>Tahun Lahir Ibu</th><th>Pendidikan Ibu</th><th>Pekerjaan Ibu</th><th>Penghasilan Ibu</th><th>NIK Ibu</th><th>Nama Wali</th><th>Tahun Lahir Wali</th><th>Pendidikan Wali</th><th>Pekerjaan Wali</th><th>Penghasilan Wali</th><th>NIK Wali</th><th>No. Peserta UN</th><th>No. Seri Ijazah</th><th>Penerima KIP</th><th>Nomor KIP</th><th>Nama di KIP</th><th>Nomor KKS</th><th>No. Registrasi Akta</th><th>Bank</th><th>Nomor Rekening</th><th>Rekening Atas Nama</th><th>Layak PIP</th><th>Alasan PIP</th><th>Kebutuhan Khusus</th><th>Sekolah Asal</th><th>Anak Ke-</th><th>Lintang</th><th>Bujur</th><th>No. KK</th><th>Berat Badan</th><th>Tinggi Badan</th><th>Lingkar Kepala</th><th>Jml. Saudara</th><th>Jarak ke Sekolah</th></tr></thead>
@@ -466,27 +527,35 @@ PAGES.siswa = function(){
 };
 function addSiswa(){
   openModal({title:"Tambah Siswa", bodyHtml:`<div class="form-grid">${siswaFields().map(f=>fieldHtml(f, f.key==="no" ? (db.siswa.length+1) : "")).join("")}</div>`,
-    footHtml:`<button class="btn" onclick="closeModal()">Batal</button><button class="btn btn-primary" id="saveSiswaBtn">${ic("check",15)} Simpan</button>`});
-  document.getElementById("saveSiswaBtn").onclick = ()=>{
+    footHtml:`<button class="btn" onclick="closeModal()">Batal</button><button class="btn" id="saveSiswaBIBtn">${ic("book",15)} Simpan &amp; Lengkapi Buku Induk</button><button class="btn btn-primary" id="saveSiswaBtn">${ic("check",15)} Simpan</button>`});
+  const simpan = (bukaBI)=>{
     const data = readForm(siswaFields());
     if(!data.nama){ toast("Nama wajib diisi."); return; }
     data.id = uid("s");
     if(!data.no || isNaN(Number(data.no))) data.no = db.siswa.length+1;
+    syncSiswaFlatKeBi(data);
     db.siswa.push(data);
     renumberSiswaArray(db.siswa);
     saveDB(); closeModal(); toast("Siswa ditambahkan."); renderPage("siswa");
+    if(bukaBI) openBukuInduk(data.id);
   };
+  document.getElementById("saveSiswaBtn").onclick = ()=>simpan(false);
+  document.getElementById("saveSiswaBIBtn").onclick = ()=>simpan(true);
 }
 function editSiswa(id){
   const row = db.siswa.find(s=>s.id===id); if(!row) return;
   openModal({title:"Ubah Data Siswa", bodyHtml:`<div class="form-grid">${siswaFields().map(f=>fieldHtml(f,row[f.key])).join("")}</div>`,
-    footHtml:`<button class="btn" onclick="closeModal()">Batal</button><button class="btn btn-primary" id="saveSiswaBtn">${ic("check",15)} Simpan</button>`});
-  document.getElementById("saveSiswaBtn").onclick = ()=>{
+    footHtml:`<button class="btn" onclick="closeModal()">Batal</button><button class="btn" id="saveSiswaBIBtn">${ic("book",15)} Simpan &amp; Lengkapi Buku Induk</button><button class="btn btn-primary" id="saveSiswaBtn">${ic("check",15)} Simpan</button>`});
+  const simpan = (bukaBI)=>{
     Object.assign(row, readForm(siswaFields()));
     if(!row.no || isNaN(Number(row.no))) row.no = db.siswa.length;
+    syncSiswaFlatKeBi(row);
     renumberSiswaArray(db.siswa);
     saveDB(); closeModal(); toast("Perubahan disimpan."); renderPage("siswa");
+    if(bukaBI) openBukuInduk(row.id);
   };
+  document.getElementById("saveSiswaBtn").onclick = ()=>simpan(false);
+  document.getElementById("saveSiswaBIBtn").onclick = ()=>simpan(true);
 }
 function deleteSiswa(id){
   confirmDialog("Hapus data siswa ini? No. Absen siswa lain akan otomatis dirapikan ulang.", ()=>{
@@ -509,9 +578,9 @@ function bukaSiswaMasuk(){
     title:"Siswa Masuk (Baru / Pindahan)",
     bodyHtml:`<p class="hint" style="margin-bottom:10px;">Lengkapi keterangan penerimaan di bagian atas, lalu data siswa di bawahnya. Data ini akan otomatis tercatat di Buku Mutasi Siswa sebagai riwayat "Masuk".</p>
       <div class="form-grid">${allFields.map(f=>fieldHtml(f, f.key==="tanggalMasuk"?todayISO():(f.key==="no"?(db.siswa.length+1):""))).join("")}</div>`,
-    footHtml:`<button class="btn" onclick="closeModal()">Batal</button><button class="btn btn-primary" id="saveSiswaMasukBtn">${ic("check",15)} Simpan</button>`
+    footHtml:`<button class="btn" onclick="closeModal()">Batal</button><button class="btn" id="saveSiswaMasukBIBtn">${ic("book",15)} Simpan &amp; Lengkapi Buku Induk</button><button class="btn btn-primary" id="saveSiswaMasukBtn">${ic("check",15)} Simpan</button>`
   });
-  document.getElementById("saveSiswaMasukBtn").onclick = ()=>{
+  const simpanMasuk = (bukaBI)=>{
     const data = readForm(allFields);
     if(!data.nama){ toast("Nama siswa wajib diisi."); return; }
     if(!data.jenisMasuk){ toast("Pilih jenis penerimaan terlebih dahulu."); return; }
@@ -519,6 +588,7 @@ function bukaSiswaMasuk(){
     const { jenisMasuk, tanggalMasuk, sekolahAsal, keteranganMasuk, ...siswaData } = data;
     siswaData.id = uid("s");
     if(!siswaData.no || isNaN(Number(siswaData.no))) siswaData.no = db.siswa.length+1;
+    syncSiswaFlatKeBi(siswaData);
     db.siswa.push(siswaData);
     renumberSiswaArray(db.siswa);
     db.mutasi = db.mutasi || [];
@@ -535,7 +605,10 @@ function bukaSiswaMasuk(){
     saveDB(); closeModal();
     toast("Siswa baru tercatat sebagai \"Masuk\" dan ditambahkan ke roster kelas.");
     renderPage("siswa");
+    if(bukaBI) openBukuInduk(siswaData.id);
   };
+  document.getElementById("saveSiswaMasukBtn").onclick = ()=>simpanMasuk(false);
+  document.getElementById("saveSiswaMasukBIBtn").onclick = ()=>simpanMasuk(true);
 }
 
 /* ---------- SISWA KELUAR (Mutasi Keluar / Putus Sekolah / dll.) ---------- */
@@ -684,7 +757,9 @@ function importSiswaCSV(){
       const keyMap = {}; siswaFields().forEach(f=>{ keyMap[f.label.toLowerCase()] = f.key; });
       const headers = rawHeaders.map(h=>{
         const norm = h.toLowerCase().replace(/\s+/g," ").trim();
-        return keyMap[norm] || SISWA_CSV_HEADER_ALIAS[norm] || null;
+        if(keyMap[norm] || SISWA_CSV_HEADER_ALIAS[norm]) return keyMap[norm] || SISWA_CSV_HEADER_ALIAS[norm];
+        if(SISWA_CSV_BI_FIELDS[norm]) return {bi: SISWA_CSV_BI_FIELDS[norm]};
+        return null;
       });
       const matchedCount = headers.filter(Boolean).length;
       if(matchedCount===0){
@@ -696,11 +771,12 @@ function importSiswaCSV(){
         const cells = parseCsvLine(lines[i]);
         if(!cells.length) continue;
         const rec = {};
-        headers.forEach((key,idx)=>{ if(key) rec[key] = (cells[idx]||"").trim(); });
+        headers.forEach((key,idx)=>{ if(!key) return; const v = (cells[idx]||"").trim(); if(typeof key==="string") rec[key] = v; else { rec.bi = rec.bi || {}; rec.bi[key.bi] = v; } });
         if(!rec.nama){ skipped++; continue; }
         if(rec.jk) rec.jk = rec.jk.toUpperCase().startsWith("P") ? "P" : (rec.jk.toUpperCase().startsWith("L") ? "L" : rec.jk);
         rec.id = uid("s");
         if(!rec.no || isNaN(Number(rec.no))) rec.no = db.siswa.length+1;
+        syncSiswaFlatKeBi(rec);
         db.siswa.push(rec); added++;
       }
       renumberSiswaArray(db.siswa);
@@ -733,7 +809,7 @@ PAGES.ortu = function(){
     <div class="grow"></div>
     <button class="btn" onclick="exportCSV('siswa', db.siswa, [{key:'nama',label:'Nama Siswa'},{key:'ayah',label:'Ayah'},{key:'ibu',label:'Ibu'},{key:'pendidikanOrtu',label:'Pendidikan Ortu'},{key:'pekerjaanOrtu',label:'Pekerjaan Ortu'},{key:'alamat',label:'Alamat'}], 'data_orangtua')">${ic("download",15)} CSV</button>
   </div>
-  <div class="toolbar"><div class="search-box">${ic("search",16)}<input placeholder="Cari nama siswa / ayah / ibu..." oninput="window._ortuQ=this.value; renderPage('ortu');"></div></div>
+  <div class="toolbar"><div class="search-box">${ic("search",16)}<input placeholder="Cari nama siswa / ayah / ibu..." value="${escapeHtml(window._ortuQ||"")}" oninput="cariDebounce(this,'_ortuQ','ortu')"></div></div>
   <div class="table-wrap"><table><thead><tr><th>No</th><th>Nama Siswa</th><th>Nama Ayah</th><th>Nama Ibu</th><th>Pendidikan Ortu</th><th>Pekerjaan Ortu</th><th>Alamat</th><th>Aksi</th></tr></thead>
   <tbody>${body || `<tr><td colspan="8" class="empty-state">Tidak ada data.</td></tr>`}</tbody></table></div>`;
 };
@@ -1260,7 +1336,7 @@ function biOrtuSection(prefix, title, d){
   <div class="grid grid-2">
     ${biField("Nama Lengkap", "bi_"+prefix+"_nama", d.nama)}
     ${biField("Tahun Lahir", "bi_"+prefix+"_tahun", d.tahunLahir, "number")}
-    ${biSelect("Agama", "bi_"+prefix+"_agama", d.agama||"Islam", ["Islam","Kristen","Katolik","Hindu","Buddha","Konghucu"])}
+    ${biSelect("Agama", "bi_"+prefix+"_agama", d.agama||"", ["","Islam","Kristen","Katolik","Hindu","Buddha","Konghucu"])}
     ${biField("Kewarganegaraan", "bi_"+prefix+"_wn", d.wn||"Indonesia")}
     ${biSelect("Pendidikan", "bi_"+prefix+"_pendidikan", d.pendidikan, ["","Tidak Sekolah","SD","SMP","SMA/SMK","D1","D2","D3","S1","S2","S3"])}
     ${biSelect("Pekerjaan", "bi_"+prefix+"_pekerjaan", d.pekerjaan, ["","Tidak bekerja","Mengurus Rumah Tangga","Petani","Buruh","Karyawan Swasta","Wiraswasta","Pedagang Kecil","PNS/TNI/Polri","Pensiunan","Lainnya","Sudah Meninggal"])}
@@ -1288,6 +1364,7 @@ function bukuIndukFormHtml(siswaId){
       ${biField("NISN", "bi_nisn", s.nisn)}
       ${biField("NIK Siswa", "bi_nik", bi.nik)}
       ${biField("No. KK", "bi_nokk", bi.noKK)}
+      ${biField("No. Registrasi Akta Lahir", "bi_akta", bi.noAkta)}
       ${biField("Tempat Lahir", "bi_tempat", bi.tempatLahir)}
       ${biField("Tanggal Lahir", "bi_tgllahir", bi.tanggalLahir, "date")}
       ${biSelect("Agama", "bi_agama", s.agama||"Islam", ["Islam","Kristen","Katolik","Hindu","Buddha","Konghucu"])}
@@ -1308,8 +1385,11 @@ function bukuIndukFormHtml(siswaId){
       ${biField("Kelurahan/Desa", "bi_kel", bi.kelurahan)}
       ${biField("Kecamatan", "bi_kec", bi.kecamatan)}
       ${biField("Kode Pos", "bi_kodepos", bi.kodePos)}
+      ${biField("Lintang", "bi_lintang", bi.lintang)}
+      ${biField("Bujur", "bi_bujur", bi.bujur)}
       ${biField("No. Telepon", "bi_telp", bi.telepon)}
       ${biField("No. HP", "bi_hp", bi.hp)}
+      ${biField("E-Mail", "bi_email", bi.email)}
       ${biSelect("Tinggal Bersama", "bi_tinggal", bi.tinggalBersama||"Orang Tua", ["Orang Tua","Saudara","Wali","Asrama","Kost","Lainnya"])}
       ${biField("Jarak ke Sekolah (km)", "bi_jarak", bi.jarakSekolah)}
       ${biSelect("Transportasi", "bi_transport", bi.transportasi, ["","Jalan Kaki","Sepeda","Sepeda Motor","Mobil Pribadi","Antar Jemput","Angkutan Umum","Lainnya"])}
@@ -1332,6 +1412,9 @@ function bukuIndukFormHtml(siswaId){
       ${biField("Sekolah Asal", "bi_sekolahasal", bi.sekolahAsal)}
       ${biField("Diterima di Kelas", "bi_diterimakelas", bi.diterimaKelas||classInfo(activeClassId).label)}
       ${biField("Tanggal Diterima", "bi_diterimatgl", bi.diterimaTanggal, "date")}
+      ${biField("SKHUN", "bi_skhun", bi.skhun)}
+      ${biField("No. Peserta Ujian Nasional", "bi_noun", bi.noUN)}
+      ${biField("No. Seri Ijazah", "bi_noijazah", bi.noIjazah)}
     </div>
   </div>
 
@@ -1343,7 +1426,13 @@ function bukuIndukFormHtml(siswaId){
     <div class="grid grid-2">
       ${biSelect("Penerima KIP", "bi_kip", bi.penerimaKIP||"Tidak", ["Tidak","Ya"])}
       ${biField("Nomor KIP", "bi_nokip", bi.nomorKIP)}
+      ${biField("Nama di KIP", "bi_namakip", bi.namaKIP)}
       ${biField("Nomor KKS", "bi_nokks", bi.nomorKKS)}
+      ${biSelect("Penerima KPS", "bi_kps", bi.penerimaKPS||"Tidak", ["Tidak","Ya"])}
+      ${biField("No. KPS", "bi_nokps", bi.noKPS)}
+      ${biField("Bank", "bi_bank", bi.bank)}
+      ${biField("Nomor Rekening Bank", "bi_rekening", bi.rekening)}
+      ${biField("Rekening Atas Nama", "bi_rekatasnama", bi.rekeningAtasNama)}
       ${biSelect("Layak PIP (usulan sekolah)", "bi_layakpip", bi.layakPIP||"Tidak", ["Tidak","Ya"])}
       ${biSelect("Alasan Layak PIP", "bi_alasanpip", bi.alasanPIP, ["","Siswa Miskin/Rentan Miskin","Pemegang PKH/KPS/KKS","Yatim/Piatu/Yatim Piatu","Korban Bencana","Putus Sekolah Lanjut Kembali","Kebutuhan Khusus/Disabilitas","Keluarga PHK","Daerah Konflik","Saudara Kandung > 3"])}
     </div>
@@ -1398,11 +1487,24 @@ function saveBukuInduk(siswaId){
     diterimaKelas: biVal("bi_diterimakelas"), diterimaTanggal: biVal("bi_diterimatgl"),
     ayah: ayah, ibu: ibu, wali: g("wali"),
     penerimaKIP: biVal("bi_kip"), nomorKIP: biVal("bi_nokip"),
+    namaKIP: biVal("bi_namakip"),
     nomorKKS: biVal("bi_nokks"),
+    penerimaKPS: biVal("bi_kps"), noKPS: biVal("bi_nokps"),
+    bank: biVal("bi_bank"), rekening: biVal("bi_rekening"),
+    rekeningAtasNama: biVal("bi_rekatasnama"),
+    email: biVal("bi_email"), skhun: biVal("bi_skhun"),
+    noUN: biVal("bi_noun"), noIjazah: biVal("bi_noijazah"),
+    noAkta: biVal("bi_akta"),
+    lintang: biVal("bi_lintang"), bujur: biVal("bi_bujur"),
     layakPIP: biVal("bi_layakpip"), alasanPIP: biVal("bi_alasanpip")
   });
   saveClassDB(activeClassId, cls);
-  db = cls;
+  /* PERBAIKAN 13 Nov 2026 (Fase 2): sebelumnya `db = cls` — cls hanya
+     berisi data per-kelas, sehingga setelah menyimpan Buku Induk, db
+     kehilangan data bersama (guru/tendik/sekolah/kalender) dan halaman
+     lain (Guru, Beranda, Profil) crash sampai aplikasi dimuat ulang.
+     Muat ulang db gabungan supaya semua halaman tetap jalan. */
+  db = loadDB();
   toast("Buku Induk tersimpan.");
   closeModal();
   renderPage("siswa");

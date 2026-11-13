@@ -199,7 +199,7 @@ PAGES.alumni = function(){
     <div class="grow"></div>
     <button class="btn" onclick="exportAlumniCSV()">${ic("download",15)} CSV</button>
   </div>
-  <div class="toolbar"><div class="search-box">${ic("search",16)}<input placeholder="Cari nama / tahun lulus..." oninput="window._alumniQ=this.value; renderPage('alumni');"></div></div>
+  <div class="toolbar"><div class="search-box">${ic("search",16)}<input placeholder="Cari nama / tahun lulus..." value="${escapeHtml(window._alumniQ||"")}" oninput="cariDebounce(this,'_alumniQ','alumni')"></div></div>
   <div class="table-wrap"><table><thead><tr><th>No</th><th>Nama</th><th>JK</th><th>NIS</th><th>NISN</th><th>Kelas Terakhir</th><th>Tahun Lulus</th></tr></thead>
   <tbody>${body || `<tr><td colspan="7" class="empty-state">Belum ada alumni yang diarsipkan.</td></tr>`}</tbody></table></div>`;
 };

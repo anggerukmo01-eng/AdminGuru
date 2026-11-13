@@ -356,6 +356,21 @@ function renderPage(page){
   c.innerHTML = renderer ? renderer() : "<p>Halaman tidak ditemukan.</p>";
 }
 
+/* Pencarian dengan debounce (13 Nov 2026, Fase 2): render ulang di tiap
+   ketikan membuat input terhapus & kehilangan fokus (hanya 1 huruf
+   pertama yang sempat masuk). Tunda render 250 ms setelah ketikan
+   terakhir, lalu kembalikan fokus + posisi kursor. Dipakai semua kotak
+   pencarian (siswa, guru, ortu, alumni). */
+function cariDebounce(inputEl, key, pageId){
+  window[key] = inputEl.value;
+  clearTimeout(window[key+"T"]);
+  window[key+"T"] = setTimeout(()=>{
+    renderPage(pageId);
+    const el = document.querySelector("#pageContent .search-box input");
+    if(el){ el.focus(); try{ el.setSelectionRange(el.value.length, el.value.length); }catch(e){} }
+  }, 250);
+}
+
 /* ============================================================
    5A. TOAST
    ============================================================ */
