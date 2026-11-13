@@ -194,12 +194,15 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   width: var(--sidebar-w);
   background: var(--bg-alt);
   border-right: 1px solid var(--border);
-  padding: 20px 14px;
+  /* padding-top 58px = strip papan info 42px + celah 16px (13 Nov 2026):
+     modern.css dimuat setelah app.css, jadi padding di sini yang menang;
+     jangan kembalikan ke 20px — logo akan tertutup strip. */
+  padding: 58px 14px 20px;
   transition: width 0.22s cubic-bezier(0.4, 0, 0.2, 1), transform 0.24s cubic-bezier(0.4, 0, 0.2, 1);
 }
 #app.sidebar-collapsed .sidebar {
   width: var(--sidebar-collapsed-w);
-  padding: 20px 10px;
+  padding: 58px 10px 20px;
 }
 #app.sidebar-collapsed .sidebar .brand .txt,
 #app.sidebar-collapsed .sidebar .navsearch input,
