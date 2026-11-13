@@ -17,6 +17,11 @@ const SEED_DAPODIK_MISSING_FLAG = "tpsd2026_seed_dapodik_hilang_20261113";
 const SISWA_BI_SYNC_FLAG = "tpsd2026_siswa_bi_sync_20261113";
 /* Flag migrasi PTK lengkap sekali pakai (13 Nov 2026, Fase 1 — APK uji v1.0.18). */
 const PTK_SYNC_FLAG = "tpsd2026_ptk_lengkap_sync_20261113";
+/* Flag koreksi wali Kelas 5 sekali pakai (13 Nov 2026, keputusan Anggi):
+   wali K5 adalah Aenal Fitri Habibah (t1), bukan Kepsek (t4) seperti
+   tertulis di profil Dapodik. Seed baru sudah membawa t1; blok ini hanya
+   memperbaiki data yang sudah tersimpan di perangkat lama. */
+const WALI_K5_FIX_FLAG = "tpsd2026_wali_k5_aenal_20261113";
 const NAMA_EYD_FLAG = "tpsd2026_nama_eyd_dedup_20261102";
 const JURNAL_SIMULASI_FLAG = "tpsd2026_jurnal_simulasi_20261102";
 /* Gabungkan roster Dapodik ke roster tablet.
@@ -282,6 +287,25 @@ function boot(){
       }
       saveSharedDB(shared);
       localStorage.setItem(PTK_SYNC_FLAG, JSON.stringify(ringkas));
+    }catch(e){}
+  }
+
+  /* KOREKSI WALI KELAS 5 (13 Nov 2026, keputusan Anggi): wali K5 adalah
+     Aenal Fitri Habibah (t1), bukan Kepsek (t4). Sekali pakai, bekerja dari
+     data tersimpan saja (tidak butuh seed): bila bucket Kelas 5 masih
+     menyimpan wali t4, ubah ke t1. Instal baru sudah benar lewat seed. */
+  if(typeof localStorage!=="undefined" && typeof classKey==="function"
+     && !localStorage.getItem(WALI_K5_FIX_FLAG)){
+    try{
+      const raw = localStorage.getItem(classKey("kelas-5"));
+      if(raw){
+        const bucket = JSON.parse(raw);
+        if(bucket && bucket.waliKelasId==="t4"){
+          bucket.waliKelasId = "t1";
+          localStorage.setItem(classKey("kelas-5"), JSON.stringify(bucket));
+        }
+      }
+      localStorage.setItem(WALI_K5_FIX_FLAG, "1");
     }catch(e){}
   }
 

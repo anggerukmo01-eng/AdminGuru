@@ -61,6 +61,9 @@ function showLockScreen(){
   if(lockSel){
     lockSel.innerHTML = CLASS_LIST.map(c=>`<option value="${c.id}">${c.label}</option>`).join("");
     lockSel.value = CLASS_LIST.some(c=>c.id===settings.defaultClassId) ? settings.defaultClassId : activeClassId;
+    /* Sapaan ikut kelas yang dipilih (13 Nov 2026): perbarui saat pilihan berubah. */
+    lockSel.onchange = updateLockGreeting;
+    updateLockGreeting();
   }
 }
 function unlockApp(){

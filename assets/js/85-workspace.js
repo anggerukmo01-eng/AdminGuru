@@ -15,10 +15,33 @@ function buildMobileNav(){
   markActiveNav(currentPage);
 }
 
+/* Sapaan wali kelas di layar kunci (13 Nov 2026, perintah Anggi): menyapa
+   guru yang log in berdasarkan kelas yang dipilih — nama diambil dari data
+   Guru & Tendik (wali bisa tercatat di salah satu daftar, mis. Bu Aenal
+   tercatat sebagai tendik padahal Guru Kelas 5). Tanpa wali: sapaan umum. */
+function salamWaliKelas(classId){
+  try{
+    const cid = (typeof CLASS_LIST!=="undefined" && CLASS_LIST.some(c=>c.id===classId)) ? classId : activeClassId;
+    let wid = "";
+    if(cid===activeClassId) wid = (db.sekolah && db.sekolah.waliKelasId) || db.waliKelasId || "";
+    else { const cdb = loadClassDB(cid); wid = (cdb && cdb.waliKelasId) || ""; }
+    const daftar = [...(db.guru||[]), ...(db.tendik||[])];
+    const orang = daftar.find(p=>p.id===wid);
+    if(!orang || !orang.nama) return "Selamat Datang Bapak/Ibu Guru";
+    return "Selamat Datang " + (orang.jk==="P" ? "Bu" : "Pak") + " Guru " + orang.nama;
+  }catch(e){ return "Selamat Datang Bapak/Ibu Guru"; }
+}
+function updateLockGreeting(){
+  const el = document.getElementById("lockSubtitle");
+  if(!el) return;
+  const sel = document.getElementById("lockClassSelect");
+  el.textContent = salamWaliKelas((sel && sel.value) || activeClassId);
+}
+
 function syncWorkspaceUi(){
   document.title = "AdminGuru · "+document.getElementById("pageTitle").textContent;
   document.getElementById("mobileNav").classList.toggle("ready", document.getElementById("app").classList.contains("ready"));
-  document.getElementById("lockSubtitle").textContent = classInfo(activeClassId).label+" · "+db.sekolah.namaSekolah;
+  updateLockGreeting();
 }
 
 function openMenuSearch(){

@@ -122,7 +122,7 @@ PAGES.dashboard = function(){
 
 PAGES.sekolah = function(){
   const s = db.sekolah;
-  const guruOpts = db.guru.map(g=>({value:g.id,label:g.nama}));
+  const guruOpts = [...db.guru, ...db.tendik].map(g=>({value:g.id,label:g.nama}));
   return `
   <div class="section-head"><div><h1>Profil Sekolah</h1><div class="desc">Data identitas sekolah &amp; kop surat resmi (dari dokumen terlampir).</div></div>
     <div class="grow"></div>
@@ -148,7 +148,7 @@ PAGES.sekolah = function(){
       ${fieldHtml({key:"nipKepsek",label:"NIP Kepala Sekolah"}, s.nipKepsek)}
       ${fieldHtml({key:"tahunAjaran",label:"Tahun Ajaran"}, s.tahunAjaran)}
       ${fieldHtml({key:"semester",label:"Semester"}, s.semester)}
-      ${fieldHtml({key:"waliKelasId",label:"Wali "+classInfo(activeClassId).label+" (pilih dari Data Guru)",type:"select",options:guruOpts}, s.waliKelasId)}
+      ${fieldHtml({key:"waliKelasId",label:"Wali "+classInfo(activeClassId).label+" (pilih dari Data Guru & Tendik)",type:"select",options:guruOpts}, s.waliKelasId)}
     </div>
     <p class="hint" style="margin-top:10px;">Kelas yang sedang diampu ditentukan oleh pemilih <strong>"Pilih Kelas Aktif"</strong> di bagian atas aplikasi (saat ini: <strong>${classInfo(activeClassId).label}</strong>), bukan lagi field terpisah di sini.</p>
     <button class="btn btn-primary" onclick="saveSekolah()">${ic("check",15)} Simpan Perubahan</button>
