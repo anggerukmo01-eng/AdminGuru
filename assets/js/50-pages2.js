@@ -621,8 +621,7 @@ PAGES.backup = function(){
   </div>`;
 };
 function backupData(){
-  downloadBlob(JSON.stringify(collectFullBackupPayload(),null,2), "backup_teacher_planner_semua_kelas_"+todayISO()+".json", "application/json");
-  toast("Backup seluruh kelas berhasil diunduh.");
+  toastHasilUnduh(downloadBlob(JSON.stringify(collectFullBackupPayload(),null,2), "backup_teacher_planner_semua_kelas_"+todayISO()+".json", "application/json"), "Backup seluruh kelas berhasil diunduh.");
 }
 function restoreData(){
   const inp = document.getElementById("restoreFile");

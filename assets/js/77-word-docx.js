@@ -198,7 +198,7 @@ const AIGuruWord=(function(){
     const logo=await logoData(school),lib=await engine(),doc=buildNative(lib,blocks,title,type,format,school,logo);
     return lib.Packer.toBlob(doc);
   }
-  async function download(html,title,type,options={}){const blob=await buildBlob(html,title,type,options),url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download=AIDocumentFormat.fileName(title);document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),4000);return blob;}
+  async function download(html,title,type,options={}){const blob=await buildBlob(html,title,type,options);/* Lewat downloadBlob supaya di APK memakai bridge native (blob: URL ditolak DownloadManager — bug yang sama dengan backup, v1.0.18). */const buf=await blob.arrayBuffer();toastHasilUnduh(downloadBlob(new Uint8Array(buf),AIDocumentFormat.fileName(title),blob.type||'application/vnd.openxmlformats-officedocument.wordprocessingml.document'),'Dokumen Word diunduh.');return blob;}
   return {MIME,VERSION,DEFAULT,cleanSettings,settings,settingsHtml,saveSettingsFrom,readSettings,applyPreview,wordAlignment,parse,widths,formatLabel,stripListLabel,mathAst,buildNative,buildBlob,download};
 })();
 if(typeof module!=='undefined'&&module.exports)module.exports=AIGuruWord;

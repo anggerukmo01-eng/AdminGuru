@@ -1632,8 +1632,11 @@ async function downloadBITemplate(){
       ["6. Pencocokan berdasarkan NISN. Baris tanpa NISN cocok akan dilaporkan dan dilewati."],
     ]);
     XLSX.utils.book_append_sheet(wb, pet, "PETUNJUK");
-    XLSX.writeFile(wb, "Template_Buku_Induk_2026.xlsx");
-    toast("Template Buku Induk diunduh. Isi lalu unggah kembali via 'Unggah Pembaruan'.");
+    /* Lewat downloadBlob supaya di APK memakai bridge native (XLSX.writeFile
+       memakai blob: URL yang ditolak DownloadManager — bug yang sama dengan
+       backup, APK v1.0.18). */
+    const wbout = XLSX.write(wb, {bookType:"xlsx", type:"array"});
+    toastHasilUnduh(downloadBlob(wbout, "Template_Buku_Induk_2026.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"), "Template Buku Induk diunduh. Isi lalu unggah kembali via 'Unggah Pembaruan'.");
   }catch(e){
     toast("Gagal membuat template (butuh internet untuk pustaka Excel). Coba lagi saat online.");
   }

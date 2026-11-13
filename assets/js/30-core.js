@@ -558,13 +558,53 @@ function crudDelete(store, id){
    - .xls  -> Blob tabel HTML bertipe application/vnd.ms-excel (dibuka native oleh MS Excel).
    - PDF   -> memakai dialog cetak bawaan browser (Simpan sebagai PDF).
    ============================================================ */
+/* Unduh berkas (dipakai backup, CSV, Word, Excel).
+   APK (WebView): DownloadManager menolak blob: URL, jadi bila bridge native
+   tersedia (AndroidBridge.saveFile, APK v1.0.19+), tulis langsung ke folder
+   Download dan kembalikan true bila berhasil / string "ERROR: ..." bila
+   gagal — supaya pemanggil bisa memberi toast yang jujur. Di web, pakai
+   cara anchor seperti biasa (dianggap berhasil). */
 function downloadBlob(content, filename, mime){
+  try{
+    if(typeof window.AndroidBridge!=="undefined" && window.AndroidBridge){
+      const bridge = window.AndroidBridge;
+      if((content instanceof Uint8Array || content instanceof ArrayBuffer)
+          && typeof bridge.saveFileBase64==="function"){
+        const bytes = content instanceof ArrayBuffer ? new Uint8Array(content) : content;
+        return bridgeResultToOk(bridge.saveFileBase64(filename, uint8ToBase64(bytes), mime||"application/octet-stream"));
+      }
+      if(typeof content==="string" && typeof bridge.saveFile==="function"){
+        return bridgeResultToOk(bridge.saveFile(filename, content, mime||"application/octet-stream"));
+      }
+    }
+  }catch(e){ return "ERROR: "+e.message; }
   const blob = new Blob([content], {type:mime});
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url; a.download = filename;
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(()=>URL.revokeObjectURL(url), 4000);
+  return true;
+}
+function bridgeResultToOk(res){
+  if(res==="OK") return true;
+  if(typeof res==="string" && res) return res.indexOf("ERROR")==0 ? res : "ERROR: "+res;
+  return "ERROR: bridge tidak mengembalikan status";
+}
+function uint8ToBase64(bytes){
+  let bin = "";
+  const CHUNK = 8192;
+  for(let i=0;i<bytes.length;i+=CHUNK){
+    bin += String.fromCharCode.apply(null, bytes.subarray(i, i+CHUNK));
+  }
+  return btoa(bin);
+}
+/* Toast hasil unduhan yang jujur: berhasil hanya bila downloadBlob
+   mengembalikan true; bila gagal, tampilkan alasannya. */
+function toastHasilUnduh(ok, pesanBerhasil){
+  if(ok===true){ toast(pesanBerhasil); return; }
+  const alasan = (typeof ok==="string" ? ok.replace(/^ERROR: */,"") : "") || "tidak diketahui";
+  toast("Gagal mengunduh: "+alasan+". Data tetap aman di aplikasi.");
 }
 function withClassTag(filename){
   const tag = "_"+classFileTag(activeClassId);
@@ -581,8 +621,7 @@ function exportCSV(store, customRows, customCols, filename){
       return '"'+String(v).replace(/"/g,'""')+'"';
     }).join(",")+"\r\n";
   });
-  downloadBlob("\ufeff"+csv, withClassTag(filename||store)+".csv", "text/csv;charset=utf-8;");
-  toast("File CSV diunduh.");
+  toastHasilUnduh(downloadBlob("\ufeff"+csv, withClassTag(filename||store)+".csv", "text/csv;charset=utf-8;"), "File CSV diunduh.");
 }
 function htmlToWordDoc(innerHtml, filename, title){
   const doc = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
@@ -590,8 +629,7 @@ function htmlToWordDoc(innerHtml, filename, title){
   <style>body{font-family:Calibri,Arial,sans-serif;font-size:12pt;} table{border-collapse:collapse;width:100%;} td,th{border:1px solid #333;padding:5px;font-size:10.5pt;}</style>
   </head><body>${innerHtml}</body></html>`;
   const fn = withClassTag(filename);
-  downloadBlob(doc, fn.endsWith(".doc")?fn:fn+".doc", "application/msword");
-  toast("File Word (.doc) diunduh.");
+  toastHasilUnduh(downloadBlob(doc, fn.endsWith(".doc")?fn:fn+".doc", "application/msword"), "File Word (.doc) diunduh.");
 }
 /* ============================================================
    5F. EXPORT .docx ASLI (OOXML) — tanpa pustaka eksternal
@@ -851,8 +889,7 @@ function htmlToDocx(innerHtml, filename, title){
   const body = kop + judul + htmlToDocxWml(innerHtml);
   const bytes = docxBuildPackage(body);
   const fn = withClassTag(filename);
-  downloadBlob(bytes, fn.endsWith(".docx")?fn:fn+".docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
-  toast("File Word (.docx) diunduh.");
+  toastHasilUnduh(downloadBlob(bytes, fn.endsWith(".docx")?fn:fn+".docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"), "File Word (.docx) diunduh.");
 }
 /* --- END DOCX ENGINE --- */
 function htmlToExcelXls(tableHtml, filename, title){
@@ -863,8 +900,7 @@ function htmlToExcelXls(tableHtml, filename, title){
   <style>td,th{border:1px solid #999;padding:4px;font-size:10.5pt;font-family:Calibri,Arial,sans-serif;} th{background:#dbe4ff;}</style>
   </head><body>${tableHtml}</body></html>`;
   const fn = withClassTag(filename);
-  downloadBlob(doc, fn.endsWith(".xls")?fn:fn+".xls", "application/vnd.ms-excel");
-  toast("File Excel (.xls) diunduh.");
+  toastHasilUnduh(downloadBlob(doc, fn.endsWith(".xls")?fn:fn+".xls", "application/vnd.ms-excel"), "File Excel (.xls) diunduh.");
 }
 /* ============================================================
    5G. MELODI SUKSES (port dari Jurnal Harian GAS)

@@ -122,7 +122,7 @@ const BookLibrary=(function(){
     }
     return {id,bookId:String(value.bookId),fingerprint:value.fingerprint,title:String(value.title||'Buku').slice(0,500),lastPage:Math.max(1,Math.min(10000,Number(value.lastPage)||1)),totalPages:Math.max(1,Math.min(10000,Number(value.totalPages)||1)),pages,updatedAt:new Date().toISOString()};
   }
-  function downloadJson(value,name){const url=URL.createObjectURL(new Blob([JSON.stringify(value,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+  function downloadJson(value,name){/* Lewat downloadBlob supaya di APK memakai bridge native (blob: URL ditolak DownloadManager — bug yang sama dengan backup, v1.0.18). */toastHasilUnduh(downloadBlob(JSON.stringify(value,null,2),name,'application/json'),'Catatan buku diunduh.');}
   async function exportNotes(){try{const saved=await all('records');downloadJson({format:'AdminGuru-library-notes',version:1,exportedAt:new Date().toISOString(),favorites,records:saved},'AdminGuru-Catatan-Buku-'+todayISO()+'.json');}catch(error){toast('Catatan gagal dicadangkan: '+error.message);}}
   async function importNotes(input){
     const file=input.files[0];input.value='';if(!file)return;

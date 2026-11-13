@@ -519,11 +519,12 @@ function viewArsipFile(id){
   }).catch(e=>toast("Gagal membuka file: "+e.message));
 }
 function downloadArsipFile(id){
-  idbGet(id).then(rec=>{
+  idbGet(id).then(async rec=>{
     if(!rec){ toast("File tidak ditemukan."); return; }
-    const url = URL.createObjectURL(rec.blob);
-    const a = document.createElement("a"); a.href=url; a.download=rec.namaFile; document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(()=>URL.revokeObjectURL(url), 4000);
+    /* Lewat downloadBlob supaya di APK memakai bridge native (blob: URL
+       ditolak DownloadManager — bug yang sama dengan backup, v1.0.18). */
+    const buf = await rec.blob.arrayBuffer();
+    toastHasilUnduh(downloadBlob(new Uint8Array(buf), rec.namaFile, rec.blob.type||"application/octet-stream"), "File diunduh.");
   }).catch(e=>toast("Gagal mengunduh: "+e.message));
 }
 function replaceArsipFile(id){

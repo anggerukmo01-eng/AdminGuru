@@ -619,12 +619,9 @@ function aiBuildWordDoc(html, title){
 }
 function aiExportWord(html, title){
   const doc = aiBuildWordDoc(html, title);
-  const blob = new Blob(['\ufeff', doc], {type:"application/msword"});
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = (title||"dokumen").replace(/[^\w\-]+/g,"_")+".doc";
-  document.body.appendChild(a); a.click(); a.remove();
-  toast("File Word (.doc) diunduh.");
+  /* Lewat downloadBlob supaya di APK memakai bridge native (blob: URL
+     ditolak DownloadManager — bug yang sama dengan backup, v1.0.18). */
+  toastHasilUnduh(downloadBlob("\ufeff"+doc, (title||"dokumen").replace(/[^\w\-]+/g,"_")+".doc", "application/msword"), "File Word (.doc) diunduh.");
 }
 /* Export Excel: HTML berisi tabel dibuka langsung oleh MS Excel / LibreOffice
    sebagai spreadsheet (.xls). Tanpa library tambahan, offline-friendly. */
@@ -633,12 +630,7 @@ function aiExportExcel(html, title){
   <head><meta charset="utf-8"><title>${escapeHtml(title)}</title>
   <style>table{border-collapse:collapse;} td,th{border:1px solid #333;padding:5px;vertical-align:top;} body{font-family:Calibri,Arial,sans-serif;}</style>
   </head><body><h1>${escapeHtml(title)}</h1>${html}</body></html>`;
-  const blob = new Blob(['\ufeff', doc], {type:"application/vnd.ms-excel"});
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = (title||"dokumen").replace(/[^\w\-]+/g,"_")+".xls";
-  document.body.appendChild(a); a.click(); a.remove();
-  toast("File Excel (.xls) diunduh.");
+  toastHasilUnduh(downloadBlob("\ufeff"+doc, (title||"dokumen").replace(/[^\w\-]+/g,"_")+".xls", "application/vnd.ms-excel"), "File Excel (.xls) diunduh.");
 }
 /* Kop NASKAH SOAL persis format cetak sekolah (contoh: naskah STS SDN 1 Gerduren):
    baris "Nama : ...." kanan atas, logo + 4 baris kop di tengah, garis tebal.
@@ -676,12 +668,9 @@ function aiBuildWordSoalDoc(html, title){
 }
 function aiExportWordSoal(html, title){
   const doc = aiBuildWordSoalDoc(html, title);
-  const blob = new Blob(['\ufeff', doc], {type:"application/msword"});
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = (title||"naskah-soal").replace(/[^\w\-]+/g,"_")+".doc";
-  document.body.appendChild(a); a.click(); a.remove();
-  toast("Naskah soal (.doc, format F4) diunduh.");
+  /* Lewat downloadBlob supaya di APK memakai bridge native (blob: URL
+     ditolak DownloadManager — bug yang sama dengan backup, v1.0.18). */
+  toastHasilUnduh(downloadBlob("\ufeff"+doc, (title||"naskah-soal").replace(/[^\w\-]+/g,"_")+".doc", "application/msword"), "Naskah soal (.doc, format F4) diunduh.");
 }
 /* Dispatcher: naskah soal/asesmen memakai format khusus F4; lainnya format standar.
    prefixHtml opsional: disisipkan sebelum konten (mis. peringatan terpotong). */
@@ -724,12 +713,9 @@ function aiHtmlToMarkdown(node){
 }
 function aiExportMarkdown(el, title){
   const md = "# "+title+"\n"+aiHtmlToMarkdown(el);
-  const blob = new Blob([md], {type:"text/markdown;charset=utf-8"});
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = (title||"dokumen").replace(/[^\w\-]+/g,"_")+".md";
-  document.body.appendChild(a); a.click(); a.remove();
-  toast("File Markdown diunduh.");
+  /* Lewat downloadBlob supaya di APK memakai bridge native (blob: URL
+     ditolak DownloadManager — bug yang sama dengan backup, v1.0.18). */
+  toastHasilUnduh(downloadBlob(md, (title||"dokumen").replace(/[^\w\-]+/g,"_")+".md", "text/markdown;charset=utf-8"), "File Markdown diunduh.");
 }
 function aiCopyElement(id){
   const el = document.getElementById(id);
