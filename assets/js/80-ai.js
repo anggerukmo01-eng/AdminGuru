@@ -1379,6 +1379,18 @@ PAGES.kehadiran = function(){
     <div id="rekapAbsenHolder" class="table-wrap">${attendanceGridHtml(bulanAktif)}</div>
   </div>`;
 };
+/* ---------- Kehadiran + Rekap 12 Bulan (gabungan B2, 13 Nov 2026):
+   rekap tahunan menjadi tab kedua halaman Kehadiran. ---------- */
+const kehadiranHarianPage = PAGES.kehadiran;
+PAGES.kehadiran = function(){
+  const tab = window._kehadiranTab || 'harian';
+  const bar = `<div class="tabs" role="tablist">
+    <button class="tab${tab==='harian'?' active':''}" onclick="window._kehadiranTab='harian';renderPage('kehadiran')">Input Harian</button>
+    <button class="tab${tab==='tahunan'?' active':''}" onclick="window._kehadiranTab='tahunan';renderPage('kehadiran')">Rekap 12 Bulan</button>
+  </div>`;
+  return bar + (tab==='tahunan' ? PAGES.rekapAbsenTahunan() : kehadiranHarianPage());
+};
+
 function setKehadiran(tgl,siswaId,status){ db.kehadiran[tgl]=db.kehadiran[tgl]||{}; db.kehadiran[tgl][siswaId]=status; saveDB(); renderPage("kehadiran"); }
 
 /* ---------- ABSENSI CEPAT: 1 klik hadir semua + tandai absen via ketikan ---------- */

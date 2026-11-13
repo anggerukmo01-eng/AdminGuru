@@ -84,7 +84,6 @@ menampilkan status gagal dan menyediakan cadangan JSON.
 | `assets/css/word-document.css` | Tipografi pratinjau hasil AI dan kontrol format Word |
 | `assets/vendor/docx/`, `assets/vendor/marked/` | Mesin lokal yang dipatok versinya, beserta lisensi MIT |
 | `assets/js/80-ai.js` | Layanan AI, settings, riwayat, Modul/ATP/LKPD |
-| `assets/js/82-ai-tools.js` | Absensi, ekspor, generator AI tambahan |
 | `assets/js/cp-data.js` | Dataset CP dari lampiran handoff |
 | `assets/js/81-ai-curriculum.js` | Referensi CP, Analisis CP–TP, Telaah CP–ATP |
 | `assets/js/85-workspace.js` | Pencarian fitur, form aksesibel, navigasi ponsel |
@@ -94,8 +93,7 @@ menampilkan status gagal dan menyediakan cadangan JSON.
 | `assets/js/87-book-reader.js` | PDF.js, halaman, coretan, catatan dan penanda |
 | `assets/js/90-boot.js` | Inisialisasi terakhir |
 
-Urutan skrip pada `index.html` harus dipertahankan: `82-ai-tools.js` mengikuti
-`80-ai.js`; `cp-data.js` mendahului `81-ai-curriculum.js`; boot selalu terakhir.
+Urutan skrip pada `index.html` harus dipertahankan: `cp-data.js` mendahului `81-ai-curriculum.js`; boot selalu terakhir.
 Untuk mengubah warna, edit tokens di `modern.css`. Menu terdaftar pada NAV
 (`30-core.js`), dengan tambahan kurikulum/AI di `81-ai-curriculum.js`.
 

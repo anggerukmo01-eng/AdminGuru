@@ -258,24 +258,70 @@ function cpSeedForFase(fase){
 // SEED_CP dipertahankan (alias ke Fase A) demi kompatibilitas kode lama yang mungkin masih merujuknya.
 const SEED_CP = SEED_CP_FASE_A;
 
-// Struktur Kurikulum Kelas 1 SD - Permendikbudristek No. 12 Tahun 2024 tentang
-// Kurikulum pada PAUD, Dikdas, dan Dikmen, sebagaimana diperkuat pendekatan
-// Pembelajaran Mendalam melalui Permendikdasmen No. 13 Tahun 2025 (berlaku
-// 15 Juli 2025). Asumsi 1 tahun ajaran = 36 minggu efektif, 1 JP = 35 menit.
-// Kokurikuler (dahulu P5) kini berbentuk pembelajaran kolaboratif lintas
-// disiplin / Gerakan 7 Kebiasaan Anak Indonesia Hebat sesuai Pasal 16-19
-// Permendikdasmen No. 13/2025. Catatan: satuan pendidikan agar tetap
-// menyesuaikan alokasi definitif dengan kebijakan Dinas Pendidikan setempat.
-const JP_STRUKTUR_KELAS1 = [
+// Struktur Kurikulum per kelas SD - Permendikbudristek No. 12 Tahun 2024
+// tentang Kurikulum pada PAUD, Dikdas, dan Dikmen, sebagaimana diperkuat
+// pendekatan Pembelajaran Mendalam melalui Permendikdasmen No. 13 Tahun
+// 2025 (berlaku 15 Juli 2025). Asumsi: Kelas 1-5 = 36 minggu efektif,
+// Kelas 6 = 32 minggu efektif; 1 JP = 35 menit. jpMinggu = total JP per
+// minggu (intrakurikuler + kokurikuler/projek). Kokurikuler (dahulu P5)
+// kini berbentuk pembelajaran kolaboratif lintas disiplin / Gerakan
+// 7 Kebiasaan Anak Indonesia Hebat sesuai Pasal 16-19 Permendikdasmen
+// No. 13/2025. Catatan: satuan pendidikan agar tetap menyesuaikan alokasi
+// definitif dengan kebijakan Dinas Pendidikan setempat.
+// Bahasa Inggris adalah mapel pilihan mulai Kelas 3 (Fase B):
+// 72 JP/tahun (Kelas 3-5), 64 JP/tahun (Kelas 6), 2 JP/minggu, tanpa
+// alokasi kokurikuler. Seni: satuan pendidikan memilih SATU jenis seni.
+const JP_KELAS_3_5 = [
  {mapel:"Pendidikan Agama Islam dan Budi Pekerti", intra:108, koku:36, total:144, jpMinggu:4},
- {mapel:"Pendidikan Pancasila", intra:108, koku:36, total:144, jpMinggu:4},
- {mapel:"Bahasa Indonesia", intra:144, koku:72, total:216, jpMinggu:6},
- {mapel:"Matematika", intra:108, koku:36, total:144, jpMinggu:4},
+ {mapel:"Pendidikan Pancasila", intra:144, koku:36, total:180, jpMinggu:5},
+ {mapel:"Bahasa Indonesia", intra:216, koku:36, total:252, jpMinggu:7},
+ {mapel:"Matematika", intra:180, koku:36, total:216, jpMinggu:6},
+ {mapel:"Ilmu Pengetahuan Alam dan Sosial (IPAS)", intra:180, koku:36, total:216, jpMinggu:6},
  {mapel:"PJOK", intra:108, koku:36, total:144, jpMinggu:4},
- {mapel:"Seni Musik", intra:72, koku:36, total:108, jpMinggu:3},
+ {mapel:"Seni Musik", intra:108, koku:36, total:144, jpMinggu:4},
  {mapel:"Seni Rupa", intra:0, koku:0, total:0, jpMinggu:0, catatan:"Satuan pendidikan memilih salah satu jenis seni (musik/rupa/teater/tari); baris ini tampil sebagai opsi alternatif Seni Musik."},
+ {mapel:"Bahasa Inggris", intra:72, koku:0, total:72, jpMinggu:2, catatan:"Mapel pilihan mulai Kelas 3 (Fase B)."},
  {mapel:"Muatan Lokal", intra:72, koku:0, total:72, jpMinggu:2, catatan:"Mata pelajaran pilihan (mis. Bahasa Jawa), menyesuaikan kebijakan daerah."},
 ];
+const JP_STRUKTUR_PER_KELAS = {
+ "kelas-1": [
+  {mapel:"Pendidikan Agama Islam dan Budi Pekerti", intra:108, koku:36, total:144, jpMinggu:4},
+  {mapel:"Pendidikan Pancasila", intra:144, koku:36, total:180, jpMinggu:5},
+  {mapel:"Bahasa Indonesia", intra:216, koku:72, total:288, jpMinggu:8},
+  {mapel:"Matematika", intra:144, koku:36, total:180, jpMinggu:5},
+  {mapel:"PJOK", intra:108, koku:36, total:144, jpMinggu:4},
+  {mapel:"Seni Musik", intra:108, koku:36, total:144, jpMinggu:4},
+  {mapel:"Seni Rupa", intra:0, koku:0, total:0, jpMinggu:0, catatan:"Satuan pendidikan memilih salah satu jenis seni (musik/rupa/teater/tari); baris ini tampil sebagai opsi alternatif Seni Musik."},
+  {mapel:"Muatan Lokal", intra:72, koku:0, total:72, jpMinggu:2, catatan:"Mata pelajaran pilihan (mis. Bahasa Jawa), menyesuaikan kebijakan daerah."},
+ ],
+ "kelas-2": [
+  {mapel:"Pendidikan Agama Islam dan Budi Pekerti", intra:108, koku:36, total:144, jpMinggu:4},
+  {mapel:"Pendidikan Pancasila", intra:144, koku:36, total:180, jpMinggu:5},
+  {mapel:"Bahasa Indonesia", intra:252, koku:72, total:324, jpMinggu:9},
+  {mapel:"Matematika", intra:180, koku:36, total:216, jpMinggu:6},
+  {mapel:"PJOK", intra:108, koku:36, total:144, jpMinggu:4},
+  {mapel:"Seni Musik", intra:108, koku:36, total:144, jpMinggu:4},
+  {mapel:"Seni Rupa", intra:0, koku:0, total:0, jpMinggu:0, catatan:"Satuan pendidikan memilih salah satu jenis seni (musik/rupa/teater/tari); baris ini tampil sebagai opsi alternatif Seni Musik."},
+  {mapel:"Muatan Lokal", intra:72, koku:0, total:72, jpMinggu:2, catatan:"Mata pelajaran pilihan (mis. Bahasa Jawa), menyesuaikan kebijakan daerah."},
+ ],
+ "kelas-3": JP_KELAS_3_5,
+ "kelas-4": JP_KELAS_3_5,
+ "kelas-5": JP_KELAS_3_5,
+ "kelas-6": [
+  {mapel:"Pendidikan Agama Islam dan Budi Pekerti", intra:96, koku:32, total:128, jpMinggu:4},
+  {mapel:"Pendidikan Pancasila", intra:128, koku:32, total:160, jpMinggu:5},
+  {mapel:"Bahasa Indonesia", intra:192, koku:32, total:224, jpMinggu:7},
+  {mapel:"Matematika", intra:160, koku:32, total:192, jpMinggu:6},
+  {mapel:"Ilmu Pengetahuan Alam dan Sosial (IPAS)", intra:160, koku:32, total:192, jpMinggu:6},
+  {mapel:"PJOK", intra:96, koku:32, total:128, jpMinggu:4},
+  {mapel:"Seni Musik", intra:96, koku:32, total:128, jpMinggu:4},
+  {mapel:"Seni Rupa", intra:0, koku:0, total:0, jpMinggu:0, catatan:"Satuan pendidikan memilih salah satu jenis seni (musik/rupa/teater/tari); baris ini tampil sebagai opsi alternatif Seni Musik."},
+  {mapel:"Bahasa Inggris", intra:64, koku:0, total:64, jpMinggu:2, catatan:"Mapel pilihan mulai Kelas 3 (Fase B)."},
+  {mapel:"Muatan Lokal", intra:64, koku:0, total:64, jpMinggu:2, catatan:"Mata pelajaran pilihan (mis. Bahasa Jawa), menyesuaikan kebijakan daerah."},
+ ],
+};
+// Alias lama (dipakai builder Prota teks versi lama): tabel Kelas 1.
+const JP_STRUKTUR_KELAS1 = JP_STRUKTUR_PER_KELAS["kelas-1"];
 
 // Kalender Pendidikan Provinsi Jawa Tengah T.A. 2026/2027 (jenjang SD, 5 hari
 // sekolah) - dikutip dari Keputusan Kepala Dinas Pendidikan Provinsi Jawa
@@ -324,19 +370,21 @@ const SEED_KALENDER = [
 /* ============================================================
    1B. GENERATOR ATP & KKTP LANGSUNG DARI CP RESMI
    TP diturunkan langsung dari setiap klausa Capaian Pembelajaran (CP)
-   Fase A (Kepbadan BSKAP No. 046/H/KR/2025) yang sudah dikutip di atas,
-   dipasangkan dengan alokasi JP per Struktur Kurikulum Kelas 1 (lihat
-   JP_STRUKTUR_KELAS1) dan dibagi proporsional ke Semester 1 / Semester 2.
+   resmi per fase (Kepbadan BSKAP No. 046/H/KR/2025), dipasangkan dengan
+   alokasi JP per Struktur Kurikulum kelas yang bersangkutan
+   (JP_STRUKTUR_PER_KELAS, Permendikbudristek 12/2024 jo. Permendikdasmen
+   13/2025) dan dibagi proporsional ke Semester 1 / Semester 2.
    ============================================================ */
 function lowerFirstChar(s){ return s ? s.charAt(0).toLowerCase()+s.slice(1) : s; }
 function splitCPClauses(text){
   return text.split(/;\s+/).map(s=>s.trim().replace(/\.$/,"")).filter(Boolean);
 }
-function jpMingguForMapel(mapel){
-  const row = JP_STRUKTUR_KELAS1.find(r=>r.mapel===mapel && r.jpMinggu>0);
+function jpMingguForMapel(mapel, classId){
+  const table = JP_STRUKTUR_PER_KELAS[classId] || JP_STRUKTUR_KELAS1;
+  const row = table.find(r=>r.mapel===mapel && r.jpMinggu>0);
   return row ? row.jpMinggu : 2;
 }
-function generateSeedATP(cpList){
+function generateSeedATP(cpList, classId){
   const list = cpList || SEED_CP_FASE_A;
   const out = [];
   const runningIndexByMapel = {};
@@ -349,7 +397,7 @@ function generateSeedATP(cpList){
         mapel: row.mapel,
         elemen: row.elemen,
         tp: "Peserta didik mampu " + lowerFirstChar(clause) + ", melalui pengalaman belajar memahami, mengaplikasi, dan merefleksi (Pembelajaran Mendalam).",
-        alokasiWaktu: String(jpMingguForMapel(row.mapel)),
+        alokasiWaktu: String(jpMingguForMapel(row.mapel, classId)),
         semester: (idx % 2 === 1) ? "1" : "2",
         fase: row.fase || "A",
       });

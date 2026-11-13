@@ -444,6 +444,7 @@ function boot(){
   }catch(e){}
   settings = loadSettings();
   applyTheme();
+  applyDisplayMode();
   buildSidebar();
   if(typeof renderPapanInfo==="function") setInterval(renderPapanInfo, 1000);
   showLockScreen();

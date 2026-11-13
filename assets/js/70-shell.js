@@ -109,3 +109,32 @@ function toggleTheme(){
   if(currentPage==="pengaturan") renderPage("pengaturan");
 }
 
+/* ============================================================
+   8B. MODE TAMPILAN — Tablet / Kecil / Otomatis (13 Nov 2026)
+   Mengikuti pola tema (8): pilihan tersimpan di settings.displayMode,
+   diterapkan lewat atribut data-display-mode pada <html>.
+   - "tablet": perilaku responsif seperti sekarang (aturan @media biasa).
+   - "kecil": memaksa tampilan ringkas di lebar layar berapa pun.
+   - "auto": <720px -> kecil, >=720px -> tablet; mengikuti resize/rotasi.
+   ============================================================ */
+function displayModeEffective(){
+  const m = settings.displayMode || "auto";
+  if(m === "kecil") return "kecil";
+  if(m === "tablet") return "tablet";
+  try{ return window.matchMedia("(max-width: 719px)").matches ? "kecil" : "tablet"; }catch(e){ return "tablet"; }
+}
+function applyDisplayMode(){
+  document.documentElement.setAttribute("data-display-mode", displayModeEffective());
+}
+function setDisplayMode(mode){
+  settings.displayMode = (mode==="kecil" || mode==="tablet") ? mode : "auto";
+  saveSettings(); applyDisplayMode();
+  if(currentPage==="pengaturan") renderPage("pengaturan");
+}
+try{
+  const dmq = window.matchMedia("(max-width: 719px)");
+  const onDmChange = ()=>{ if((settings.displayMode||"auto")==="auto") applyDisplayMode(); };
+  if(dmq.addEventListener) dmq.addEventListener("change", onDmChange);
+  else if(dmq.addListener) dmq.addListener(onDmChange);
+}catch(e){}
+

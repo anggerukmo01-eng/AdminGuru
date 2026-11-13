@@ -374,17 +374,6 @@ async function cloudRefreshList(){
 }
 window.cloudRefreshList = cloudRefreshList;
 
-/* ---------- HALAMAN: CLOUD STORAGE (BACKUP & RESTORE) ---------- */
-/* DIHAPUS (v2.2): digabung ke halaman "Backup & Sinkron Data".
-   Dipertahankan sebagai pengalihan agar tombol lama tidak rusak. */
-PAGES.cloudStorage = function(){ setTimeout(()=>navigate("backup"), 30);
-  return `<div class="empty-state">${ic("backup",40)}<p>Mengalihkan ke Backup &amp; Sinkron Data...</p></div>`;
-};
-/* ---------- HALAMAN: RIWAYAT BACKUP CLOUD (LOG AKTIVITAS) ---------- */
-/* DIHAPUS (v2.2): riwayat kini menjadi bagian halaman "Backup & Sinkron Data". */
-PAGES.riwayatBackup = function(){ setTimeout(()=>navigate("backup"), 30);
-  return `<div class="empty-state">${ic("archive",40)}<p>Mengalihkan ke Backup &amp; Sinkron Data...</p></div>`;
-};
 /* ---------- PENGATURAN ---------- */
 PAGES.pengaturan = function(){
   return `
@@ -407,6 +396,11 @@ PAGES.pengaturan = function(){
       <h3>${ic("settings",16)} Tampilan</h3>
       <p class="muted">Mode saat ini: <strong>${settings.theme==="dark"?"Gelap":"Terang"}</strong></p>
       <button class="btn" onclick="toggleTheme()">Ganti ke Mode ${settings.theme==="dark"?"Terang":"Gelap"}</button>
+      <div class="field" style="margin-top:14px;"><label>Mode Tampilan Layar</label>
+        <label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;cursor:pointer;"><input type="radio" name="displayMode" value="auto" style="width:auto;margin-top:2px;" ${(settings.displayMode||"auto")==="auto"?"checked":""} onchange="setDisplayMode('auto')"> <span><strong>Otomatis</strong> — layar kecil tampil ringkas, tablet tampil penuh (disarankan).</span></label>
+        <label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;cursor:pointer;margin-top:6px;"><input type="radio" name="displayMode" value="tablet" style="width:auto;margin-top:2px;" ${settings.displayMode==="tablet"?"checked":""} onchange="setDisplayMode('tablet')"> <span><strong>Tablet</strong> — selalu tampilan penuh seperti sekarang.</span></label>
+        <label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;cursor:pointer;margin-top:6px;"><input type="radio" name="displayMode" value="kecil" style="width:auto;margin-top:2px;" ${settings.displayMode==="kecil"?"checked":""} onchange="setDisplayMode('kecil')"> <span><strong>Layar Kecil</strong> — selalu tampilan ringkas (navigasi bawah, satu kolom).</span></label>
+      </div>
     </div>
     <div class="card">
       <h3>${ic("student",16)} Kelas Bawaan</h3>
@@ -427,7 +421,7 @@ PAGES.pengaturan = function(){
   <div class="card" style="margin-top:16px;">
     <h3>${ic("backup",16)} Cloud Storage</h3>
     <p class="muted">Status: ${cloudStatusBadge()} &nbsp; ${cloudUser?("&middot; "+escapeHtml(cloudUser.email)):""}</p>
-    <button class="btn btn-primary" onclick="navigate('cloudStorage')">${ic("backup",15)} Buka Pengaturan Cloud Storage</button>
+    <button class="btn btn-primary" onclick="navigate('backup')">${ic("backup",15)} Buka Backup &amp; Sinkron Data</button>
   </div>
   <div class="card" style="margin-top:16px;">
     <h3>${ic("info",16)} Panduan Menyiapkan Supabase Cloud Backup</h3>

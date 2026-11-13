@@ -111,7 +111,7 @@ PAGES.dashboard = function(){
     <div class="field"><label for="berandaTahunAjaran">Tahun Pelajaran Aktif</label><select id="berandaTahunAjaran" onchange="updateTahunSemesterBeranda()">${taGenerateOptions().map(t=>`<option ${t===db.sekolah.tahunAjaran?'selected':''}>${escapeHtml(t)}</option>`).join('')}</select></div>
     <div class="field"><label for="berandaSemester">Semester Aktif</label><select id="berandaSemester" onchange="updateTahunSemesterBeranda()">${taSemesterOptions().map(s=>`<option value="${escapeHtml(s)}" ${s===db.sekolah.semester?'selected':''}>Semester ${escapeHtml(s)}</option>`).join('')}</select></div>
     </div><p class="hint">Dipakai bersama pada profil sekolah, kop surat, program pembelajaran, dan rapor.</p></details>
-  <details class="card school-summary"><summary>${ic('bar',18)} Ringkasan sekolah & pembinaan</summary><div class="school-summary-grid">${CLASS_LIST.map(c=>{const n=(c.id===activeClassId?db:loadClassDB(c.id)).siswa.length;return `<button class="class-summary ${c.id===activeClassId?'active':''}" onclick="switchActiveClass('${c.id}')"><small>${c.id===activeClassId?'Kelas aktif':'Pindah kelas'}</small><strong>${c.label}</strong><span>${n} siswa</span></button>`;}).join('')}</div><div class="school-links">${[{id:'perkembangan',label:'Catatan perkembangan',icon:'heart'},{id:'analisisnilai',label:'Analisis nilai',icon:'target'},{id:'pekerjaanOrtu',label:'Pekerjaan orang tua',icon:'users'},{id:'backup',label:'Backup & sinkronisasi',icon:'backup'},{id:'guru',label:(db.guru.length+db.tendik.length)+' guru & tendik',icon:'school'}].map(item=>`<button class="btn" onclick="navigate('${item.id}')">${ic(item.icon,16)} ${item.label}</button>`).join('')}</div><p class="hint">Dimensi Profil Lulusan: ${DIMENSI_PROFIL.map(d=>escapeHtml(d.nama)).join(' · ')}.</p></details>
+  <details class="card school-summary"><summary>${ic('bar',18)} Ringkasan sekolah & pembinaan</summary><div class="school-summary-grid">${CLASS_LIST.map(c=>{const n=(c.id===activeClassId?db:loadClassDB(c.id)).siswa.length;return `<button class="class-summary ${c.id===activeClassId?'active':''}" onclick="switchActiveClass('${c.id}')"><small>${c.id===activeClassId?'Kelas aktif':'Pindah kelas'}</small><strong>${c.label}</strong><span>${n} siswa</span></button>`;}).join('')}</div><div class="school-links">${[{id:'pembinaan',label:'Pembinaan siswa',icon:'heart'},{id:'analisisnilai',label:'Analisis nilai',icon:'target'},{id:'ortu',label:'Data orang tua',icon:'users'},{id:'backup',label:'Backup & sinkronisasi',icon:'backup'},{id:'guru',label:(db.guru.length+db.tendik.length)+' guru & tendik',icon:'school'}].map(item=>`<button class="btn" onclick="navigate('${item.id}')">${ic(item.icon,16)} ${item.label}</button>`).join('')}</div><p class="hint">Dimensi Profil Lulusan: ${DIMENSI_PROFIL.map(d=>escapeHtml(d.nama)).join(' · ')}.</p></details>
   <details class="card school-summary"><summary>${ic('star',18)} Rekap Program Indonesia Pintar</summary><div class="pip-summary"><div><span>Penerima (KIP)</span><strong>${pip.penerima}</strong></div><div><span>Usulan sekolah</span><strong>${pip.usulan}</strong></div></div><div class="table-wrap"><table><thead><tr><th>Kategori usulan</th><th>Jumlah</th></tr></thead><tbody>${Object.entries(pip.byKategori).map(([label,n])=>`<tr><td>${escapeHtml(label)}</td><td>${n}</td></tr>`).join('')||'<tr><td colspan="2">Belum ada usulan tercatat.</td></tr>'}</tbody></table></div><p class="hint">Rekap seluruh kelas berdasarkan Buku Induk; satu usulan dapat memiliki beberapa kategori.</p></details>
   <section class="card"><div class="dashboard-card-head"><div><span class="card-eyebrow">KEADAAN MURID</span><h2>Rekap Umur Siswa per Bulan — ${escapeHtml(classInfo(activeClassId).label)}</h2></div></div>
     <p class="muted" style="font-size:12.5px;">Tahun Pelajaran ${escapeHtml(db.sekolah.tahunAjaran)} · Dihitung langsung dari tanggal lahir siswa.</p>
@@ -812,6 +812,17 @@ PAGES.ortu = function(){
   <div class="toolbar"><div class="search-box">${ic("search",16)}<input placeholder="Cari nama siswa / ayah / ibu..." value="${escapeHtml(window._ortuQ||"")}" oninput="cariDebounce(this,'_ortuQ','ortu')"></div></div>
   <div class="table-wrap"><table><thead><tr><th>No</th><th>Nama Siswa</th><th>Nama Ayah</th><th>Nama Ibu</th><th>Pendidikan Ortu</th><th>Pekerjaan Ortu</th><th>Alamat</th><th>Aksi</th></tr></thead>
   <tbody>${body || `<tr><td colspan="8" class="empty-state">Tidak ada data.</td></tr>`}</tbody></table></div>`;
+};
+
+/* ---------- Data Orang Tua + Rekap Pekerjaan (gabungan B5, 13 Nov 2026) ---------- */
+const ortuDataPage = PAGES.ortu;
+PAGES.ortu = function(){
+  const tab = window._ortuTab || 'data';
+  const bar = `<div class="tabs" role="tablist">
+    <button class="tab${tab==='data'?' active':''}" onclick="window._ortuTab='data';renderPage('ortu')">Data Orang Tua</button>
+    <button class="tab${tab==='rekap'?' active':''}" onclick="window._ortuTab='rekap';renderPage('ortu')">Rekap Pekerjaan</button>
+  </div>`;
+  return bar + (tab==='rekap' ? PAGES.pekerjaanOrtu() : ortuDataPage());
 };
 
 /* ---------- KALENDER PENDIDIKAN ---------- */

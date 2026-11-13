@@ -67,3 +67,27 @@ document.addEventListener("keydown", event=>{
   }
 });
 window.addEventListener("resize",()=>{ toggleSidebar(window.innerWidth<=960 && document.getElementById("sidebar").classList.contains("open")); });
+
+/* Responsive Sidebar Collapse Rail (Xiaomi Pad 7 Pro Landscape) & Drawer (Portrait/Mobile) */
+(function enableTabletSidebarRail(){
+  const origToggle = typeof window.toggleSidebar === "function" ? window.toggleSidebar : null;
+  window.toggleSidebar = function(force){
+    const appEl = document.getElementById("app");
+    const sb = document.getElementById("sidebar");
+    const mask = document.getElementById("sidebarMask");
+    if(!sb) return;
+    if(window.innerWidth <= 960){
+      if(origToggle) return origToggle(force);
+      const open = typeof force === "boolean" ? force : !sb.classList.contains("open");
+      sb.classList.toggle("open", open);
+      if(mask) mask.classList.toggle("show", open);
+    } else {
+      if(typeof force === "boolean" && !force){
+        sb.classList.remove("open");
+        if(mask) mask.classList.remove("show");
+        return;
+      }
+      if(appEl) appEl.classList.toggle("sidebar-collapsed");
+    }
+  };
+})();

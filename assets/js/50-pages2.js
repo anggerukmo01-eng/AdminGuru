@@ -186,6 +186,17 @@ PAGES.rekapSeluruhKelas = function(){
   <div class="grid grid-3">${cards}</div>`;
 };
 
+/* ---------- STATISTIK SISWA (gabungan B1, 13 Nov 2026): 3 rekap jumlah siswa
+   dalam satu halaman bertab. Renderer lama tetap dipakai apa adanya. ---------- */
+PAGES.statistikSiswa = function(){
+  const tab = window._statTab || 'kelas';
+  const tabs = [["kelas","Per Kelas"],["bulan","Per Bulan"],["lahir","Per Tahun Lahir"]];
+  const bar = `<div class="tabs" role="tablist">${tabs.map(t=>`<button class="tab${tab===t[0]?" active":""}" onclick="window._statTab='${t[0]}';renderPage('statistikSiswa')">${t[1]}</button>`).join("")}</div>`;
+  if(tab==="bulan") return bar + PAGES.rekapJumlahSiswa();
+  if(tab==="lahir") return bar + PAGES.dfjl();
+  return bar + PAGES.rekapSeluruhKelas();
+};
+
 /* ---------- ARSIP ALUMNI (LULUSAN KELAS 6) ---------- */
 PAGES.alumni = function(){
   const q = (window._alumniQ||"").toLowerCase();
@@ -327,6 +338,17 @@ PAGES.bukuPeganganSiswa = function(){
   });
 };
 
+/* ---------- BUKU PEGANGAN (gabungan B4, 13 Nov 2026): guru & siswa dalam satu
+   halaman bertab. Renderer lama tetap dipakai apa adanya. ---------- */
+PAGES.bukuPegangan = function(){
+  const tab = window._bukuPeganganTab || 'guru';
+  const bar = `<div class="tabs" role="tablist">
+    <button class="tab${tab==='guru'?' active':''}" onclick="window._bukuPeganganTab='guru';renderPage('bukuPegangan')">Buku Pegangan Guru</button>
+    <button class="tab${tab==='siswa'?' active':''}" onclick="window._bukuPeganganTab='siswa';renderPage('bukuPegangan')">Buku Pegangan Siswa</button>
+  </div>`;
+  return bar + (tab==='siswa' ? PAGES.bukuPeganganSiswa() : PAGES.bukuPeganganGuru());
+};
+
 /* ---------- DENAH TEMPAT DUDUK ---------- */
 PAGES.denahTD = function(){
   return crudSection({
@@ -435,6 +457,18 @@ PAGES.konsultasiOrtu = function(){
       {key:"uraian",label:"Uraian",render:v=>escapeHtml((v||"").slice(0,50))+((v||"").length>50?"...":"")},
     ],
   });
+};
+
+/* ---------- PEMBINAAN (gabungan B3, 13 Nov 2026): 4 halaman catatan pembinaan
+   dalam satu halaman bertab. Renderer lama tetap dipakai apa adanya. ---------- */
+PAGES.pembinaan = function(){
+  const tab = window._pembinaanTab || 'perkembangan';
+  const tabs = [["perkembangan","Perkembangan"],["bimbingan","Bimbingan"],["konsultasiOrtu","Konsultasi Ortu"],["homevisit","Home Visit"]];
+  const bar = `<div class="tabs" role="tablist">${tabs.map(t=>`<button class="tab${tab===t[0]?" active":""}" onclick="window._pembinaanTab='${t[0]}';renderPage('pembinaan')">${t[1]}</button>`).join("")}</div>`;
+  if(tab==="bimbingan") return bar + PAGES.bimbingan();
+  if(tab==="konsultasiOrtu") return bar + PAGES.konsultasiOrtu();
+  if(tab==="homevisit") return bar + PAGES.homevisit();
+  return bar + PAGES.perkembangan();
 };
 
 /* ---------- TABUNGAN SISWA ---------- */

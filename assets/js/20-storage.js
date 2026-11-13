@@ -115,7 +115,7 @@ function defaultClassDB(classId){
   const fase = faseForClassId(classId);
   const cpFase = cpSeedForFase(fase).map(e=>({...e}));
   out.cp = cpFase;
-  out.atp = generateSeedATP(cpFase);
+  out.atp = generateSeedATP(cpFase, classId);
   out.kktp = generateSeedKKTP(cpFase);
   out.waliKelasId = (classId==="kelas-1") ? (full.sekolah.waliKelasId||"") : "";
   return out;
@@ -179,7 +179,7 @@ function runCpRevisi2026SeedIfNeeded(){
         const fase = faseForClassId(c.id);
         const cpFase = cpSeedForFase(fase).map(e=>({...e}));
         cls.cp = cpFase;
-        if(!cls.atp || cls.atp.length===0) cls.atp = generateSeedATP(cpFase);
+        if(!cls.atp || cls.atp.length===0) cls.atp = generateSeedATP(cpFase, c.id);
         if(!cls.kktp || cls.kktp.length===0) cls.kktp = generateSeedKKTP(cpFase);
         saveClassDB(c.id, cls);
       }
@@ -266,7 +266,7 @@ function loadSettings(){
 }
 function defaultSettings(){
   return {
-    pin:"", theme:"dark", defaultClassId:"", autoLockMin:10, bunyiSukses:false,
+    pin:"", theme:"dark", defaultClassId:"", displayMode:"auto", autoLockMin:10, bunyiSukses:false,
     cloud:{
       email:"",
       totalBackup:0,
