@@ -277,6 +277,7 @@ function buildSidebar(){
       <div class="navgroup-items"><div>${items}</div></div>
     </div>`;
   });
+  h += `<div class="sidebar-foot">AdminGuru v${APP_VERSION}</div>`;
   el.innerHTML = h;
   buildClassSwitcher();
   markActiveNav(currentPage);

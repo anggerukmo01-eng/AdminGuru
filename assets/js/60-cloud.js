@@ -404,7 +404,6 @@ PAGES.pengaturan = function(){
     </div>
     <div class="card">
       <h3>${ic("student",16)} Kelas Bawaan</h3>
-      <p class="muted">Kelas yang langsung dibuka saat masuk aplikasi (dipilih di layar kunci).</p>
       <div class="field"><label>Kelas bawaan saat masuk</label>
         <select id="defaultClassId" onchange="saveDefaultClass(this.value)">
           <option value="" ${!settings.defaultClassId?"selected":""}>Ikuti kelas terakhir dipakai</option>
@@ -423,35 +422,7 @@ PAGES.pengaturan = function(){
     <p class="muted">Status: ${cloudStatusBadge()} &nbsp; ${cloudUser?("&middot; "+escapeHtml(cloudUser.email)):""}</p>
     <button class="btn btn-primary" onclick="navigate('backup')">${ic("backup",15)} Buka Backup &amp; Sinkron Data</button>
   </div>
-  <div class="card" style="margin-top:16px;">
-    <h3>${ic("info",16)} Panduan Menyiapkan Supabase Cloud Backup</h3>
-    <ol class="hint" style="font-size:12.5px;line-height:1.9;padding-left:18px;">
-      <li>Buat akun &amp; project baru di <strong>supabase.com</strong>, pilih region terdekat, tunggu inisialisasi selesai.</li>
-      <li>Salin <strong>Project URL</strong> dan <strong>Anon Public Key</strong> dari menu "Project Settings &rarr; API".</li>
-      <li>Buka file <code>supabase.js</code> pada folder aplikasi ini, isi <code>SUPABASE_URL</code> dan <code>SUPABASE_ANON_KEY</code> sesuai milik Bapak/Ibu Guru.</li>
-      <li>Buat Storage Bucket bernama <code>backups</code> dengan opsi <strong>Private</strong> (bukan Public).</li>
-      <li>Jalankan seluruh perintah pada file <code>supabase_setup.sql</code> lewat SQL Editor Supabase (membuat bucket bila belum ada &amp; mengaktifkan Row Level Security beserta policy-nya).</li>
-      <li>Jalankan aplikasi ini lewat alamat http/https (GitHub Pages/Netlify/Vercel/server lokal), lalu buka menu Cloud Storage &rarr; "Login / Daftar" untuk membuat akun Email &amp; Password.</li>
-      <li>Klik "Backup Cloud" untuk mencadangkan pertama kali, lalu pastikan berkasnya muncul di daftar backup dan pada bucket <code>backups</code> di dashboard Supabase.</li>
-      <li>Lihat <code>PANDUAN_SUPABASE.md</code> yang disertakan untuk panduan lengkap langkah demi langkah.</li>
-    </ol>
-  </div>
-  <div class="card" style="margin-top:16px;">
-    <h3>${ic("info",16)} Tentang Aplikasi &amp; Batasan Jujur</h3>
-    <p class="hint" style="font-size:12.5px;line-height:1.7;">
-      Administrasi Guru berjalan 100% offline, tanpa server maupun instalasi. Beberapa catatan penting:<br><br>
-      &bull; <strong>Multi-Kelas:</strong> pemilih "Kelas Aktif" di bagian atas aplikasi menentukan seluruh data yang ditampilkan (siswa, kehadiran, nilai, jurnal, jadwal, dsb). Data setiap kelas disimpan terpisah per kelas, tetapi beberapa halaman masih bisa menampilkan data lintas kelas (mis. Arsip Dokumen, Riwayat AI, dan ringkasan sekolah) — perbaikan isolasi sedang berjalan bertahap. Data guru/tendik, profil sekolah, dan kalender pendidikan bersifat sekolah (dipakai bersama semua kelas), sedangkan Wali Kelas diatur per kelas.<br>
-      &bull; <strong>Kelas 2-6 dimulai kosong:</strong> hanya Kelas 1 yang memiliki data siswa/guru dari dokumen resmi yang diunggah. Kelas 2-6 sengaja tidak diisi data karangan -- silakan tambah/impor data siswa sendiri lewat menu Data Siswa pada tiap kelas.<br>
-      &bull; <strong>Capaian Pembelajaran (CP/ATP/KKTP):</strong> versi bawaan aplikasi hanya berisi kutipan resmi Fase A khusus Kelas 1. Untuk Kelas 2-6, isi CP/ATP/KKTP perlu ditambahkan sendiri lewat menu masing-masing karena dokumen sumber Fase B/C/D/E/F belum tersedia di aplikasi ini.<br>
-      &bull; <strong>Naik Kelas / Pindah Kelas:</strong> memindahkan data siswa ke kelas tujuan dan mengosongkan roster kelas asal untuk tahun ajaran berikutnya. Data akademik (nilai, kehadiran, jurnal, dst.) kelas asal TETAP tersimpan sebagai arsip, tidak terhapus.<br>
-      &bull; <strong>Penyimpanan:</strong> menggunakan localStorage pada browser perangkat ini. Data tidak tersinkron otomatis ke perangkat lain -- gunakan menu Backup &amp; Restore (Lokal atau Cloud Storage) untuk memindahkan data; backup selalu mencakup Kelas 1-6 sekaligus.<br>
-      &bull; <strong>Backup Cloud (Supabase):</strong> fitur opsional yang butuh internet, project Supabase milik sendiri, dan hosting non-file:// (lihat panduan di atas). Tanpa itu, aplikasi tetap 100% offline seperti biasa.<br>
-      &bull; <strong>Ekspor Word (.doc) &amp; Excel (.xls):</strong> dibuat dengan format HTML yang dibaca native oleh Microsoft Word/Excel tanpa pustaka eksternal. Berkas akan terbuka dengan baik walau ikon file menunjukkan format lama (.doc/.xls, bukan .docx/.xlsx). Nama file otomatis menyertakan kelas aktif (mis. "..._Kelas-3").<br>
-      &bull; <strong>Ekspor PDF:</strong> memakai dialog cetak bawaan browser (pilih "Simpan sebagai PDF").<br>
-      &bull; <strong>Tulisan tangan ke teks (OCR):</strong> tidak tersedia offline murni HTML/JS; catatan tangan disimpan sebagai gambar.<br>
-      &bull; <strong>Keamanan PIN:</strong> untuk mencegah akses tidak sengaja di perangkat bersama, bukan enkripsi tingkat industri.
-    </p>
-  </div>`;
+  <p class="muted" style="text-align:center;margin:20px 0 4px;font-size:11.5px;">AdminGuru v${APP_VERSION}</p>`;
 };
 function saveSuara(){
   settings.bunyiSukses = !!document.getElementById("bunyiSukses").checked;
