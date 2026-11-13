@@ -62,7 +62,11 @@ async function dbxHandleRedirect(){
     if(!res.ok || !j.access_token) throw new Error(j.error_description || j.error || ("HTTP "+res.status));
     dbxSetToken({access_token:j.access_token, refresh_token:j.refresh_token||"", expires_at:Date.now()+(Number(j.expires_in)||14400)*1000});
     toast("Dropbox terhubung. Selamat!");
-    if(typeof navigate==="function") navigate("backup");
+    /* Navigasi hanya kosmetik: bila gagal (mis. db belum dimuat saat
+       redirect ditukar cepat — dbxHandleRedirect berjalan sebelum boot()),
+       jangan sampai tampil sebagai "Gagal menghubungkan" padahal token
+       sudah tersimpan. */
+    try{ if(typeof navigate==="function") navigate("backup"); }catch(e){}
   }catch(e){ toast("Gagal menghubungkan Dropbox: "+e.message); }
   finally{
     try{ sessionStorage.removeItem(DBX_VERIFIER_SS); }catch(e){}
