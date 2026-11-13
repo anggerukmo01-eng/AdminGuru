@@ -266,7 +266,7 @@ function loadSettings(){
 }
 function defaultSettings(){
   return {
-    pin:"", theme:"dark", autoLockMin:10, bunyiSukses:false,
+    pin:"", theme:"dark", defaultClassId:"", autoLockMin:10, bunyiSukses:false,
     cloud:{
       email:"",
       totalBackup:0,

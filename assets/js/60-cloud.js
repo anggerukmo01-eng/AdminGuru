@@ -409,6 +409,16 @@ PAGES.pengaturan = function(){
       <button class="btn" onclick="toggleTheme()">Ganti ke Mode ${settings.theme==="dark"?"Terang":"Gelap"}</button>
     </div>
     <div class="card">
+      <h3>${ic("student",16)} Kelas Bawaan</h3>
+      <p class="muted">Kelas yang langsung dibuka saat masuk aplikasi (dipilih di layar kunci).</p>
+      <div class="field"><label>Kelas bawaan saat masuk</label>
+        <select id="defaultClassId" onchange="saveDefaultClass(this.value)">
+          <option value="" ${!settings.defaultClassId?"selected":""}>Ikuti kelas terakhir dipakai</option>
+          ${CLASS_LIST.map(c=>`<option value="${c.id}" ${settings.defaultClassId===c.id?"selected":""}>${c.label}</option>`).join("")}
+        </select>
+      </div>
+    </div>
+    <div class="card">
       <h3>${ic("check",16)} Suara</h3>
       <label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;cursor:pointer;"><input type="checkbox" id="bunyiSukses" style="width:auto;margin-top:2px;" ${settings.bunyiSukses?"checked":""}> Mainkan melodi sukses (C5-E5-G5-C6) saat menyimpan jurnal &amp; nilai massal.</label>
       <div style="margin-top:10px;"><button class="btn btn-primary" onclick="saveSuara()">${ic("check",15)} Simpan Pengaturan Suara</button></div>
@@ -436,7 +446,7 @@ PAGES.pengaturan = function(){
     <h3>${ic("info",16)} Tentang Aplikasi &amp; Batasan Jujur</h3>
     <p class="hint" style="font-size:12.5px;line-height:1.7;">
       Administrasi Guru berjalan 100% offline, tanpa server maupun instalasi. Beberapa catatan penting:<br><br>
-      &bull; <strong>Multi-Kelas:</strong> pemilih "Kelas Aktif" di bagian atas aplikasi menentukan seluruh data yang ditampilkan (siswa, kehadiran, nilai, jurnal, jadwal, dsb). Data setiap kelas disimpan terpisah dan tidak pernah tercampur. Data guru/tendik, profil sekolah, dan kalender pendidikan bersifat sekolah (dipakai bersama semua kelas), sedangkan Wali Kelas diatur per kelas.<br>
+      &bull; <strong>Multi-Kelas:</strong> pemilih "Kelas Aktif" di bagian atas aplikasi menentukan seluruh data yang ditampilkan (siswa, kehadiran, nilai, jurnal, jadwal, dsb). Data setiap kelas disimpan terpisah per kelas, tetapi beberapa halaman masih bisa menampilkan data lintas kelas (mis. Arsip Dokumen, Riwayat AI, dan ringkasan sekolah) — perbaikan isolasi sedang berjalan bertahap. Data guru/tendik, profil sekolah, dan kalender pendidikan bersifat sekolah (dipakai bersama semua kelas), sedangkan Wali Kelas diatur per kelas.<br>
       &bull; <strong>Kelas 2-6 dimulai kosong:</strong> hanya Kelas 1 yang memiliki data siswa/guru dari dokumen resmi yang diunggah. Kelas 2-6 sengaja tidak diisi data karangan -- silakan tambah/impor data siswa sendiri lewat menu Data Siswa pada tiap kelas.<br>
       &bull; <strong>Capaian Pembelajaran (CP/ATP/KKTP):</strong> versi bawaan aplikasi hanya berisi kutipan resmi Fase A khusus Kelas 1. Untuk Kelas 2-6, isi CP/ATP/KKTP perlu ditambahkan sendiri lewat menu masing-masing karena dokumen sumber Fase B/C/D/E/F belum tersedia di aplikasi ini.<br>
       &bull; <strong>Naik Kelas / Pindah Kelas:</strong> memindahkan data siswa ke kelas tujuan dan mengosongkan roster kelas asal untuk tahun ajaran berikutnya. Data akademik (nilai, kehadiran, jurnal, dst.) kelas asal TETAP tersimpan sebagai arsip, tidak terhapus.<br>
@@ -464,5 +474,10 @@ function saveSecurity(){
 }
 function disablePin(){
   settings.pin = ""; saveSettings(); toast("PIN dinonaktifkan."); renderPage("pengaturan");
+}
+function saveDefaultClass(value){
+  settings.defaultClassId = CLASS_LIST.some(c=>c.id===value) ? value : "";
+  saveSettings();
+  toast("Kelas bawaan disimpan: "+(settings.defaultClassId ? classInfo(settings.defaultClassId).label : "Ikuti kelas terakhir"));
 }
 

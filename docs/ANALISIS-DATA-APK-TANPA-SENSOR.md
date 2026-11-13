@@ -10,7 +10,7 @@
 
 ## STATUS PELAKSANAAN (13 Nov 2026, atas perintah Anggi "Jalankan semua")
 
-Branch **`data-lengkap-input-efisien`** (dari `main` 8b35fad). **Belum merge ke main, belum build APK.**
+Branch **`data-lengkap-input-efisien`** (dari `main` 8b35fad). **Sudah merge ke main + push GitHub (commit snapshot `cc7b219`) dan sudah build APK v1.0.18 (13 Nov 2026, perintah Anggi "Merge ke main + build APK uji").**
 
 ### Fase 1 — SELESAI & TERVERIFIKASI
 - Generator diperbarui (`adminguru-seed-dapodik/generate_seed.py`, bisa `--src`/`--date`): sumber diganti ke ekspor 13 Nov 2026 (`data-sekolah-2026/dapodik-2026-11-13/`; profil 2 Nov dipakai untuk wali — tidak ada unduhan profil baru, wali tidak berubah); `load_ptk()` mengekstrak lengkap 52 kolom Dapodik (PTK kini 51 key/orang, dari 15); agama orang tua tidak lagi di-hardcode 'Islam' (dikosongkan); telp sekolah dikosongkan (kolom Nomor Telepon di profil memang kosong).
@@ -30,7 +30,7 @@ Branch **`data-lengkap-input-efisien`** (dari `main` 8b35fad). **Belum merge ke 
 - Tes regresi repo `tests/program-browser.cjs` LULUS.
 
 ### Yang masih menunggu keputusan Anggi
-- Merge branch ini ke `main` dan/atau build APK uji (seed baru + kode baru). Seed baru belum disuntik ke APK mana pun — APK v1.0.17 di perangkat masih memakai seed 2 Nov (data siswa identik; yang tertinggal hanya data PTK lengkap + email Yudhy).
+- ~~Merge branch ini ke `main` dan/atau build APK uji (seed baru + kode baru). Seed baru belum disuntik ke APK mana pun — APK v1.0.17 di perangkat masih memakai seed 2 Nov (data siswa identik; yang tertinggal hanya data PTK lengkap + email Yudhy).~~ **SELESAI 13 Nov 2026 (perintah "Merge ke main + build APK uji"):** merge ke main + push GitHub (commit snapshot `cc7b219`) + APK **v1.0.18** (vc19, 971.951 byte, SIGN OK, seed 13 Nov, tag aset 20261113.1; smoke test isi APK lulus). Yang tersisa: **uji v1.0.18 di tablet Anggi**.
 - Terbuka dari audit sebelumnya: T1 (IPAS di MAPEL_LIST + bug edit ATP), T3 (Koding Fase C), T4, T6/T7.
 
 ## RINGKASAN PUTUSAN (analisis awal, sebelum pelaksanaan)

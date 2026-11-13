@@ -181,6 +181,10 @@ a{color:var(--primary);}
 .pin-pad button:hover{background:rgba(255,255,255,.22);}
 .pin-pad button:active{background:rgba(255,255,255,.35); transform:scale(.94);}
 .lock-msg{font-size:13px; color:#e6ebff; margin-bottom:4px; min-height:20px;}
+.lock-class-field{margin:18px 0 4px; text-align:left;}
+.lock-class-field label{display:block; color:#fff; font-weight:700; font-size:12.5px; margin-bottom:6px;}
+.lock-class-field select{width:100%; background:rgba(255,255,255,.94); color:#1b2560; font-weight:700; min-height:48px;}
+.lock-class-field .hint{color:#dfe6ff; font-size:11.5px; margin-top:6px;}
 
 /* ==================== 4. APP SHELL ==================== */
 #app{display:none; min-height:100vh;}

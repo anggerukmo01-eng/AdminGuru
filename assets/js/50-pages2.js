@@ -347,7 +347,8 @@ PAGES.denahTD = function(){
 
 /* ---------- JADWAL PIKET KEBERSIHAN ---------- */
 PAGES.jadwalPiket = function(){
-  return crudSection({
+  const classBar = `<div class="toolbar" style="margin-bottom:12px;"><span class="chip">Kelas aktif: <strong>${escapeHtml(classInfo(activeClassId).label)}</strong></span><div class="grow"></div><label style="font-size:12.5px;font-weight:700;">Ganti kelas&nbsp;<select onchange="switchActiveClass(this.value)" title="Ganti kelas aktif — piket yang ditampilkan mengikuti kelas ini" style="width:auto;padding:8px 10px;">${CLASS_LIST.map(c=>`<option value="${c.id}" ${c.id===activeClassId?"selected":""}>${c.label}</option>`).join("")}</select></label></div>`;
+  return classBar + crudSection({
     store:"jadwalPiket", title:"Jadwal Piket Kebersihan",
     desc:"Pembagian jadwal piket kebersihan kelas per hari.",
     fields:[
@@ -626,15 +627,25 @@ function backupData(){
 function restoreData(){
   const inp = document.getElementById("restoreFile");
   if(!inp.files.length){ toast("Pilih file backup terlebih dahulu."); return; }
-  const reader = new FileReader();
-  reader.onload = e=>{
+  const nama = inp.files[0].name;
+  /* TAHAP 0 (13 Nov 2026, isolasi kelas — S11): restore lokal kini memakai
+     konfirmasi seperti cloud/Dropbox — sebelumnya tanpa konfirmasi sama
+     sekali, padahal restore menimpa SEMUA kelas (Kelas 1 s.d. Kelas 6). */
+  confirmDialog("Pulihkan data dari \""+nama+"\"? Data saat ini di perangkat ini akan DITIMPA (mencakup Kelas 1 s.d. Kelas 6; cadangan lokal otomatis akan diunduh lebih dulu), lalu aplikasi akan dimuat ulang.", ()=>{
     try{
-      const parsed = JSON.parse(e.target.result);
-      applyFullBackupPayload(parsed);
-      toast("Data berhasil dipulihkan."); buildSidebar(); renderPage("dashboard"); navigate("dashboard");
-    }catch(err){ toast("File backup tidak valid."); }
-  };
-  reader.readAsText(inp.files[0]);
+      backupData(); // cadangan lokal otomatis (unduh .json ke perangkat) sebelum menimpa
+      const reader = new FileReader();
+      reader.onload = e=>{
+        try{
+          const parsed = JSON.parse(e.target.result);
+          applyFullBackupPayload(parsed);
+          toast("Data berhasil dipulihkan. Memuat ulang aplikasi...");
+          setTimeout(()=>location.reload(), 800);
+        }catch(err){ toast("File backup tidak valid."); }
+      };
+      reader.readAsText(inp.files[0]);
+    }catch(err){ toast("Restore gagal: "+err.message); }
+  });
 }
 function resetApp(){
   confirmDialog("Yakin ingin mereset SELURUH data aplikasi (semua kelas) ke kondisi awal?", ()=>{

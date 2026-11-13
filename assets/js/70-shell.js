@@ -55,8 +55,21 @@ function showLockScreen(){
     document.getElementById("noPinArea").style.display="block";
   }
   const button=document.querySelector("#lockScreen button"); if(button) button.focus();
+  /* Pemilih kelas di layar kunci (13 Nov 2026): isi opsi Kelas 1-6, pilih
+     kelas bawaan (settings.defaultClassId) bila ada, kalau tidak kelas terakhir. */
+  const lockSel=document.getElementById("lockClassSelect");
+  if(lockSel){
+    lockSel.innerHTML = CLASS_LIST.map(c=>`<option value="${c.id}">${c.label}</option>`).join("");
+    lockSel.value = CLASS_LIST.some(c=>c.id===settings.defaultClassId) ? settings.defaultClassId : activeClassId;
+  }
 }
 function unlockApp(){
+  /* Terapkan kelas yang dipilih di layar kunci: jadikan kelas bawaan dan
+     pindah ke kelas itu bila berbeda, supaya beranda menampilkan datanya. */
+  const lockSel=document.getElementById("lockClassSelect");
+  const want = lockSel ? lockSel.value : "";
+  const validWant = CLASS_LIST.some(c=>c.id===want) ? want : "";
+  if(validWant && validWant!==settings.defaultClassId){ settings.defaultClassId = validWant; saveSettings(); }
   document.getElementById("lockScreen").classList.add("hidden");
   document.getElementById("app").classList.add("ready");
   document.getElementById("app").inert = false;
@@ -64,6 +77,7 @@ function unlockApp(){
   syncWorkspaceUi();
   document.getElementById("pageContent").focus();
   resetAutoLockTimer();
+  if(validWant && validWant!==activeClassId) switchActiveClass(validWant);
 }
 function lockNow(){ showLockScreen(); }
 

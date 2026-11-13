@@ -382,9 +382,9 @@ function aiSemesterSelect(id){
   const d = aiSemDefault();
   return `<select id="${id}"><option value="1" ${d==="1"?"selected":""}>Semester 1 (Ganjil)</option><option value="2" ${d==="2"?"selected":""}>Semester 2 (Genap)</option></select>`;
 }
-function aiKelasSelect(id, selected){
+function aiKelasSelect(id, selected, attrs){
   selected = selected || activeClassId;
-  return `<select id="${id}">${CLASS_LIST.map(c=>`<option value="${c.id}" ${c.id===selected?"selected":""}>${c.label} (Fase ${faseForClassId(c.id)})</option>`).join("")}</select>`;
+  return `<select id="${id}"${attrs ? " "+attrs : ""}>${CLASS_LIST.map(c=>`<option value="${c.id}" ${c.id===selected?"selected":""}>${c.label} (Fase ${faseForClassId(c.id)})</option>`).join("")}</select>`;
 }
 function aiMapelSelect(id, selected){
   return `<select id="${id}">${MAPEL_LIST.map(m=>`<option value="${escapeHtml(m)}" ${m===selected?"selected":""}>${escapeHtml(m)}</option>`).join("")}</select>`;
@@ -2049,6 +2049,15 @@ Tulis dalam format HTML terstruktur, siap digunakan langsung oleh guru tanpa rev
 /* Ambil materi terlemah + konteks kesulitan otomatis dari menu Analisis Nilai
    (45-analisis.js), berdasarkan mapel terpilih & semester aktif. */
 function aiPengRemAmbilAnalisis(){
+  /* TAHAP 0 (13 Nov 2026, isolasi kelas — K4): analisisCompute membaca db
+     (kelas aktif). Bila kelas di formulir bukan kelas aktif, JANGAN isi
+     nama siswa kelas aktif ke draf kelas lain — minta pengguna ganti kelas
+     aktif dulu. */
+  const kelasForm = document.getElementById("ap_kelas") ? document.getElementById("ap_kelas").value : activeClassId;
+  if(kelasForm !== activeClassId){
+    toast("Analisis Nilai hanya tersedia untuk kelas aktif ("+classInfo(activeClassId).label+"). Ganti kelas aktif dulu, atau pilih "+classInfo(activeClassId).label+" di formulir ini.");
+    return;
+  }
   const mapel = document.getElementById("ap_mapel").value;
   const semSel = aiSemDefault();
   if(typeof analisisCompute!=="function"){ toast("Modul Analisis Nilai belum tersedia."); return; }
@@ -2066,11 +2075,20 @@ function aiPengRemAmbilAnalisis(){
 
 /* ---------- E4. AI: SURAT UNTUK ORANG TUA ---------- */
 const AI_JENIS_SURAT_ORTU = ["Undangan Pertemuan Orang Tua","Pemberitahuan Kegiatan Sekolah","Pemanggilan Orang Tua (Konsultasi)","Apresiasi Perkembangan Anak","Peringatan Ketidakhadiran/Kedisiplinan","Izin Kegiatan di Luar Sekolah (Study Tour dsb.)"];
+/* TAHAP 0 (13 Nov 2026, isolasi kelas — S6): daftar tujuan surat mengikuti
+   kelas yang dipilih di formulir, bukan selalu kelas aktif. */
+function refreshAsoTarget(){
+  const sel = document.getElementById("aso_target"); if(!sel) return;
+  const kelasId = document.getElementById("aso_kelas") ? document.getElementById("aso_kelas").value : activeClassId;
+  const roster = (typeof loadClassDB==="function" ? (loadClassDB(kelasId).siswa||[]) : db.siswa).slice();
+  roster.sort((a,b)=>(a.nama||"").localeCompare(b.nama||"","id",{sensitivity:"base"}));
+  sel.innerHTML = `<option value="">Seluruh Orang Tua/Wali Kelas</option>` + roster.map(s=>`<option value="${s.id}">Orang Tua/Wali dari ${escapeHtml(s.nama||"")}</option>`).join("");
+}
 PAGES.aiSuratOrtu = function(){
   const kelasId = activeClassId;
   return `<div class="ai-layout"><div class="card">
     <h3>${ic("parent",18)} AI Generator: Surat untuk Orang Tua</h3>
-    <div class="field"><label>Kelas</label>${aiKelasSelect("aso_kelas", kelasId)}</div>
+    <div class="field"><label>Kelas</label>${aiKelasSelect("aso_kelas", kelasId, 'onchange="refreshAsoTarget()"')}</div>
     <div class="field"><label>Jenis Surat</label><select id="aso_jenis">${AI_JENIS_SURAT_ORTU.map(j=>`<option>${j}</option>`).join("")}</select></div>
     <div class="field"><label>Ditujukan Kepada</label><select id="aso_target"><option value="">Seluruh Orang Tua/Wali Kelas</option>${siswaOpts().map(o=>`<option value="${o.value}">Orang Tua/Wali dari ${escapeHtml(o.label)}</option>`).join("")}</select></div>
     <div class="field"><label>Tanggal Surat</label><input type="date" id="aso_tanggal" value="${todayISO()}"></div>
@@ -2088,8 +2106,17 @@ function generateAiSuratOrtu(){
   const detail = document.getElementById("aso_detail").value.trim();
   const cls = classInfo(kelasId);
   const s = db.sekolah;
-  const wali = (db.guru||[]).find(g=>g.id===s.waliKelasId) || {};
-  const namaSiswa = targetId ? (db.siswa.find(x=>x.id===targetId)||{}).nama : "";
+  /* TAHAP 0 (13 Nov 2026, isolasi kelas — S6): wali penandatangan + nama
+     siswa tujuan diambil dari kelas yang dipilih di formulir, bukan kelas
+     aktif. Bucket kelas menyimpan waliKelasId-nya sendiri. */
+  const clsDb = (typeof loadClassDB==="function") ? loadClassDB(kelasId) : null;
+  const roster = clsDb ? (clsDb.siswa||[]) : db.siswa;
+  /* Wali HANYA dari kelas yang dipilih — tanpa fallback ke wali kelas aktif:
+     bila kelas itu belum punya wali, surat menampilkan "-" (jujur kosong),
+     bukan ditandatangani guru kelas lain. */
+  const waliId = (clsDb && clsDb.waliKelasId) || "";
+  const wali = (db.guru||[]).find(g=>g.id===waliId) || {};
+  const namaSiswa = targetId ? (roster.find(x=>x.id===targetId)||{}).nama : "";
   const prompt = `Susun SURAT RESMI SEKOLAH untuk orang tua/wali peserta didik dengan ketentuan:
 - Jenis surat: ${jenis}
 - Sekolah: ${s.namaSekolah}, alamat: ${s.alamat}, ${s.desa}, Kec. ${s.kecamatan}, Kab. ${s.kabupaten}

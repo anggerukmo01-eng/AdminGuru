@@ -27,6 +27,9 @@ PAGES.jadwal = function(){
   const saran = jadwalSaranMapel().map(m=>`<option value="${escapeHtml(m)}">`).join("");
   let html = `<div class="section-head"><div><h1>Jadwal Pelajaran</h1><div class="desc">Kelas ${escapeHtml(db.sekolah.kelas)} &middot; Jam dan mata pelajaran tiap slot dapat diubah langsung. Perubahan struktur (tambah/hapus/salin hari) tersimpan otomatis; perubahan isian perlu menekan "Simpan Jadwal".</div></div>
     <div class="grow"></div>
+    <select onchange="switchActiveClass(this.value)" title="Ganti kelas aktif — jadwal yang ditampilkan mengikuti kelas ini" style="width:auto;padding:8px 10px;font-weight:700;">
+      ${CLASS_LIST.map(c=>`<option value="${c.id}" ${c.id===activeClassId?"selected":""}>${c.label}</option>`).join("")}
+    </select>
     <button class="btn" onclick="printJadwal()">${ic("print",15)} Cetak</button>
     <button class="btn btn-primary" onclick="saveJadwal()">${ic("check",15)} Simpan Jadwal</button></div>`;
   html += `<datalist id="datalistMapelJadwal">${saran}</datalist>`;
@@ -1537,7 +1540,10 @@ PAGES.mutasi = function(){
 
 /* ---------- ARSIP DOKUMEN ---------- */
 PAGES.arsip = function(){
-  const filters = window._arsipFilters || {kategori:"", kelasId:"", mapel:"", semester:"", q:""};
+  /* TAHAP 0 (13 Nov 2026, isolasi kelas — K1): default filter Arsip = kelas
+     aktif, bukan "" (semua kelas). Opsi "Semua Kelas" tetap tersedia manual
+     (keputusan §7 butir 7: hanya di Arsip). */
+  const filters = window._arsipFilters || {kategori:"", kelasId: activeClassId, mapel:"", semester:"", q:""};
   window._arsipFilters = filters;
   window._arsipOnRefresh = ()=> renderArsipListInto("arsipListHolder", window._arsipFilters);
   setTimeout(window._arsipOnRefresh, 0);
