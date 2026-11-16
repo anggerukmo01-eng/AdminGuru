@@ -994,20 +994,37 @@ function dnKop(){
     <tr><td style="width:180px;"><strong>Tahun Pelajaran</strong></td><td>: ${escapeHtml(s.tahunAjaran||"")}</td></tr>
   </tbody></table>`;
 }
-function dnPrint(){
+/* PERBAIKAN 16 Nov 2026: HTML ekspor/cetak Input Nilai Massal WAJIB mengubah <input>
+   menjadi teks angka dulu. <input value="85"> diekspor Excel/Word sebagai sel KOSONG
+   (terbukti lewat LibreOffice: sel nilai hilang; di Word textContent input = "").
+   Clone dibaca dari nilai live (inp.value properti, bukan atribut) supaya edit yang
+   belum disimpan pun ikut ter-cetak. Sel kosong tetap tampil "—". */
+function dnExportHtml(){
   const holder = document.getElementById("dnTableWrap");
-  if(!holder){ toast("Tidak ada data untuk dicetak"); return; }
-  printDocument("DAFTAR NILAI - "+dnCtx().mapel.toUpperCase(), dnKop()+holder.outerHTML+daftarNilaiPengesahan());
+  if(!holder) return null;
+  const clone = holder.cloneNode(true);
+  const live = holder.querySelectorAll("input");
+  clone.querySelectorAll("input").forEach((c,i)=>{
+    const v = live[i] ? live[i].value : "";
+    const td = c.closest("td");
+    if(td) td.textContent = (v === "" || v == null) ? "—" : v;
+  });
+  return clone.outerHTML;
+}
+function dnPrint(){
+  const html = dnExportHtml();
+  if(!html){ toast("Tidak ada data untuk dicetak"); return; }
+  printDocument("DAFTAR NILAI - "+dnCtx().mapel.toUpperCase(), dnKop()+html+daftarNilaiPengesahan());
 }
 function dnExportExcel(){
-  const holder = document.getElementById("dnTableWrap");
-  if(!holder){ toast("Tidak ada data untuk diekspor"); return; }
-  htmlToExcelXls(dnKop()+holder.outerHTML+daftarNilaiPengesahan(), "Daftar_Nilai_"+dnCtx().mapel.replace(/\s+/g,"_"), "Daftar Nilai");
+  const html = dnExportHtml();
+  if(!html){ toast("Tidak ada data untuk diekspor"); return; }
+  htmlToExcelXls(dnKop()+html+daftarNilaiPengesahan(), "Daftar_Nilai_"+dnCtx().mapel.replace(/\s+/g,"_"), "Daftar Nilai");
 }
 async function dnExportWord(){
-  const holder = document.getElementById("dnTableWrap");
-  if(!holder){ toast("Tidak ada data untuk diekspor"); return; }
-  await unduhDocx("DAFTAR NILAI - "+dnCtx().mapel.toUpperCase()+" - "+classInfo(activeClassId).label, dnKop()+holder.outerHTML+daftarNilaiPengesahan(), "Daftar_Nilai_"+dnCtx().mapel.replace(/\s+/g,"_"), "Daftar Nilai");
+  const html = dnExportHtml();
+  if(!html){ toast("Tidak ada data untuk diekspor"); return; }
+  await unduhDocx("DAFTAR NILAI - "+dnCtx().mapel.toUpperCase()+" - "+classInfo(activeClassId).label, dnKop()+html+daftarNilaiPengesahan(), "Daftar_Nilai_"+dnCtx().mapel.replace(/\s+/g,"_"), "Daftar Nilai");
 }
 PAGES.asesdiag = ()=>asesmenPage("asesmenDiagnostik","Asesmen Diagnostik","Pemetaan kondisi awal, kesiapan, dan gaya belajar peserta didik sebelum pembelajaran.", "diag");
 PAGES.asesform = ()=>asesmenPage("asesmenFormatif","Asesmen Formatif","Penilaian proses untuk memberi umpan balik selama pembelajaran berlangsung. Tidak diperhitungkan dalam nilai rapor.", "form");
@@ -1094,11 +1111,16 @@ PAGES.rekapnilai = function(){
   const lmSet = dn.lmSet, table = dn.table;
   const fmt = v=> v==null? "-": String(Math.round(v*10)/10);
   const hasFase = table.some(r=>r.fase!=null);
-  const head = `<tr><th rowspan="2">No</th><th rowspan="2">NISN</th><th rowspan="2">Nama Peserta Didik</th><th rowspan="2">L/P</th>`
+  // PERBAIKAN 16 Nov 2026: rowspan kepala HARUS sama dengan jumlah baris <thead>.
+  // Bila mapel belum punya Sumatif LM (lmSet kosong), <thead> hanya 1 baris — rowspan="2"
+  // membuat Excel/Word menelan baris siswa pertama ke samping kanan baris kepala
+  // (terbukti: Aji Pratama Putra mendarat di sel L6, di luar tabel).
+  const rs = lmSet.length ? 2 : 1;
+  const head = `<tr><th rowspan="${rs}">No</th><th rowspan="${rs}">NISN</th><th rowspan="${rs}">Nama Peserta Didik</th><th rowspan="${rs}">L/P</th>`
     + (lmSet.length? `<th colspan="${lmSet.length}">Nilai Sumatif per Lingkup Materi</th>` : "")
-    + `<th rowspan="2">NR (Rata-rata LM)</th><th rowspan="2">STS</th><th rowspan="2">SAS</th>`
-    + (hasFase? `<th rowspan="2">Sumatif Akhir Fase</th>` : "")
-    + `<th rowspan="2">Nilai Akhir (Rapor)</th><th rowspan="2">Deskripsi Capaian</th></tr>`
+    + `<th rowspan="${rs}">NR (Rata-rata LM)</th><th rowspan="${rs}">STS</th><th rowspan="${rs}">SAS</th>`
+    + (hasFase? `<th rowspan="${rs}">Sumatif Akhir Fase</th>` : "")
+    + `<th rowspan="${rs}">Nilai Akhir (Rapor)</th><th rowspan="${rs}">Deskripsi Capaian</th></tr>`
     + (lmSet.length? `<tr>${lmSet.map(l=>`<th>${escapeHtml(l)}</th>`).join("")}</tr>` : "");
   const body = table.map((r,i)=>`<tr><td>${r.s.no!=null && r.s.no!=="" ? escapeHtml(r.s.no) : "—"}</td><td>${escapeHtml(r.s.nisn||"-")}</td>`
     + `<td style="text-align:left;"><strong>${escapeHtml(r.s.nama)}</strong></td><td>${escapeHtml(r.s.jk||"-")}</td>`
