@@ -51,8 +51,8 @@ PAGES.dashboard = function(){
   const today=todayISO(), cls=classInfo(activeClassId), total=db.siswa.length;
   const summary=attendanceSummary(db.siswa,db.kehadiran[today]);
   const marked=total-summary.unmarked, pct=total ? Math.round(marked/total*100) : 0;
-  const upcoming=db.kalender.filter(e=>e.tanggal>=today).sort((a,b)=>a.tanggal.localeCompare(b.tanggal)).slice(0,5);
-  const todayEvents=db.kalender.filter(e=>e.tanggal===today);
+  const upcoming=db.kalender.filter(e=>kalenderUntukKelas(e,activeClassId)&&e.tanggal>=today).sort((a,b)=>a.tanggal.localeCompare(b.tanggal)).slice(0,5);
+  const todayEvents=db.kalender.filter(e=>kalenderUntukKelas(e,activeClassId)&&e.tanggal===today);
   const journals=db.agenda.filter(e=>e.tanggal && e.tanggal<=today).sort((a,b)=>b.tanggal.localeCompare(a.tanggal)).slice(0,3);
   const day=new Date().toLocaleDateString('id-ID',{weekday:'long'});
   const schedule=(db.jadwal[day]||[]).slice().sort((a,b)=>String(a.jam||'').localeCompare(String(b.jam||''),undefined,{numeric:true}));
@@ -650,10 +650,9 @@ function prosesSiswaKeluar(id){
     });
   };
 }
-function exportSiswaWord(){
+async function exportSiswaWord(){
   const cols = [{key:"nama",label:"Nama"},{key:"jk",label:"JK"},{key:"nis",label:"NIS"},{key:"nisn",label:"NISN"},{key:"ttl",label:"TTL"},{key:"ayah",label:"Ayah"},{key:"ibu",label:"Ibu"},{key:"alamat",label:"Alamat"}];
-  const body = `${letterheadHtml()}<div class="doc-title">DAFTAR SISWA KELAS ${escapeHtml(db.sekolah.kelas).toUpperCase()} T.A. ${escapeHtml(db.sekolah.tahunAjaran)}</div>${tableHtmlFromRows(cols, db.siswa)}`;
-  htmlToWordDoc(body, "Daftar_Siswa", "Daftar Siswa");
+  await unduhDocx("DAFTAR SISWA KELAS "+db.sekolah.kelas.toUpperCase()+" - "+classInfo(activeClassId).label+" - T.A. "+db.sekolah.tahunAjaran, kopInfoStandarHtml()+tableHtmlFromRows(cols, db.siswa), "Daftar_Siswa", "Daftar Siswa");
 }
 function exportSiswaExcel(){
   const cols = [{key:"nama",label:"Nama"},{key:"jk",label:"JK"},{key:"nis",label:"NIS"},{key:"nisn",label:"NISN"},{key:"ttl",label:"TTL"},{key:"ayah",label:"Ayah"},{key:"ibu",label:"Ibu"},{key:"pekerjaanOrtu",label:"Pekerjaan Ortu"},{key:"alamat",label:"Alamat"}];
@@ -879,7 +878,7 @@ function kalGotoToday(){
   renderPage("kalender");
 }
 function kalEventsOnDate(iso){
-  return db.kalender.filter(k=>k.tanggal===iso).sort((a,b)=>String(a.pengingatJam||"").localeCompare(String(b.pengingatJam||"")));
+  return db.kalender.filter(k=>kalenderUntukKelas(k,activeClassId)&&k.tanggal===iso).sort((a,b)=>String(a.pengingatJam||"").localeCompare(String(b.pengingatJam||"")));
 }
 function kalMenitLabel(menit){
   const map = {"0":"tepat pada jam tsb.","15":"15 menit sebelumnya","30":"30 menit sebelumnya","60":"1 jam sebelumnya","1440":"1 hari sebelumnya"};
@@ -944,6 +943,7 @@ function tambahAgendaTanggal(iso){
     const missing = cfg.fields.find(f=>f.required && !data[f.key]);
     if(missing){ toast("Mohon isi: "+missing.label); return; }
     data.id = uid("kalender");
+    if(!KALENDER_JENIS_UMUM.includes(data.jenis)) data.kelas = activeClassId;
     db.kalender.push(data);
     saveDB(); closeModal(); toast("Agenda tersimpan.");
     renderPage("kalender");
@@ -973,7 +973,7 @@ PAGES.kalender = function(){
     </div>
     <div class="card">${buildKalenderGrid(year,month)}</div>`;
   } else {
-    const rows = db.kalender.slice().sort((a,b)=>a.tanggal.localeCompare(b.tanggal));
+    const rows = db.kalender.filter(k=>kalenderUntukKelas(k,activeClassId)).sort((a,b)=>a.tanggal.localeCompare(b.tanggal));
     const body = rows.map(r=>`<tr><td>${fmtDate(r.tanggal)}</td><td><strong>${escapeHtml(r.judul)}</strong></td>
       <td><span class="badge" style="background:${kalJenisWarna(r.jenis)}22;color:${kalJenisWarna(r.jenis)};">${escapeHtml(r.jenis||'-')}</span></td>
       <td>${r.pengingatAktif==="Ya"?ic("bell",14)+" "+escapeHtml(r.pengingatJam||''):'-'}</td>
@@ -984,7 +984,7 @@ PAGES.kalender = function(){
     <tbody>${body || `<tr><td colspan="6" class="empty-state">Belum ada agenda kalender.</td></tr>`}</tbody></table></div>`;
   }
 
-  const remindersToday = db.kalender.filter(k=>k.tanggal===todayISO() && k.pengingatAktif==="Ya");
+  const remindersToday = db.kalender.filter(k=>kalenderUntukKelas(k,activeClassId)&&k.tanggal===todayISO() && k.pengingatAktif==="Ya");
 
   return `
   <div class="section-head"><div><h1>Kalender Pendidikan &amp; Akademik</h1><div class="desc">Seluruh tanggal ditampilkan penuh (bukan hanya hari libur) -- klik tanggal mana pun untuk melihat/menambah agenda. Tandai hari libur, tanggal khusus, atau agenda guru dengan pengingat/alarm otomatis.</div></div>
@@ -993,6 +993,8 @@ PAGES.kalender = function(){
       <button class="${view==='grid'?'active':''}" onclick="window._kalView='grid'; renderPage('kalender');">Kalender</button>
       <button class="${view==='list'?'active':''}" onclick="window._kalView='list'; renderPage('kalender');">Daftar</button>
     </div>
+    <button class="btn" onclick="exportKalenderExcel()">${ic("download",15)} Excel</button>
+    <button class="btn" onclick="exportKalenderWord()">${ic("doc",15)} Word</button>
     <button class="btn" onclick="printKalender()">${ic("print",15)} Cetak</button>
     <button class="btn btn-primary" onclick="crudAdd('kalender')">${ic("plus",15)} Tambah Agenda</button></div>
   ${notifStatus!=="granted" ? `<div class="card" style="background:var(--warn-soft);border-color:var(--warn);margin-bottom:14px;">
@@ -1010,10 +1012,21 @@ PAGES.kalender = function(){
   </div>` : ""}
   ${mainContent}`;
 };
+function kalenderExportRows(){
+  /* Sama dengan tampilan grid/modal: hanya entri kelas aktif + libur umum. */
+  return db.kalender.slice().filter(e=>kalenderUntukKelas(e, activeClassId)).sort((a,b)=>a.tanggal.localeCompare(b.tanggal)).map(r=>({...r,tanggal:fmtDate(r.tanggal)}));
+}
+function kalenderExportCols(){
+  return [{key:"tanggal",label:"Tanggal"},{key:"judul",label:"Judul"},{key:"jenis",label:"Jenis"},{key:"keterangan",label:"Keterangan"}];
+}
 function printKalender(){
-  const cols=[{key:"tanggal",label:"Tanggal"},{key:"judul",label:"Judul"},{key:"jenis",label:"Jenis"},{key:"keterangan",label:"Keterangan"}];
-  const rows = db.kalender.slice().sort((a,b)=>a.tanggal.localeCompare(b.tanggal)).map(r=>({...r,tanggal:fmtDate(r.tanggal)}));
-  printDocument("KALENDER PENDIDIKAN T.A. "+db.sekolah.tahunAjaran, tableHtmlFromRows(cols, rows));
+  printDocument("KALENDER PENDIDIKAN T.A. "+db.sekolah.tahunAjaran, tableHtmlFromRows(kalenderExportCols(), kalenderExportRows()));
+}
+function exportKalenderExcel(){
+  htmlToExcelXls(kopInfoStandarHtml()+tableHtmlFromRows(kalenderExportCols(), kalenderExportRows()), "Kalender_Pendidikan", "Kalender Pendidikan");
+}
+async function exportKalenderWord(){
+  await unduhDocx("KALENDER PENDIDIKAN T.A. "+db.sekolah.tahunAjaran+" - "+classInfo(activeClassId).label, kopInfoStandarHtml()+tableHtmlFromRows(kalenderExportCols(), kalenderExportRows()), "Kalender_Pendidikan", "Kalender Pendidikan");
 }
 
 /* ---------- ALARM / PENGINGAT AGENDA KALDIK ---------- */
@@ -1065,6 +1078,7 @@ function checkKalenderReminders(){
     const notified = kalGetNotifiedSet();
     let changed = false;
     db.kalender.forEach(entry=>{
+      if(!kalenderUntukKelas(entry, activeClassId)) return;
       if(entry.pengingatAktif!=="Ya" || !entry.pengingatJam) return;
       const key = kalNotifiedKey(entry.id);
       if(notified.has(key)) return;

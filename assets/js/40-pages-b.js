@@ -30,6 +30,8 @@ PAGES.jadwal = function(){
     <select onchange="switchActiveClass(this.value)" title="Ganti kelas aktif — jadwal yang ditampilkan mengikuti kelas ini" style="width:auto;padding:8px 10px;font-weight:700;">
       ${CLASS_LIST.map(c=>`<option value="${c.id}" ${c.id===activeClassId?"selected":""}>${c.label}</option>`).join("")}
     </select>
+    <button class="btn" onclick="exportJadwalExcel()">${ic("download",15)} Excel</button>
+    <button class="btn" onclick="exportJadwalWord()">${ic("doc",15)} Word</button>
     <button class="btn" onclick="printJadwal()">${ic("print",15)} Cetak</button>
     <button class="btn btn-primary" onclick="saveJadwal()">${ic("check",15)} Simpan Jadwal</button></div>`;
   html += `<datalist id="datalistMapelJadwal">${saran}</datalist>`;
@@ -92,7 +94,7 @@ function saveJadwal(){
   }); });
   saveDB(); toast("Jadwal pelajaran tersimpan.");
 }
-function printJadwal(){
+function jadwalTableHtml(){
   let body = `<table><thead><tr>${HARI.map(h=>`<th>${h}</th>`).join("")}</tr></thead><tbody>`;
   const maxRows = Math.max(0, ...HARI.map(h=>(db.jadwal[h]||[]).length));
   for(let i=0;i<maxRows;i++){
@@ -104,7 +106,16 @@ function printJadwal(){
     body += `</tr>`;
   }
   body += `</tbody></table>`;
-  printDocument("JADWAL PELAJARAN KELAS "+String(db.sekolah.kelas||"").toUpperCase(), body);
+  return body;
+}
+function printJadwal(){
+  printDocument("JADWAL PELAJARAN KELAS "+String(db.sekolah.kelas||"").toUpperCase(), jadwalTableHtml());
+}
+function exportJadwalExcel(){
+  htmlToExcelXls(kopInfoStandarHtml()+jadwalTableHtml(), "Jadwal_Pelajaran_"+String(db.sekolah.kelas||"").replace(/\s+/g,"_"), "Jadwal Pelajaran");
+}
+async function exportJadwalWord(){
+  await unduhDocx("JADWAL PELAJARAN KELAS "+String(db.sekolah.kelas||"").toUpperCase()+" - "+classInfo(activeClassId).label, kopInfoStandarHtml()+jadwalTableHtml(), "Jadwal_Pelajaran_"+String(db.sekolah.kelas||"").replace(/\s+/g,"_"), "Jadwal Pelajaran");
 }
 
 /* ---------- AGENDA / JURNAL HARIAN ---------- */
@@ -158,7 +169,7 @@ function jurnalKehadiranHtml(tanggal){
    ke kepala sekolah. Waktu Input = createdAt entri (kosong untuk entri lama
    yang dibuat sebelum stempel waktu ada); hitungan kehadiran dihitung dari
    grid absensi saat ekspor, bukan dari data tersimpan di jurnal. */
-function exportJurnalSheet(){
+function jurnalSheetTableHtml(){
   const rows = (db.agenda||[]).slice().sort((a,b)=>String(a.tanggal||"").localeCompare(String(b.tanggal||"")) || String(a.jamKe||"").localeCompare(String(b.jamKe||"")));
   const kelasLabel = classInfo(activeClassId).label;
   const fmtWaktu = (iso)=>{
@@ -174,8 +185,14 @@ function exportJurnalSheet(){
       k?k.h:"", k?k.s:"", k?k.i:"", k?k.a:"", k?k.total:"", k?((Math.round(k.persen*10)/10)+"%"):"", cat];
     body += "<tr>"+cells.map(c=>`<td>${escapeHtml(c)}</td>`).join("")+"</tr>";
   });
-  htmlToExcelXls(`<table>${body}</table>`, "Jurnal_Mengajar_Sheet", "Jurnal Mengajar");
+  return `<table>${body}</table>`;
+}
+function exportJurnalSheet(){
+  htmlToExcelXls(jurnalSheetTableHtml(), "Jurnal_Mengajar_Sheet", "Jurnal Mengajar");
   toast("Jurnal diekspor (format 14 kolom Sheet).");
+}
+async function exportJurnalWord(){
+  await unduhDocx("JURNAL MENGAJAR - "+classInfo(activeClassId).label+" - T.A. "+db.sekolah.tahunAjaran, kopInfoStandarHtml()+jurnalSheetTableHtml(), "Jurnal_Mengajar_Sheet", "Jurnal Mengajar");
 }
 
 PAGES.agenda = function(){
@@ -206,6 +223,7 @@ PAGES.agenda = function(){
   <div class="section-head"><div><h1>Jurnal Mengajar</h1><div class="desc">Unggah scan/foto/PDF jurnal mengajar -- teks di dalamnya dapat dibaca otomatis dengan OCR agar mudah dicari, dan dokumen asli tetap tersimpan sebagai arsip.</div></div>
     <div class="grow"></div>
     <button class="btn" onclick="exportJurnalSheet()">${ic("download",15)} Export Sheet (14 kolom)</button>
+    <button class="btn" onclick="exportJurnalWord()">${ic("doc",15)} Word</button>
     <button class="btn btn-primary" onclick="uploadArsipFile({title:'Upload Scan Jurnal Mengajar', kategori:'Jurnal Mengajar', kelasId:activeClassId, showTanggalMengajar:true, enableOcr:true, onDone:window._arsipOnRefresh})">${ic("upload",15)} Upload Scan Jurnal</button>
   </div>
   ${remJurnalCard}
@@ -242,6 +260,8 @@ PAGES.cp = function(){
   <div class="section-head"><div><h1>Capaian Pembelajaran (CP) - ${escapeHtml(faseLabel(currentFase))}</h1><div class="desc">${escapeHtml(classInfo(activeClassId).label)} otomatis menampilkan CP ${escapeHtml(faseLabel(currentFase))}. Ganti "Pilih Kelas Aktif" di bagian atas untuk melihat CP fase lain.</div></div>
     <div class="grow"></div>
     <button class="btn" onclick="regenerateCP()">${ic("target",15)} Segarkan Ulang dari CP Resmi</button>
+    <button class="btn" onclick="exportCpExcel()">${ic("download",15)} Excel</button>
+    <button class="btn" onclick="exportCpWord()">${ic("doc",15)} Word</button>
     <button class="btn" onclick="printDocument('CAPAIAN PEMBELAJARAN ${escapeHtml(faseLabel(currentFase)).replace(/'/g,"\\'").toUpperCase()}', document.getElementById(\'cpTableHolder\').innerHTML)">${ic("print",15)} Cetak</button>
   </div>
   <div class="card" style="background:var(--warn-soft);border-color:var(--warn);margin-bottom:14px;">
@@ -266,6 +286,16 @@ function regenerateCP(){
     db.cp = cpFase;
     saveDB(); toast("CP "+faseLabel(fase)+" disegarkan ulang."); renderPage("cp");
   });
+}
+function exportCpExcel(){
+  const h = document.getElementById("cpTableHolder");
+  if(!h){ toast("Tidak ada data untuk diekspor"); return; }
+  htmlToExcelXls(kopInfoStandarHtml()+h.innerHTML, "Capaian_Pembelajaran_"+faseLabel(faseForClassId(activeClassId)).replace(/\s+/g,"_"), "Capaian Pembelajaran");
+}
+async function exportCpWord(){
+  const h = document.getElementById("cpTableHolder");
+  if(!h){ toast("Tidak ada data untuk diekspor"); return; }
+  await unduhDocx("CAPAIAN PEMBELAJARAN "+faseLabel(faseForClassId(activeClassId)).toUpperCase()+" - "+classInfo(activeClassId).label, kopInfoStandarHtml()+h.innerHTML, "Capaian_Pembelajaran", "CP");
 }
 
 /* ---------- ATP ---------- */
@@ -360,6 +390,7 @@ function modulAjarFields(){
   const body = rows.map((r,i)=>`<tr><td>${i+1}</td><td><strong>${escapeHtml(r.judul)}</strong></td><td>${escapeHtml(r.mapel)}</td><td>${fmtDate(r.tanggal)}</td>
     <td><div class="row-actions">
       <button class="btn btn-sm" onclick="viewModulAjar('${r.id}')">${ic("eye",14)} Lihat</button>
+      <button class="btn btn-sm" onclick="exportModulWord('${r.id}')">${ic("doc",14)} Word</button>
       <button class="btn btn-sm btn-icon" onclick="crudEdit('modulAjar','${r.id}')">${ic("edit",15)}</button>
       <button class="btn btn-sm btn-icon btn-danger" onclick="crudDelete('modulAjar','${r.id}')">${ic("trash",15)}</button>
     </div></td></tr>`).join("");
@@ -450,7 +481,7 @@ function modulAjarStrukturHtml(m){
 function modulAjarDocHtml(m){
   return modulAjarStrukturHtml(m);
 }function printModulAjar(id){ const m=db.modulAjar.find(x=>x.id===id); printDocument("MODUL AJAR: "+m.judul.toUpperCase(), modulAjarDocHtml(m)); }
-function exportModulWord(id){ const m=db.modulAjar.find(x=>x.id===id); htmlToWordDoc(letterheadHtml()+`<div class="doc-title">MODUL AJAR: ${escapeHtml(m.judul.toUpperCase())}</div>`+modulAjarDocHtml(m), "Modul_Ajar_"+m.judul.replace(/\s+/g,"_"), m.judul); }
+function exportModulWord(id){ const m=db.modulAjar.find(x=>x.id===id); if(!m) return; unduhDocx("MODUL AJAR: "+m.judul.toUpperCase()+" - "+classInfo(activeClassId).label, modulAjarDocHtml(m), "Modul_Ajar_"+m.judul.replace(/\s+/g,"_"), "Modul Ajar"); }
 
 /* ---------- ASESMEN (Diagnostik / Formatif / Sumatif) ---------- */
 /* ============================================================
@@ -526,10 +557,26 @@ function asesmenPage(store, title, desc, jenis){
   <div class="section-head"><div><h1>${title}</h1><div class="desc">${desc}</div></div>
     <div class="grow"></div>
     <button class="btn" onclick="exportCSV('${store}', ${store}RowsForExport(), [{key:'nama',label:'Nama'},{key:'mapel',label:'Mapel'},{key:'tanggal',label:'Tanggal'},${isSum?`{key:'jenisSumatif',label:'Jenis'},{key:'bentuk',label:'Bentuk'},`:``}{key:'${jenis==='diag'?'catatan':'nilai'}',label:'${jenis==='diag'?'Catatan':'Nilai'}'}], '${store}')">${ic("download",15)} CSV</button>
+    <button class="btn" onclick="exportAsesmenExcel('${store}','${jenis}','${title}')">${ic("download",15)} Excel</button>
+    <button class="btn" onclick="exportAsesmenWord('${store}','${jenis}','${title}')">${ic("doc",15)} Word</button>
     <button class="btn btn-primary" onclick="addAsesmen('${store}','${jenis}')">${ic("plus",15)} Tambah</button></div>
   <div class="toolbar"><div class="search-box">${ic("search",16)}<input placeholder="Cari nama siswa / mapel..." oninput="window['_q_${store}']=this.value; renderPage('${store==="asesmenDiagnostik"?"asesdiag":store==="asesmenFormatif"?"asesform":"asessum"}');"></div></div>
   <div class="table-wrap"><table><thead><tr><th>No</th><th>Siswa</th><th>Mapel</th><th>Tanggal</th>${sumCols}<th>${jenis==="diag"?"Catatan":"Nilai"}</th><th style="text-align:right">Aksi</th></tr></thead>
   <tbody>${body || `<tr><td colspan="${colspan}" class="empty-state">${illus("dokumen",120)}<div>Belum ada data.</div></td></tr>`}</tbody></table></div>`;
+}
+function asesmenExportTableHtml(store, jenis){
+  const rows = window[store+"RowsForExport"]();
+  const isSum = jenis==="sum";
+  const cols = [{key:"nama",label:"Nama"},{key:"mapel",label:"Mapel"},{key:"tanggal",label:"Tanggal"}];
+  if(isSum){ cols.push({key:"jenisSumatif",label:"Jenis"},{key:"bentuk",label:"Bentuk"}); }
+  cols.push({key: jenis==="diag"?"catatan":"nilai", label: jenis==="diag"?"Catatan":"Nilai"});
+  return tableHtmlFromRows(cols, rows.map(r=>({...r, tanggal: fmtDate(r.tanggal||"") })));
+}
+function exportAsesmenExcel(store, jenis, title){
+  htmlToExcelXls(kopInfoStandarHtml()+asesmenExportTableHtml(store, jenis), "Asesmen_"+jenis, title||"Asesmen");
+}
+async function exportAsesmenWord(store, jenis, title){
+  await unduhDocx(String(title||"Asesmen").toUpperCase()+" - "+classInfo(activeClassId).label, kopInfoStandarHtml()+asesmenExportTableHtml(store, jenis), "Asesmen_"+jenis, title||"Asesmen");
 }
 function asesmenDiagnostikRowsForExport(){ return exportRowsWithName("asesmenDiagnostik"); }
 function asesmenFormatifRowsForExport(){ return exportRowsWithName("asesmenFormatif"); }
@@ -731,6 +778,7 @@ PAGES.inputnilai = function(){
       <button class="btn btn-primary" onclick="dnSimpanSemua()">${ic("check",15)} Simpan Semua</button>
       <button class="btn" onclick="dnPrint()">${ic("print",15)} Cetak</button>
       <button class="btn" onclick="dnExportExcel()">${ic("download",15)} Excel</button>
+      <button class="btn" onclick="dnExportWord()">${ic("doc",15)} Word</button>
       <div class="grow"></div>
       <span class="hint" id="dnAutosaveLabel">Draf tersimpan otomatis di perangkat ini.</span>
     </div>
@@ -956,6 +1004,11 @@ function dnExportExcel(){
   if(!holder){ toast("Tidak ada data untuk diekspor"); return; }
   htmlToExcelXls(dnKop()+holder.outerHTML+daftarNilaiPengesahan(), "Daftar_Nilai_"+dnCtx().mapel.replace(/\s+/g,"_"), "Daftar Nilai");
 }
+async function dnExportWord(){
+  const holder = document.getElementById("dnTableWrap");
+  if(!holder){ toast("Tidak ada data untuk diekspor"); return; }
+  await unduhDocx("DAFTAR NILAI - "+dnCtx().mapel.toUpperCase()+" - "+classInfo(activeClassId).label, dnKop()+holder.outerHTML+daftarNilaiPengesahan(), "Daftar_Nilai_"+dnCtx().mapel.replace(/\s+/g,"_"), "Daftar Nilai");
+}
 PAGES.asesdiag = ()=>asesmenPage("asesmenDiagnostik","Asesmen Diagnostik","Pemetaan kondisi awal, kesiapan, dan gaya belajar peserta didik sebelum pembelajaran.", "diag");
 PAGES.asesform = ()=>asesmenPage("asesmenFormatif","Asesmen Formatif","Penilaian proses untuk memberi umpan balik selama pembelajaran berlangsung. Tidak diperhitungkan dalam nilai rapor.", "form");
 PAGES.asessum  = ()=>asesmenPage("asesmenSumatif","Asesmen Sumatif","Penilaian akhir lingkup materi/semester/fase sebagai dasar nilai rapor Kurikulum Merdeka.", "sum");
@@ -1060,6 +1113,7 @@ PAGES.rekapnilai = function(){
   <div class="section-head"><div><h1>Daftar Nilai</h1><div class="desc">Ledger formal per mata pelajaran &amp; semester — standar kertas: NR (rata-rata Sumatif LM) &rarr; Nilai Raport = (2&times;NR + STS + 2&times;SAS) / 5. Nilai formatif bersifat kualitatif (arsip) dan tidak masuk hitungan rapor.</div></div>
     <div class="grow"></div>
     <button class="btn" onclick="exportDaftarNilaiExcel()">${ic("download",15)} Excel</button>
+    <button class="btn" onclick="exportDaftarNilaiWord()">${ic("doc",15)} Word</button>
     <button class="btn btn-primary" onclick="printDaftarNilai()">${ic("print",15)} Cetak</button></div>
   <div class="toolbar">
     <div class="field" style="min-width:200px;margin-bottom:0;"><label>Mata Pelajaran</label><select onchange="window._rekapMapel=this.value; renderPage('rekapnilai');">
@@ -1107,6 +1161,11 @@ function exportDaftarNilaiExcel(){
   if(!holder){ toast("Tidak ada data untuk diekspor"); return; }
   htmlToExcelXls(daftarNilaiKop()+holder.innerHTML+daftarNilaiPengesahan(),
     "Daftar_Nilai_"+(window._rekapMapel||"").replace(/\s+/g,"_"), "Daftar Nilai");
+}
+async function exportDaftarNilaiWord(){
+  const holder = document.getElementById("daftarNilaiHolder");
+  if(!holder){ toast("Tidak ada data untuk diekspor"); return; }
+  await unduhDocx("DAFTAR NILAI - "+(window._rekapMapel||"").toUpperCase()+" - "+classInfo(activeClassId).label, daftarNilaiKop()+holder.innerHTML+daftarNilaiPengesahan(), "Daftar_Nilai_"+(window._rekapMapel||"").replace(/\s+/g,"_"), "Daftar Nilai");
 }
 function printDaftarNilai(){
   const holder = document.getElementById("daftarNilaiHolder");
@@ -1185,6 +1244,12 @@ function exportRekapRaporExcel(){
   htmlToExcelXls(raporKop(semSel)+`<table><thead>${nt.head}</thead><tbody>${nt.body}</tbody></table>`+daftarNilaiPengesahan(),
     "Rekap_Nilai_Rapor_Semester_"+semSel, "Rekap Nilai Rapor");
 }
+async function exportRekapRaporWord(){
+  const semSel = window._raporSemester || String(db.sekolah.semester||"1");
+  const nt = raporNilaiTable(semSel);
+  if(!nt.count){ toast("Belum ada data siswa."); return; }
+  await unduhDocx("REKAP NILAI RAPOR SEMESTER "+semSel+" - "+classInfo(activeClassId).label, raporKop(semSel)+`<table><thead>${nt.head}</thead><tbody>${nt.body}</tbody></table>`+daftarNilaiPengesahan(), "Rekap_Nilai_Rapor_Semester_"+semSel, "Rekap Nilai Rapor");
+}
 PAGES.rapor = function(){
   const semSel = window._raporSemester || String(db.sekolah.semester||"1");
   const nt = raporNilaiTable(semSel);
@@ -1202,6 +1267,7 @@ PAGES.rapor = function(){
   return `<div class="section-head"><div><h1>Rapor Semester</h1><div class="desc">Rekap Nilai Akhir per mata pelajaran (otomatis dari Daftar Nilai) siap dipakai untuk pengisian rapor, dilanjutkan dengan deskripsi capaian per siswa.</div></div>
     <div class="grow"></div>
     <button class="btn" onclick="exportRekapRaporExcel()">${ic("download",15)} Excel</button>
+    <button class="btn" onclick="exportRekapRaporWord()">${ic("doc",15)} Word</button>
     <button class="btn btn-primary" onclick="printRekapRapor()">${ic("print",15)} Cetak Rekap</button></div>
   <div class="toolbar">
     <div class="field" style="min-width:150px;margin-bottom:0;"><label>Semester</label><select onchange="window._raporSemester=this.value; renderPage('rapor');">

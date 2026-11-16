@@ -1302,12 +1302,10 @@ function printAbsensiBulanan(){
   const bulan = window._kehadiranBulan || todayISO().slice(0,7);
   printDocumentLandscape("DAFTAR HADIR SISWA BULAN "+bulanIndoLabel(bulan).toUpperCase(), attendanceGridHtml(bulan)+attendanceTtdBlockHtml());
 }
-function exportAbsensiWord(){
+async function exportAbsensiWord(){
   const bulan = window._kehadiranBulan || todayISO().slice(0,7);
-  const html = `${letterheadHtml()}<div class="doc-title">DAFTAR HADIR SISWA<br>BULAN ${bulanIndoLabel(bulan).toUpperCase()}</div>
-    <p style="text-align:center;font-size:11pt;margin-top:-8px;">${escapeHtml(classInfo(activeClassId).label)} &middot; T.A. ${escapeHtml(db.sekolah.tahunAjaran)} &middot; Semester ${escapeHtml(db.sekolah.semester)}</p>
-    ${attendanceGridHtml(bulan)}${attendanceTtdBlockHtml()}`;
-  htmlToWordDoc(html, "Daftar_Hadir_"+bulanIndoLabel(bulan).replace(/\s+/g,"_"), "Daftar Hadir "+bulanIndoLabel(bulan));
+  const info = `<p style="text-align:center;font-size:11pt;">${escapeHtml(classInfo(activeClassId).label)} &middot; T.A. ${escapeHtml(db.sekolah.tahunAjaran)} &middot; Semester ${escapeHtml(db.sekolah.semester)}</p>`;
+  await unduhDocx("DAFTAR HADIR SISWA BULAN "+bulanIndoLabel(bulan).toUpperCase()+" - "+classInfo(activeClassId).label, info+attendanceGridHtml(bulan)+attendanceTtdBlockHtml(), "Daftar_Hadir_"+bulanIndoLabel(bulan).replace(/\s+/g,"_"), "Daftar Hadir");
 }
 function exportAbsensiExcel(){
   const bulan = window._kehadiranBulan || todayISO().slice(0,7);

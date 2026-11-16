@@ -492,7 +492,7 @@ function crudSection(cfg){
     <div class="section-head">
       <div><h1>${cfg.title}</h1><div class="desc">${cfg.desc||""}</div></div>
       <div class="grow"></div>
-      ${cfg.exportable!==false ? `<button class="btn" onclick="exportCSV('${cfg.store}')">${ic("download",15)} CSV</button>` : ""}
+      ${cfg.exportable!==false ? `<button class="btn" onclick="exportCSV('${cfg.store}')">${ic("download",15)} CSV</button><button class="btn" onclick="exportCrudExcel('${cfg.store}')">${ic("download",15)} Excel</button><button class="btn" onclick="exportCrudWord('${cfg.store}')">${ic("doc",15)} Word</button><button class="btn" onclick="printCrud('${cfg.store}')">${ic("print",15)} Cetak</button>` : ""}
       <button class="btn btn-primary" onclick="crudAdd('${cfg.store}')">${ic("plus",15)} Tambah</button>
     </div>
     <div class="toolbar">
@@ -518,6 +518,8 @@ function crudAdd(store){
     if(missing){ toast("Mohon isi: "+missing.label); return; }
     data.id = uid(store);
     data.createdAt = new Date().toISOString();
+    // Kalender 16 Nov 2026: cap kelas aktif pada agenda baru, kecuali 3 jenis libur sekolah (umum).
+    if(store==="kalender" && !KALENDER_JENIS_UMUM.includes(data.jenis)) data.kelas = activeClassId;
     db[store].push(data);
     saveDB(); closeModal(); toast("Data tersimpan.");
     if(store==="agenda") playSuccessSoundIfEnabled();
@@ -542,6 +544,8 @@ function crudEdit(store, id){
     const missing = cfg.fields.find(f=>f.required && !data[f.key]);
     if(missing){ toast("Mohon isi: "+missing.label); return; }
     Object.assign(row, data);
+    // Kalender 16 Nov 2026: bila jenis diubah jadi libur sekolah, lepas cap kelasnya supaya jadi umum lagi.
+    if(store==="kalender" && KALENDER_JENIS_UMUM.includes(data.jenis)) delete row.kelas;
     saveDB(); closeModal(); toast("Perubahan disimpan.");
     if(store==="agenda") playSuccessSoundIfEnabled();
     if(window["crudRefresh_"+store]) window["crudRefresh_"+store]();
@@ -898,6 +902,75 @@ function htmlToDocx(innerHtml, filename, title){
   toastHasilUnduh(downloadBlob(bytes, fn.endsWith(".docx")?fn:fn+".docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"), "File Word (.docx) diunduh.");
 }
 /* --- END DOCX ENGINE --- */
+/* ---- Unduh Word .docx asli + ekspor generik tabel CRUD (16 Nov 2026) ----
+   Word memakai mesin AIGuruWord yang sama dengan Prota/Promes (kop surat +
+   judul ditambahkan otomatis oleh buildNative dari data sekolah; jadi
+   bodyHtml TIDAK boleh mengandung letterheadHtml). Bila mesin vendor gagal
+   dimuat, jatuh kembali ke htmlToDocx bawaan. Excel memakai pola yang sama
+   dengan ekspor Excel yang sudah ada (kop info + tabel + pengesahan). */
+async function unduhDocx(title, bodyHtml, filename, type){
+  try{
+    if(typeof AIGuruWord!=="undefined" && typeof AIGuruWord.download==="function"){
+      await AIGuruWord.download(bodyHtml, title, type||"Dokumen", {format:{font:"Times New Roman", size:12, line:1.5, paper:"A4", orientation:"auto"}});
+      return;
+    }
+    throw new Error("Mesin DOCX tidak tersedia.");
+  }catch(e){
+    console.warn("Unduh DOCX via AIGuruWord gagal, memakai htmlToDocx.", e);
+    try{ htmlToDocx(bodyHtml, filename||title, title); }
+    catch(e2){ toast("Gagal membuat Word: "+(e2&&e2.message?e2.message:e2)); }
+  }
+}
+function infoKopHtml(baris){
+  return `<table style="margin-bottom:10px;"><tbody>`+baris.map(([l,v])=>`<tr><td style="width:180px;"><strong>${escapeHtml(l)}</strong></td><td>: ${escapeHtml(v||"")}</td></tr>`).join("")+`</tbody></table>`;
+}
+/* Kop info standar (pola yang sama dengan dnKop/daftarNilaiKop) untuk
+   ekspor baru: Satuan Pendidikan / Kelas-Semester / Mapel / Tahun. */
+function kopInfoStandarHtml(mapel){
+  const baris = [["Satuan Pendidikan", db.sekolah.namaSekolah],["Kelas / Semester", classInfo(activeClassId).label+" / "+(db.sekolah.semester||"")]];
+  if(mapel) baris.push(["Mata Pelajaran", mapel]);
+  baris.push(["Tahun Pelajaran", db.sekolah.tahunAjaran]);
+  return infoKopHtml(baris);
+}
+function pengesahanUmumHtml(){
+  const s = db.sekolah;
+  const wali = ((db.guru||[]).concat(db.tendik||[])).find(g=>g.id===s.waliKelasId);
+  return `<br><table style="width:100%;"><tbody><tr><td style="width:50%;text-align:center;">Mengetahui,<br>Kepala Sekolah<br><br><br><br><br><strong><u>${escapeHtml(s.kepalaSekolah||"")}</u></strong><br>NIP. ${escapeHtml(s.nipKepsek||"")}</td><td style="width:50%;text-align:center;">${escapeHtml(s.desa||"")}, ${fmtDate(todayISO())}<br>Wali Kelas ${escapeHtml(classInfo(activeClassId).label)}<br><br><br><br><br><strong><u>${escapeHtml(wali?wali.nama:"")}</u></strong><br>NIP. ${escapeHtml(wali?(wali.nip||""):"")}</td></tr></tbody></table>`;
+}
+function crudTableHtml(store){
+  const cfg = CRUD_CONFIG[store];
+  if(!cfg) return "";
+  const rows = (db[store]||[]).slice();
+  const strip = (v)=>{ const d=document.createElement("div"); d.innerHTML=String(v==null?"":v); return d.textContent||""; };
+  let h = "<table><thead><tr><th>No</th>"+cfg.columns.map(c=>`<th>${escapeHtml(c.label)}</th>`).join("")+"</tr></thead><tbody>";
+  rows.forEach((r,i)=>{
+    h += `<tr><td>${i+1}</td>`+cfg.columns.map(c=>{
+      let v = r[c.key];
+      if(c.key==="tanggal" && v) v = fmtDate(v);
+      return `<td>${escapeHtml(strip(v))}</td>`;
+    }).join("")+"</tr>";
+  });
+  h += "</tbody></table>";
+  return h;
+}
+function crudJudul(store){
+  const cfg = CRUD_CONFIG[store];
+  return (((cfg&&cfg.title)||store)+" - "+classInfo(activeClassId).label+" - T.A. "+db.sekolah.tahunAjaran).toUpperCase();
+}
+function crudKopInfoHtml(){
+  return infoKopHtml([["Satuan Pendidikan", db.sekolah.namaSekolah],["Kelas / Semester", classInfo(activeClassId).label+" / "+(db.sekolah.semester||"")],["Tahun Pelajaran", db.sekolah.tahunAjaran]]);
+}
+function exportCrudExcel(store){
+  const t = crudJudul(store);
+  htmlToExcelXls(crudKopInfoHtml()+crudTableHtml(store)+pengesahanUmumHtml(), t.replace(/[^\w\-]+/g,"_"), t);
+}
+async function exportCrudWord(store){
+  const t = crudJudul(store);
+  await unduhDocx(t, crudKopInfoHtml()+crudTableHtml(store)+pengesahanUmumHtml(), t.replace(/[^\w\-]+/g,"_"), (CRUD_CONFIG[store]&&CRUD_CONFIG[store].title)||store);
+}
+function printCrud(store){
+  printDocument(crudJudul(store), crudTableHtml(store));
+}
 function htmlToExcelXls(tableHtml, filename, title){
   const doc = `<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8">
   <!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>

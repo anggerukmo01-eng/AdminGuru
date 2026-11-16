@@ -37,6 +37,28 @@ function classKey(id){ return "tpsd2026_class_"+id+"_v1"; }
 
 const SHARED_FIELDS = ["sekolah","guru","tendik","kalender"];
 
+/* ---- Kelas pada entri Kalender Pendidikan (perbaikan 16 Nov 2026) ----
+   Kalender adalah data BERSAMA (SHARED_FIELDS), tetapi sebagian entrinya
+   milik satu kelas saja (mis. "[Kelas 1] PAI: ..." dari seeder Rencana
+   Pembelajaran). Aturan penentuan kelas sebuah entri:
+   1. field `kelas` eksplisit (dicap saat entri dibuat) -> kelas itu;
+   2. judul diawali "[Kelas N]" -> kelas-N;
+   3. jenis "Rencana Pembelajaran" -> kelas-1 (hanya seeder K1 yang memakai jenis ini);
+   4. selain itu -> null = umum/sekolah, tampil di semua kelas. */
+const KALENDER_JENIS_UMUM = ["Hari Efektif","Libur Semester","Libur Nasional"];
+function kalenderKelasOf(e){
+  if(!e) return null;
+  if(e.kelas) return e.kelas;
+  const m = String(e.judul||"").match(/^\[Kelas\s+(\d+)\]/i);
+  if(m) return "kelas-"+m[1];
+  if(e.jenis==="Rencana Pembelajaran") return "kelas-1";
+  return null;
+}
+function kalenderUntukKelas(e, classId){
+  const k = kalenderKelasOf(e);
+  return k===null || k===classId;
+}
+
 function defaultDB(){
   return {
     sekolah: SEED_SEKOLAH,
@@ -220,11 +242,32 @@ function runJadwalKelas1SeedIfNeeded(){
   }catch(e){ console.warn("Gagal normalisasi nama mapel jadwal.", e); }
 }
 
+// Migrasi kelas kalender (16 Nov 2026): beri cap `kelas: "kelas-1"` pada
+// entri lama yang judulnya "[Kelas 1] ..." / jenis "Rencana Pembelajaran"
+// dan belum punya field kelas. Idempoten, sekali jalan (flag), tidak
+// mengubah isi entri lain. Entri umum (libur dsb.) tetap tanpa cap.
+const KALENDER_KELAS_FLAG = "tpsd2026_kalender_kelas_v1";
+function runKalenderKelasSeedIfNeeded(){
+  if(localStorage.getItem(KALENDER_KELAS_FLAG)) return;
+  try{
+    const shared = loadSharedDB();
+    let changed = false;
+    (shared.kalender||[]).forEach(e=>{
+      if(e.kelas) return;
+      const k = kalenderKelasOf(e);
+      if(k){ e.kelas = k; changed = true; }
+    });
+    if(changed) saveSharedDB(shared);
+  }catch(e){ console.warn("Gagal migrasi kelas kalender.", e); }
+  localStorage.setItem(KALENDER_KELAS_FLAG, "1");
+}
+
 function loadDB(){
   runMultiClassMigrationIfNeeded();
   runBukuIndukSeedIfNeeded();
   runCpRevisi2026SeedIfNeeded();
   if(typeof runRencanaPblSeedIfNeeded==="function") runRencanaPblSeedIfNeeded();
+  runKalenderKelasSeedIfNeeded();
   runJadwalKelas1SeedIfNeeded();
   activeClassId = loadActiveClassId();
   const shared = loadSharedDB();

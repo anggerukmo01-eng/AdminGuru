@@ -132,7 +132,7 @@ function cgDaftarHtml(){
   const opts = ["", ...CG_KATEGORI].map(k =>
     `<option value="${escapeHtml(k)}" ${k === kat ? "selected" : ""}>${k ? escapeHtml(k) : "Semua kategori"}</option>`).join("");
   return `<div class="section-head"><div><h1>Buku Catatan Guru</h1><div class="desc">Catatan khusus guru: rapat, refleksi, ide, dan tugas. Tersimpan di perangkat ini dan ikut dalam backup penuh.</div></div>
-    <div class="grow"></div><button class="btn btn-primary" onclick="cgBukaBaru()">${ic("edit",15)} Catatan baru</button></div>
+    <div class="grow"></div><button class="btn" onclick="cgExportExcel()">${ic("download",15)} Excel</button><button class="btn" onclick="cgExportWord()">${ic("doc",15)} Word</button><button class="btn btn-primary" onclick="cgBukaBaru()">${ic("edit",15)} Catatan baru</button></div>
   <div class="card"><div style="display:flex;gap:8px;flex-wrap:wrap;">
     <input id="cgQ" placeholder="Cari judul / isi..." value="${escapeHtml(q)}" oninput="window._cgQ=this.value; cgRefreshList();" style="flex:1;min-width:180px;">
     <select id="cgKat" onchange="window._cgKat=this.value; cgRefreshList();">${opts}</select>
@@ -404,6 +404,17 @@ async function cgUbahJadiTeks(){
   }catch(e){
     toast("Pengenalan gagal: " + (e && e.message ? e.message : "tidak diketahui"));
   }finally{ if(btn) btn.disabled = false; }
+}
+function cgExportTableHtml(){
+  const tampil = cgCariCatatan(cgUrutCatatan(loadCatatanGuru()), window._cgQ || "", window._cgKat || "");
+  const cols = [{key:"judul",label:"Judul"},{key:"kategori",label:"Kategori"},{key:"tanggal",label:"Tanggal"},{key:"isi",label:"Isi Catatan"}];
+  return tableHtmlFromRows(cols, tampil.map(n=>({...n, tanggal: fmtDate(n.tanggal||""), isi: (n.isi||"").trim() || ((n.tinta && n.tinta.length) ? "(hanya tulisan tangan)" : "") })));
+}
+function cgExportExcel(){
+  htmlToExcelXls(kopInfoStandarHtml()+cgExportTableHtml(), "Buku_Catatan_Guru", "Buku Catatan Guru");
+}
+async function cgExportWord(){
+  await unduhDocx("BUKU CATATAN GURU - "+classInfo(activeClassId).label, kopInfoStandarHtml()+cgExportTableHtml(), "Buku_Catatan_Guru", "Buku Catatan Guru");
 }
 function cgCetak(){
   const d = window._cgDraft; if(!d) return;

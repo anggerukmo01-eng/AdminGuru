@@ -95,6 +95,7 @@ PAGES.analisisnilai = function(){
   <div class="section-head"><div><h1>Analisis Nilai</h1><div class="desc">Ketuntasan per siswa, ketuntasan klasikal, daftar remedial &amp; pengayaan, serta lingkup materi yang perlu penguatan — dihitung otomatis dari data Asesmen Sumatif.</div></div>
     <div class="grow"></div>
     <button class="btn" onclick="exportAnalisisExcel()">${ic("download",15)} Excel</button>
+    <button class="btn" onclick="exportAnalisisWord()">${ic("doc",15)} Word</button>
     <button class="btn btn-primary" onclick="printAnalisis()">${ic("print",15)} Cetak</button></div>
   <div class="toolbar">
     <div class="field" style="min-width:200px;margin-bottom:0;"><label>Mata Pelajaran</label><select onchange="window._anMapel=this.value; renderPage('analisisnilai');">
@@ -143,5 +144,9 @@ function printAnalisis(){
 }
 function exportAnalisisExcel(){
   const mapelSel = window._anMapel || MAPEL_LIST[0];
-  htmlToExcelXls(analisisPrintBody(), "Analisis_Nilai_"+mapelSel.replace(/\s+/g,"_"), "Analisis Nilai");
+  htmlToExcelXls(kopInfoStandarHtml(mapelSel)+analisisPrintBody(), "Analisis_Nilai_"+mapelSel.replace(/\s+/g,"_"), "Analisis Nilai");
+}
+async function exportAnalisisWord(){
+  const mapelSel = window._anMapel || MAPEL_LIST[0];
+  await unduhDocx("ANALISIS NILAI - "+mapelSel.toUpperCase()+" - "+classInfo(activeClassId).label, kopInfoStandarHtml(mapelSel)+analisisPrintBody(), "Analisis_Nilai_"+mapelSel.replace(/\s+/g,"_"), "Analisis Nilai");
 }

@@ -118,11 +118,21 @@ PAGES.dfjl = function(){
   const totL = db.siswa.filter(s=>s.jk==="L").length, totP = db.siswa.filter(s=>s.jk==="P").length;
   return `
   <div class="section-head"><div><h1>Daftar Jumlah Siswa Menurut Tahun Lahir</h1><div class="desc">Dihitung otomatis dari tanggal lahir pada Data Siswa — tidak perlu diisi ulang manual.</div></div>
-    <div class="grow"></div><button class="btn" onclick="printDFJL()">${ic("print",15)} Cetak</button></div>
+    <div class="grow"></div><button class="btn" onclick="exportHolderExcel('dfjlHolder','Daftar_Jumlah_Siswa_Menurut_Tahun_Lahir','Daftar Jumlah Siswa Menurut Tahun Lahir')">${ic("download",15)} Excel</button><button class="btn" onclick="exportHolderWord('dfjlHolder','Daftar_Jumlah_Siswa_Menurut_Tahun_Lahir','Daftar Jumlah Siswa Menurut Tahun Lahir')">${ic("doc",15)} Word</button><button class="btn" onclick="printDFJL()">${ic("print",15)} Cetak</button></div>
   <div class="card" style="margin-bottom:14px;">Total: <strong>${totL}</strong> Laki-laki, <strong>${totP}</strong> Perempuan, <strong>${totL+totP}</strong> siswa.</div>
   <div id="dfjlHolder" class="table-wrap"><table><thead><tr><th>Tahun Kelahiran</th><th>Umur (approx.)</th><th>L</th><th>P</th><th>Jumlah</th></tr></thead>
   <tbody>${rows || `<tr><td colspan="5" class="empty-state">Belum ada data siswa.</td></tr>`}</tbody></table></div>`;
 };
+function exportHolderExcel(holderId, filename, title){
+  const h = document.getElementById(holderId);
+  if(!h){ toast("Tidak ada data untuk diekspor"); return; }
+  htmlToExcelXls(kopInfoStandarHtml()+h.innerHTML, filename, title);
+}
+async function exportHolderWord(holderId, filename, title){
+  const h = document.getElementById(holderId);
+  if(!h){ toast("Tidak ada data untuk diekspor"); return; }
+  await unduhDocx(title.toUpperCase()+" - "+classInfo(activeClassId).label, kopInfoStandarHtml()+h.innerHTML, filename, title);
+}
 function printDFJL(){ printDocument("DAFTAR JUMLAH SISWA MENURUT TAHUN LAHIR", document.getElementById("dfjlHolder").innerHTML); }
 
 /* ---------- REKAP JUMLAH SISWA BULANAN (dihitung dari siswa+mutasi+kehadiran) ---------- */
@@ -144,7 +154,7 @@ PAGES.rekapJumlahSiswa = function(){
   }).join("");
   return `
   <div class="section-head"><div><h1>Rekap Jumlah Siswa Bulanan</h1><div class="desc">Jumlah L/P menunjukkan data siswa aktif saat ini; mutasi dan S/I/A dibatasi pada tahun pelajaran aktif. Rekonstruksi jumlah siswa historis per bulan memerlukan data riwayat lengkap.</div></div>
-    <div class="grow"></div><button class="btn" onclick="printRekapJlhSiswa()">${ic("print",15)} Cetak</button></div>
+    <div class="grow"></div><button class="btn" onclick="exportHolderExcel('rekapJlhHolder','Rekap_Jumlah_Siswa','Rekap Jumlah Siswa')">${ic("download",15)} Excel</button><button class="btn" onclick="exportHolderWord('rekapJlhHolder','Rekap_Jumlah_Siswa','Rekap Jumlah Siswa')">${ic("doc",15)} Word</button><button class="btn" onclick="printRekapJlhSiswa()">${ic("print",15)} Cetak</button></div>
   <div id="rekapJlhHolder" class="table-wrap"><table><thead><tr><th>Bulan</th><th>L</th><th>P</th><th>Jumlah</th><th>Masuk</th><th>Keluar</th><th>S</th><th>I</th><th>A</th></tr></thead>
   <tbody>${rows}</tbody></table></div>`;
 };
@@ -158,7 +168,7 @@ PAGES.pekerjaanOrtu = function(){
   const rows = Object.keys(counts).sort((a,b)=>counts[b]-counts[a]).map((k,i)=>`<tr><td>${i+1}</td><td>${escapeHtml(k)}</td><td>${counts[k]}</td><td>${total?(counts[k]/total*100).toFixed(1):0}%</td></tr>`).join("");
   return `
   <div class="section-head"><div><h1>Rekap Pekerjaan Orang Tua</h1><div class="desc">Dihitung otomatis dari field Pekerjaan Orang Tua pada Data Siswa.</div></div>
-    <div class="grow"></div><button class="btn" onclick="printPekerjaanOrtu()">${ic("print",15)} Cetak</button></div>
+    <div class="grow"></div><button class="btn" onclick="exportHolderExcel('pekerjaanOrtuHolder','Data_Pekerjaan_Orang_Tua','Data Pekerjaan Orang Tua')">${ic("download",15)} Excel</button><button class="btn" onclick="exportHolderWord('pekerjaanOrtuHolder','Data_Pekerjaan_Orang_Tua','Data Pekerjaan Orang Tua')">${ic("doc",15)} Word</button><button class="btn" onclick="printPekerjaanOrtu()">${ic("print",15)} Cetak</button></div>
   <div id="pekerjaanOrtuHolder" class="table-wrap"><table><thead><tr><th>No</th><th>Jenis Pekerjaan</th><th>Jumlah</th><th>Persentase</th></tr></thead>
   <tbody>${rows || `<tr><td colspan="4" class="empty-state">Belum ada data.</td></tr>`}</tbody></table></div>`;
 };
@@ -241,7 +251,7 @@ PAGES.rekapAbsenTahunan = function(){
   }).join("");
   return `
   <div class="section-head"><div><h1>Rekap Absen Bulanan (12 Bulan)</h1><div class="desc">Dihitung otomatis dari data harian pada menu Kehadiran — Juli s.d. Juni tahun ajaran berjalan.</div></div>
-    <div class="grow"></div><button class="btn" onclick="printRekapAbsenTahunan()">${ic("print",15)} Cetak</button></div>
+    <div class="grow"></div><button class="btn" onclick="exportHolderExcel('rekapAbsenTahunanHolder','Rekap_Absen_Tahunan','Rekap Absen Tahunan')">${ic("download",15)} Excel</button><button class="btn" onclick="exportHolderWord('rekapAbsenTahunanHolder','Rekap_Absen_Tahunan','Rekap Absen Tahunan')">${ic("doc",15)} Word</button><button class="btn" onclick="printRekapAbsenTahunan()">${ic("print",15)} Cetak</button></div>
   <div id="rekapAbsenTahunanHolder" class="table-wrap"><table><thead><tr><th rowspan="2">No</th><th rowspan="2" style="text-align:left;">Nama Siswa</th>${head}<th colspan="3">Jumlah</th></tr><tr>${subhead}<th>S</th><th>I</th><th>A</th></tr></thead>
   <tbody>${body}</tbody></table></div>`;
 };
@@ -262,7 +272,7 @@ PAGES.prestasiSiswa = function(){
   }).join("");
   return `
   <div class="section-head"><div><h1>Buku Prestasi Siswa</h1><div class="desc">Nilai akhir per mata pelajaran, dihitung otomatis dari rata-rata Asesmen Sumatif yang sudah tercatat.</div></div>
-    <div class="grow"></div><button class="btn" onclick="printPrestasiSiswa()">${ic("print",15)} Cetak</button></div>
+    <div class="grow"></div><button class="btn" onclick="exportHolderExcel('prestasiHolder','Buku_Prestasi_Siswa','Buku Prestasi Siswa')">${ic("download",15)} Excel</button><button class="btn" onclick="exportHolderWord('prestasiHolder','Buku_Prestasi_Siswa','Buku Prestasi Siswa')">${ic("doc",15)} Word</button><button class="btn" onclick="printPrestasiSiswa()">${ic("print",15)} Cetak</button></div>
   <div id="prestasiHolder" class="table-wrap"><table><thead><tr><th>No</th><th style="text-align:left;">Nama Siswa</th>${head}</tr></thead>
   <tbody>${body}</tbody></table></div>`;
 };

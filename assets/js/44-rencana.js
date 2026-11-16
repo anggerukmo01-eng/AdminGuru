@@ -341,7 +341,7 @@ window.hapusRencanaPbl = function(){
   }catch(e){ return "Gagal: "+e.message; }
 };
 
-/* ---- Pengingat Jurnal Mengajar (kelas-1) ---- */
+/* ---- Pengingat Jurnal Mengajar (kelas aktif; 16 Nov 2026: dulu dikunci kelas-1) ---- */
 function agendaNotifiedKey(entryId){ return "ag_"+entryId+"_"+todayISO(); }
 function agendaGetNotifiedSet(){
   try{ return new Set(JSON.parse(localStorage.getItem("tpsd2026_agenda_notified")||"[]")); }
@@ -366,7 +366,8 @@ function agendaTriggerReminder(entry){
 }
 function checkAgendaReminders(){
   try{
-    const cls = loadClassDB("kelas-1");
+    const cid = (typeof activeClassId!=="undefined" && activeClassId) ? activeClassId : "kelas-1";
+    const cls = loadClassDB(cid);
     const list = cls.agenda || [];
     const now = new Date();
     const notified = agendaGetNotifiedSet();
