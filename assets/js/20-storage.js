@@ -242,6 +242,53 @@ function runJadwalKelas1SeedIfNeeded(){
   }catch(e){ console.warn("Gagal normalisasi nama mapel jadwal.", e); }
 }
 
+
+// Migrasi jadwal Kelas 2-6 (16 Nov 2026): mengisikan Jadwal Pelajaran resmi
+// dari website SDN 1 Gerduren (/jadwal, TA 2026/2027) untuk instalasi yang
+// sudah ada namun jadwal kelasnya masih kosong. Jadwal yang sudah pernah
+// diisi/disunting guru TIDAK akan ditimpa.
+const JADWAL_KELAS2_6_SEED_FLAG = "tpsd2026_jadwalkelas2_6_seed_v1";
+const SEED_JADWAL_PER_KELAS = {
+  "kelas-2": SEED_JADWAL_KELAS2,
+  "kelas-3": SEED_JADWAL_KELAS3,
+  "kelas-4": SEED_JADWAL_KELAS4,
+  "kelas-5": SEED_JADWAL_KELAS5,
+  "kelas-6": SEED_JADWAL_KELAS6,
+};
+function runJadwalKelas2sampai6SeedIfNeeded(){
+  if(!localStorage.getItem(JADWAL_KELAS2_6_SEED_FLAG)){
+    try{
+      Object.keys(SEED_JADWAL_PER_KELAS).forEach(cid=>{
+        const cls = loadClassDB(cid);
+        const jadwalKosong = !cls.jadwal || Object.keys(cls.jadwal).length===0 ||
+          HARI.every(h => !cls.jadwal[h] || cls.jadwal[h].length===0);
+        if(jadwalKosong){
+          cls.jadwal = JSON.parse(JSON.stringify(SEED_JADWAL_PER_KELAS[cid]));
+          saveClassDB(cid, cls);
+        }
+      });
+    }catch(e){ console.warn("Gagal menjalankan migrasi jadwal Kelas 2-6.", e); }
+    localStorage.setItem(JADWAL_KELAS2_6_SEED_FLAG, "1");
+  }
+  // Normalisasi nama mapel (idempoten) untuk kelas 2-6, pola yang sama
+  // dengan migrasi Kelas 1 di atas.
+  try{
+    if(typeof normalisasiMapelJadwal==="function"){
+      Object.keys(SEED_JADWAL_PER_KELAS).forEach(cid=>{
+        const cls = loadClassDB(cid);
+        let changed = false;
+        Object.keys(cls.jadwal||{}).forEach(h=>{
+          (cls.jadwal[h]||[]).forEach(s=>{
+            const n = normalisasiMapelJadwal(s.mapel);
+            if(n!==s.mapel){ s.mapel = n; changed = true; }
+          });
+        });
+        if(changed) saveClassDB(cid, cls);
+      });
+    }
+  }catch(e){ console.warn("Gagal normalisasi nama mapel jadwal kelas 2-6.", e); }
+}
+
 // Migrasi kelas kalender (16 Nov 2026): beri cap `kelas: "kelas-1"` pada
 // entri lama yang judulnya "[Kelas 1] ..." / jenis "Rencana Pembelajaran"
 // dan belum punya field kelas. Idempoten, sekali jalan (flag), tidak
@@ -269,6 +316,7 @@ function loadDB(){
   if(typeof runRencanaPblSeedIfNeeded==="function") runRencanaPblSeedIfNeeded();
   runKalenderKelasSeedIfNeeded();
   runJadwalKelas1SeedIfNeeded();
+  runJadwalKelas2sampai6SeedIfNeeded();
   activeClassId = loadActiveClassId();
   const shared = loadSharedDB();
   const cls = loadClassDB(activeClassId);
