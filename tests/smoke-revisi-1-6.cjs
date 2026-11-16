@@ -46,7 +46,8 @@ const { chromium } = require('playwright');
     return document.body.innerText + '\n' + vals;
   });
   for (const probe of [
-    "Unit Bab 3 'Awas Kuman!'",
+    "33. 17 Nov 2026 — Bab 3 'Awas Kuman!': cerita Dilo sakit pilek",
+    '36. 26 Nov 2026 — Bab 3',
     'ka-ki-ku-ke-ko',
     "Bola Boni",
     'la-li-lu-le-lo',
