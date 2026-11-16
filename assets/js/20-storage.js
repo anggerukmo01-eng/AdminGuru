@@ -139,6 +139,12 @@ function defaultClassDB(classId){
   out.cp = cpFase;
   out.atp = generateSeedATP(cpFase, classId);
   out.kktp = generateSeedKKTP(cpFase);
+  // Modul Ajar Kelas 1 Semester 1 (8 modul, 16 Nov 2026): diisi otomatis HANYA
+  // untuk Kelas 1; kelas lain mulai kosong. Disalin per objek agar suntingan
+  // guru tidak mengubah seed.
+  if(classId==="kelas-1" && typeof SEED_MODUL_AJAR_KELAS1_SMT1 !== "undefined"){
+    out.modulAjar = SEED_MODUL_AJAR_KELAS1_SMT1.map(e=>({...e}));
+  }
   out.waliKelasId = (classId==="kelas-1") ? (full.sekolah.waliKelasId||"") : "";
   return out;
 }
@@ -208,6 +214,22 @@ function runCpRevisi2026SeedIfNeeded(){
     });
   }catch(e){ console.warn("Gagal menjalankan migrasi CP revisi 2026.", e); }
   localStorage.setItem(CP_REVISI_2026_FLAG, "1");
+}
+// Migrasi Modul Ajar Kelas 1 Semester 1 (16 Nov 2026): mengisi 8 Modul Ajar
+// tersusun (PAI, Pancasila, B. Indonesia, Matematika, PJOK, Seni Rupa,
+// Seni Musik, Muatan Lokal) untuk instalasi Kelas 1 yang Modul Ajar-nya masih
+// kosong. Modul Ajar yang sudah disusun guru TIDAK akan ditimpa.
+const MODUL_AJAR_K1_SEED_FLAG = "tpsd2026_modulajar_k1smt1_v1";
+function runModulAjarK1SeedIfNeeded(){
+  if(localStorage.getItem(MODUL_AJAR_K1_SEED_FLAG)) return;
+  try{
+    const cls = loadClassDB("kelas-1");
+    if(!cls.modulAjar || cls.modulAjar.length===0){
+      cls.modulAjar = SEED_MODUL_AJAR_KELAS1_SMT1.map(e=>({...e}));
+      saveClassDB("kelas-1", cls);
+    }
+  }catch(e){ console.warn("Gagal menjalankan migrasi Modul Ajar Kelas 1.", e); }
+  localStorage.setItem(MODUL_AJAR_K1_SEED_FLAG, "1");
 }
 // Migrasi jadwal Kelas 1: mengisikan Jadwal Pelajaran Kelas I resmi (dokumen
 // 13 Juli 2026) untuk instalasi yang sudah ada namun jadwalnya masih kosong.
@@ -313,6 +335,7 @@ function loadDB(){
   runMultiClassMigrationIfNeeded();
   runBukuIndukSeedIfNeeded();
   runCpRevisi2026SeedIfNeeded();
+  runModulAjarK1SeedIfNeeded();
   if(typeof runRencanaPblSeedIfNeeded==="function") runRencanaPblSeedIfNeeded();
   runKalenderKelasSeedIfNeeded();
   runJadwalKelas1SeedIfNeeded();
